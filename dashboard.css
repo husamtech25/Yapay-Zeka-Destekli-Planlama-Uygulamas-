@@ -1,5 +1,5 @@
 /* ==============================================
-   PLANLA — Görsel Kimlik Sistemi v2
+   PLANLA — Görsel Kimlik Sistemi v3
    ============================================== */
 :root{
   --navy-900:#0a2a35;
@@ -195,6 +195,14 @@ p{line-height:1.55}
   border-radius:var(--r-full);
   padding:2px 6px;min-width:18px;text-align:center;
   box-shadow:0 0 0 2px var(--surface);
+}
+.bell.has-new{animation:bellShake .6s ease}
+@keyframes bellShake{
+  0%,100%{transform:rotate(0)}
+  20%{transform:rotate(-12deg)}
+  40%{transform:rotate(12deg)}
+  60%{transform:rotate(-8deg)}
+  80%{transform:rotate(8deg)}
 }
 .profile{
   display:flex;align-items:center;gap:var(--s3);
@@ -499,10 +507,9 @@ dialog::backdrop{background:rgba(10,42,53,.55);backdrop-filter:blur(4px);animati
   position:relative;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:8px;
   box-shadow:0 2px 6px rgba(10,42,53,.06);
   transition:transform var(--t-fast),box-shadow var(--t-fast);
-  cursor:default;
 }
 .note:hover{
   transform:translateY(-2px) rotate(-.5deg);
@@ -513,15 +520,17 @@ dialog::backdrop{background:rgba(10,42,53,.55);backdrop-filter:blur(4px);animati
   font-size:.9rem;
   color:#1a1a1a;
   padding-right:20px;
+  line-height:1.35;
   overflow-wrap:anywhere;
 }
 .note-text{
   font-size:.78rem;
   color:#3a3a3a;
-  line-height:1.45;
+  line-height:1.55;
   flex:1;
   overflow-wrap:anywhere;
   white-space:pre-wrap;
+  margin-top:2px;
 }
 .note .x{
   position:absolute;
@@ -618,7 +627,6 @@ dialog::backdrop{background:rgba(10,42,53,.55);backdrop-filter:blur(4px);animati
 .avatar-option.a6{background:linear-gradient(135deg,#ff8b3d,#e05a1a)}
 .avatar-option.a7{background:linear-gradient(135deg,#e8588f,#c43a6e)}
 
-/* Üst bardaki avatar renklerini dinamik yapmak için */
 .avatar.a0{background:linear-gradient(135deg,#2bb8a8,#1f9a8c)}
 .avatar.a1{background:linear-gradient(135deg,#7c5cf0,#5b3cd6)}
 .avatar.a2{background:linear-gradient(135deg,#ff6b5b,#e04a3a)}
@@ -642,6 +650,113 @@ dialog::backdrop{background:rgba(10,42,53,.55);backdrop-filter:blur(4px);animati
   border-top:1px solid var(--border);
   margin:var(--s5) 0 var(--s3);
 }
+
+/* ============ BİLDİRİM PANELİ ============ */
+.notif-panel{
+  position:fixed;
+  top:80px;
+  right:20px;
+  width:340px;
+  max-width:calc(100vw - 40px);
+  max-height:80vh;
+  background:var(--surface);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg);
+  border:1px solid var(--border-2);
+  display:flex;
+  flex-direction:column;
+  opacity:0;
+  transform:translateY(-10px) scale(.98);
+  pointer-events:none;
+  transition:opacity var(--t),transform var(--t);
+  z-index:100;
+  overflow:hidden;
+}
+.notif-panel.on{
+  opacity:1;
+  transform:translateY(0) scale(1);
+  pointer-events:auto;
+}
+.notif-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:var(--s4) var(--s4) var(--s3);
+  border-bottom:1px solid var(--border-2);
+}
+.notif-head h3{font-size:.95rem;font-weight:700}
+.notif-list{
+  flex:1;
+  overflow-y:auto;
+  padding:var(--s2) var(--s3);
+  max-height:60vh;
+}
+.notif-list:empty::before{
+  content:"Henüz bildirim yok";
+  display:block;
+  text-align:center;
+  padding:32px 8px;
+  color:var(--ink-3);
+  font-size:.85rem;
+  font-style:italic;
+}
+.notif-item{
+  display:flex;
+  align-items:flex-start;
+  gap:var(--s3);
+  padding:10px 12px;
+  border-radius:var(--r-md);
+  margin-bottom:4px;
+  transition:background var(--t-fast);
+  cursor:default;
+}
+.notif-item:hover{background:var(--surface-2)}
+.notif-item.unread{background:rgba(43,184,168,.08)}
+.notif-item.unread:hover{background:rgba(43,184,168,.14)}
+.notif-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--teal);
+  flex-shrink:0;
+  margin-top:6px;
+}
+.notif-item.read .notif-dot{background:transparent;border:1.5px solid var(--border)}
+.notif-icon{
+  width:32px;
+  height:32px;
+  border-radius:var(--r-sm);
+  display:grid;
+  place-items:center;
+  flex-shrink:0;
+  color:#fff;
+}
+.notif-icon.warn{background:var(--coral)}
+.notif-icon.info{background:var(--teal)}
+.notif-icon.success{background:var(--green)}
+.notif-icon.purple{background:var(--purple)}
+.notif-body{flex:1;min-width:0}
+.notif-title{
+  font-weight:600;
+  font-size:.85rem;
+  color:var(--ink);
+  margin-bottom:2px;
+  overflow-wrap:anywhere;
+}
+.notif-meta{
+  font-size:.72rem;
+  color:var(--ink-3);
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.notif-foot{
+  padding:var(--s3) var(--s4);
+  border-top:1px solid var(--border-2);
+  display:flex;
+  justify-content:flex-end;
+}
+.notif-foot .chip{font-size:.78rem;padding:6px 12px}
 
 /* ERİŞİLEBİLİRLİK */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
@@ -769,6 +884,7 @@ body[data-mode="work"]{
   .profile-info{display:none}
   .skills li{grid-template-columns:70px 1fr 40px 20px}
   .notes-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+  .notif-panel{top:70px;right:10px;left:10px;width:auto}
 }
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
