@@ -1,6 +1,5 @@
-console.log("[Planla] v6 + ders programı yüklendi");
+console.log("[Planla] v7 + ders programı düzeltildi");
 
-// ================= Moda göre metinler =================
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
     tur: ["Ders", "Etkinlik", "Ödev"], isim: "Ders adı", deger: "Not (0-100)", jobs: "Önerilen Stajlar", sub: "Akademik ve kariyer planlaman tek yerde." },
@@ -10,9 +9,7 @@ const MODLAR = {
 const sinif = { Ders: "course", Toplantı: "course", Etkinlik: "event", Ödev: "hw", Görev: "hw" };
 const ONCELIK = { low: "Düşük", mid: "Orta", high: "Yüksek" };
 const GUNLER = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
-const RENKLER = ["blue", "green", "yellow", "purple", "red", "orange", "pink", "teal"];
 
-// ================= Yardımcılar =================
 const aylar = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 const gunlerKisa = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
 const renkler = ["#2bb8a8","#f0b840","#7c5cf0","#ff6b5b","#2fbf7f","#1d5e72","#d97706","#e8585a"];
@@ -22,16 +19,14 @@ const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const uid = () => Math.random().toString(36).slice(2, 9);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const gunEtiket = k => { const [y, m, d] = k.split("-"); return `${+d} ${aylar[+m - 1]} ${y}`; };
-// "HH:MM" → dakika (karşılaştırma için)
 const saatDk = s => { const [h, m] = (s || "00:00").split(":"); return +h * 60 + +m; };
 
 const now = new Date();
 const todayKey = key(now.getFullYear(), now.getMonth(), now.getDate());
 const yarin = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 const yarinKey = key(yarin.getFullYear(), yarin.getMonth(), yarin.getDate());
-const bugunGunNo = now.getDay(); // 0=Pazar, 1=Pazartesi...
+const bugunGunNo = now.getDay();
 
-// ================= Avatar tanımları =================
 const AVATARLAR = [
   { ikon: "av-book",      renk: "a0" },
   { ikon: "av-star",      renk: "a1" },
@@ -52,7 +47,6 @@ function avatarRenkUygula(el, i) {
   el.classList.add(AVATARLAR[i] ? AVATARLAR[i].renk : "a0");
 }
 
-// ================= Veri =================
 function yeniVeri(mod, name) {
   return {
     mode: mod,
@@ -61,7 +55,7 @@ function yeniVeri(mod, name) {
     events: {}, courses: [], deadlines: [], jobs: [], skills: [], tasks: [], notes: [], links: [],
     notifications: [],
     taskFilter: "all",
-    dersler: [], // YENİ: ders programı
+    dersler: [],
   };
 }
 const DB_KEY = "planla-v3";
@@ -127,7 +121,6 @@ const ad = (list, id, field, text) =>
   `<span data-rename data-list="${list}" data-id="${id}" data-field="${field}" title="Çift tıkla: düzenle">${esc(text)}</span>`;
 const gunEvents = k => (S.events[k] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
 
-// ================= Görünüm / mod =================
 function goView(v) {
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("on", el.id === "v-" + v));
   document.querySelectorAll(".side-nav [data-view]").forEach(a => a.classList.toggle("active", a.dataset.view === v));
@@ -146,7 +139,6 @@ function modUygula() {
   });
 }
 
-// ================= Avatar işlemleri =================
 function avatarUygula() {
   const el = $("avatar");
   if (!el || !S) return;
@@ -164,26 +156,21 @@ function guvenliAc(dlg) {
 function acProfil() {
   if (!S) return;
   const i = (typeof S.avatar === "number") ? S.avatar : 0;
-
   const pa = $("profileAvatar");
   pa.innerHTML = avatarHTML(i);
   avatarRenkUygula(pa, i);
   pa.dataset.pending = i;
-
   $("profileName").textContent = S.name;
   $("profileRole").textContent = M().rol;
   $("profileNameInput").value = S.name;
-
   $("avatarGrid").innerHTML = AVATARLAR.map((a, idx) =>
     `<button type="button" class="avatar-option ${a.renk} ${idx === i ? "cur" : ""}" data-avatar="${idx}" aria-label="Avatar ${idx + 1}">
       <svg width="24" height="24"><use href="#${a.ikon}"/></svg>
     </button>`
   ).join("");
-
   guvenliAc($("profileDlg"));
 }
 
-// ================= Bildirimler =================
 function bildirimEkle(tip, baslik, mesaj, ozelId) {
   if (!S) return;
   S.notifications = S.notifications || [];
@@ -212,7 +199,6 @@ function otomatikBildirimler() {
       );
     });
   });
-
   const bugun = new Date();
   (S.deadlines || []).forEach(d => {
     const hedef = new Date(d.d);
@@ -226,13 +212,10 @@ function otomatikBildirimler() {
       );
     }
   });
-
   const bekleyenSayisi = (S.jobs || []).filter(j => j.st === "Beklemede").length;
   if (bekleyenSayisi > 0) {
     bildirimEkle("purple", "Başvurular", `${bekleyenSayisi} başvurun hâlâ beklemede`, "jobs-beklemede-" + todayKey);
   }
-
-  // Bugünün dersleri için bildirim
   const bugunDers = (S.dersler || []).filter(d => +d.gun === bugunGunNo);
   if (bugunDers.length > 0) {
     bildirimEkle("info", "Bugünkü dersler", `Bugün ${bugunDers.length} dersin var`, "ders-bugun-" + todayKey);
@@ -248,7 +231,6 @@ function bildirimCiz() {
   if (!S) return;
   const list = $("notifList");
   if (!list) return;
-
   const items = (S.notifications || []).slice(0, 30);
   list.innerHTML = items.length
     ? items.map(n => {
@@ -294,7 +276,6 @@ function panelKapat() {
   panel.setAttribute("aria-hidden", "true");
 }
 
-// ================= Çizim: günlük liste =================
 function gunListesi(el, k) {
   const l = gunEvents(k).filter(e => eslesir(e.t));
   el.innerHTML = l.length
@@ -303,10 +284,8 @@ function gunListesi(el, k) {
       ).join("")
     : `<li class="empty">Kayıt yok. + butonuyla ekleyebilirsin.</li>`;
 }
-
 // ================= Ders Programı =================
 function dersOncelikSirala(a, b) {
-  // Saate göre sırala
   return saatDk(a.bas) - saatDk(b.bas);
 }
 
@@ -328,7 +307,6 @@ function bugunDersleriCiz() {
     `<li class="ders-bugun-item ${d.renk || "teal"}" data-act="ders-edit" data-id="${d.id}">
       <div class="db-saat">
         ${esc(d.bas)} - ${esc(d.bit)}
-        <small>${esc((+d.bit - +d.bas) || "")} saat</small>
       </div>
       <div class="db-body">
         <div class="db-ad">${esc(d.ad)}</div>
@@ -346,7 +324,7 @@ function bugunDersleriCiz() {
 }
 
 // Haftalık grid
-const SAATLER = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]; // 08:00 - 20:00
+const SAATLER = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 function haftalikGridCiz() {
   const grid = $("haftalikGrid");
@@ -355,66 +333,73 @@ function haftalikGridCiz() {
 
   const dersler = S.dersler || [];
 
-  // İstatistikler
   $("statDersSayi").textContent = dersler.length;
   $("statDersBugun").textContent = bugunDersler().length;
   $("statDersHafta").textContent = dersler.filter(d => +d.gun >= 1 && +d.gun <= 5).length;
 
   if (!dersler.length) {
     grid.innerHTML = "";
+    grid.style.gridTemplateRows = "";
     if (empty) empty.hidden = false;
     return;
   }
   if (empty) empty.hidden = true;
 
-  // 7 gün x N saat grid
-  // Sütun 1 = saat, sütun 2-8 = Pzt..Paz
-  const gunSirasi = [1, 2, 3, 4, 5, 6, 0]; // Pzt başlangıç
+  const gunSirasi = [1, 2, 3, 4, 5, 6, 0];
+
+  // Grid template
+  grid.style.gridTemplateRows = `40px repeat(${SAATLER.length}, 60px)`;
 
   let html = "";
 
   // Başlık satırı
-  html += `<div class="hg-bos"></div>`;
-  gunSirasi.forEach(g => {
+  html += `<div class="hg-bos" style="grid-row:1;grid-column:1"></div>`;
+  gunSirasi.forEach((g, idx) => {
     const bugun = g === bugunGunNo;
-    html += `<div class="hg-gun-head ${bugun ? "bugun" : ""}">${GUNLER[g].slice(0, 3)}</div>`;
+    const col = idx + 2;
+    html += `<div class="hg-gun-head ${bugun ? "bugun" : ""}" style="grid-row:1;grid-column:${col}">${GUNLER[g].slice(0, 3)}</div>`;
   });
 
-  // Saat satırları
-  SAATLER.forEach(saat => {
-    html += `<div class="hg-saat">${pad(saat)}:00</div>`;
-    gunSirasi.forEach(gunNo => {
-      // Bu saatte bu günde ders var mı?
-      const ders = dersler.find(d => +d.gun === gunNo && +d.bas.split(":")[0] === saat);
-      if (ders) {
-        // Kaç saat sürüyor?
-        const sure = Math.max(1, Math.round((saatDk(ders.bit) - saatDk(ders.bas)) / 60));
-        html += `<div class="hg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" style="grid-row:span ${sure}">
-          <div class="hg-ders-ad">${esc(ders.ad)}</div>
-          ${ders.kod ? `<div class="hg-ders-kod">${esc(ders.kod)}</div>` : ""}
-          ${ders.sinif ? `<div class="hg-ders-yer"><svg width="10" height="10"><use href="#i-map-pin"/></svg> ${esc(ders.sinif)}</div>` : ""}
-        </div>`;
-      } else {
-        // Bu saatte başka bir dersin devamı mı? (yani önceki saatte başlamış ve devam ediyor)
-        const devam = dersler.find(d => {
-          if (+d.gun !== gunNo) return false;
-          const basSaat = +d.bas.split(":")[0];
-          const bitSaat = +d.bit.split(":")[0];
-          const bitDk = saatDk(d.bit);
-          return basSaat < saat && saatDk(`${pad(saat)}:00`) < bitDk;
-        });
-        if (devam) {
-          // Boş bırak (grid-row span zaten yukarıda hesaplandı)
-          html += `<div class="hg-bos"></div>`;
-        } else {
-          html += `<div class="hg-hucre"></div>`;
-        }
-      }
+  // Saat satırları — boş hücreler
+  SAATLER.forEach((saat, satirIdx) => {
+    const row = satirIdx + 2;
+    html += `<div class="hg-saat" style="grid-row:${row};grid-column:1">${pad(saat)}:00</div>`;
+    gunSirasi.forEach((gunNo, gunIdx) => {
+      const col = gunIdx + 2;
+      html += `<div class="hg-hucre" style="grid-row:${row};grid-column:${col}"></div>`;
     });
+  });
+
+  // Ders bloklarını yerleştir
+  dersler.forEach(d => {
+    const basSaat = +d.bas.split(":")[0];
+    const bitSaat = +d.bit.split(":")[0];
+    const bitDk = +d.bit.split(":")[1] || 0;
+
+    const basIdx = SAATLER.indexOf(basSaat);
+    if (basIdx < 0) return;
+
+    // Bitiş dakikası 0 değilse bir saat daha ekle
+    const bitSaatEtkin = bitDk > 0 ? bitSaat + 1 : bitSaat;
+    const sure = Math.max(1, bitSaatEtkin - basSaat);
+
+    const row = basIdx + 2;
+    const col = gunSirasi.indexOf(+d.gun) + 2;
+
+    html += `<div class="hg-ders ${d.renk || "teal"}"
+      data-act="ders-edit"
+      data-id="${d.id}"
+      style="grid-row:${row} / span ${sure};grid-column:${col}"
+      title="${esc(d.ad)} (${esc(d.bas)}-${esc(d.bit)})">
+      <div class="hg-ders-ad">${esc(d.ad)}</div>
+      ${d.kod ? `<div class="hg-ders-kod">${esc(d.kod)}</div>` : ""}
+      ${d.sinif ? `<div class="hg-ders-yer"><svg width="10" height="10"><use href="#i-map-pin"/></svg> ${esc(d.sinif)}</div>` : ""}
+    </div>`;
   });
 
   grid.innerHTML = html;
 }
+
 // ================= Görevler tam sayfa =================
 function gorevOncelik(p) {
   return ONCELIK[p] ? p : "mid";
@@ -479,13 +464,11 @@ function gorevlerCiz() {
 function ciz() {
   if (!S) return;
 
-  // Karşılama
   $("hello").textContent = `Hoş Geldin, ${S.name.split(" ")[0]}!`;
   $("uname").textContent = S.name;
   const bugun = new Date();
   $("welcomeDate").textContent = `${gunlerKisa[bugun.getDay()]}, ${bugun.getDate()} ${aylar[bugun.getMonth()]} ${bugun.getFullYear()}`;
 
-  // Avatarı güncelle
   avatarUygula();
 
   // Mini takvim
@@ -531,7 +514,6 @@ function ciz() {
     h += `<div class="cell dim"></div>`;
   $("bigGrid").innerHTML = h;
 
-  // Günlük listeler
   $("dayTitle").textContent = gunEtiket(sel);
   gunListesi($("dayList"), sel);
   gunListesi($("timeline"), todayKey);
@@ -583,7 +565,6 @@ function ciz() {
     `<li><span><b>${esc(j.n)}</b></span><span class="badge">${j.st}</span></li>`
   ).join("") || `<li class="empty">Henüz başvuru yok.</li>`;
 
-  // Bildirim rozeti
   bildirimRozetiGuncelle();
 
   // Notlar
@@ -600,15 +581,11 @@ function ciz() {
       ).join("")
     : `<p class="notes-empty">Henüz not yok. + butonuyla ekleyebilirsin.</p>`;
 
-  // Ana sayfadaki mini görev listesi
   $("homeTaskList").innerHTML = S.tasks.slice(0, 4).map(t =>
     `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-t" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span></li>`
   ).join("") || `<li class="empty">Henüz görev yok.</li>`;
 
-  // Görevler tam sayfa
   gorevlerCiz();
-
-  // Ders programı
   bugunDersleriCiz();
   haftalikGridCiz();
 
@@ -616,7 +593,6 @@ function ciz() {
 }
 // ================= Tıklama olayları =================
 document.addEventListener("click", e => {
-  // Giriş sekmeleri
   const tab = e.target.closest("[data-tab]");
   if (tab) { sekme = tab.dataset.tab; $("authMsg").textContent = ""; return authCiz(); }
   const acc = e.target.closest("[data-acc]");
@@ -636,10 +612,8 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Bildirim paneli kapatma
   if (e.target.closest("#notifClose")) { panelKapat(); return; }
 
-  // Bildirim paneli dışına tıklayınca kapat
   const panel = $("notifPanel");
   if (panel && panel.classList.contains("on")) {
     if (!e.target.closest("#notifPanel") && !e.target.closest("#bellBtn")) {
@@ -647,7 +621,6 @@ document.addEventListener("click", e => {
     }
   }
 
-  // Bildirim panelini aç
   if (e.target.closest("#bellBtn")) {
     e.preventDefault();
     if (panel && panel.classList.contains("on")) panelKapat();
@@ -655,7 +628,6 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Tümünü temizle
   if (e.target.closest("#notifClear")) {
     if (confirm("Tüm bildirimleri silmek istediğine emin misin?")) {
       S.notifications = [];
@@ -666,7 +638,6 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Görev filtresi
   const filterBtn = e.target.closest(".filter-btn");
   if (filterBtn) {
     S.taskFilter = filterBtn.dataset.filter;
@@ -676,7 +647,6 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Tamamlananları temizle
   if (e.target.closest("#btnClearDone")) {
     const sayi = (S.tasks || []).filter(t => t.done).length;
     if (sayi === 0) { alert("Silinecek tamamlanmış görev yok."); return; }
@@ -688,7 +658,6 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Modal kapatma
   const closeBtn = e.target.closest("[data-dialog-close]");
   if (closeBtn) {
     const d = closeBtn.closest("dialog");
@@ -696,7 +665,6 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Avatar seçimi
   const avBtn = e.target.closest("[data-avatar]");
   if (avBtn) {
     e.preventDefault();
@@ -710,7 +678,7 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Ders düzenleme — önce bunu yakala, diğer data-act'ten önce
+  // Ders düzenleme
   const dersItem = e.target.closest("[data-act='ders-edit']");
   if (dersItem) {
     e.preventDefault();
@@ -733,7 +701,6 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Modal açma (data-open)
   const opener = e.target.closest("[data-open]");
   if (opener) {
     e.preventDefault();
@@ -742,7 +709,6 @@ document.addEventListener("click", e => {
     const form = dlg.querySelector("form");
     if (form) {
       form.reset();
-      // Ders ekleme modalında ID'yi sıfırla, başlığı "Ders Ekle" yap
       if (opener.dataset.open === "dlgDers") {
         form.querySelector("[name=id]").value = "";
         $("dlgDersTitle").textContent = "Ders Ekle";
@@ -755,7 +721,6 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Sidebar data-dlg (sadece settingsDlg kaldı)
   const dlgBtn = e.target.closest("[data-dlg]");
   if (dlgBtn) {
     e.preventDefault();
@@ -766,7 +731,6 @@ document.addEventListener("click", e => {
     return guvenliAc($(dlgBtn.dataset.dlg));
   }
 
-  // Görünüm değiştir (sidebar + butonlar)
   const nav = e.target.closest("[data-view]");
   if (nav) {
     e.preventDefault();
@@ -778,7 +742,6 @@ document.addEventListener("click", e => {
     return ciz();
   }
 
-  // Satır içi aksiyonlar
   const b = e.target.closest("[data-act]");
   if (!b) return;
   if (["done", "grade", "status", "skill", "task-toggle", "ders-edit"].includes(b.dataset.act)) return;
@@ -796,7 +759,6 @@ document.addEventListener("click", e => {
   ciz();
 });
 
-// ================= Ay gezinme =================
 const ayGit = d => {
   view.m += d;
   if (view.m < 0) { view.m = 11; view.y--; }
@@ -812,7 +774,6 @@ $("bToday").onclick = () => {
 };
 $("closeSettings").onclick = () => $("settingsDlg").close();
 
-// ================= Arama =================
 let aramaZamani;
 $("q").oninput = e => {
   q = e.target.value.toLowerCase();
@@ -820,7 +781,6 @@ $("q").oninput = e => {
   aramaZamani = setTimeout(ciz, 150);
 };
 
-// ================= Mini takvim katla/aç =================
 $("miniCalToggle").onclick = () => {
   const mc = $("miniCal");
   const collapsed = mc.dataset.collapsed === "true";
@@ -828,7 +788,6 @@ $("miniCalToggle").onclick = () => {
   $("miniCalToggle").setAttribute("aria-expanded", String(collapsed));
 };
 
-// ================= Ayarlar =================
 $("setName").onchange = e => {
   if (e.target.value.trim()) { S.name = e.target.value.trim(); ciz(); }
 };
@@ -840,7 +799,6 @@ $("reset").onclick = () => {
   }
 };
 
-// ================= Profil modalı =================
 $("userBox").onclick = () => acProfil();
 
 $("profileSave").onclick = () => {
@@ -854,7 +812,6 @@ $("profileSave").onclick = () => {
   kaydet();
 };
 
-// ================= Change olayları =================
 document.addEventListener("change", e => {
   const act = e.target.dataset ? e.target.dataset.act : null;
   const id = e.target.dataset ? e.target.dataset.id : null;
@@ -882,7 +839,6 @@ document.addEventListener("input", e => {
   kaydet();
 });
 
-// ================= Ad değiştirme (çift tıkla) =================
 function adDegistir(e) {
   const el = e.target.closest("[data-rename]");
   if (!el) return;
@@ -897,7 +853,6 @@ function adDegistir(e) {
 }
 document.addEventListener("dblclick", adDegistir);
 
-// ================= Form gönderimleri =================
 const AUTOCLOSE = ["dlgEvent", "dlgLink", "dlgCourse", "dlgDeadline", "dlgJob", "dlgSkill", "dlgNote", "dlgDers"];
 document.addEventListener("submit", e => {
   e.preventDefault();
@@ -937,7 +892,6 @@ document.addEventListener("submit", e => {
       S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() });
       break;
     case "ders": {
-      // Ders programı: aynı ders adı + gün + saat varsa güncelle, yoksa ekle
       const ders = {
         id,
         ad: v.ad.trim(),
@@ -966,16 +920,13 @@ document.addEventListener("submit", e => {
   ciz();
 });
 
-// Backdrop'a tıklayınca kapat
 document.addEventListener("click", e => { if (e.target.tagName === "DIALOG") e.target.close(); });
 
-// Gece yarısı geçince yenile
 document.addEventListener("visibilitychange", () => {
   const d = new Date();
   if (!document.hidden && key(d.getFullYear(), d.getMonth(), d.getDate()) !== todayKey) location.reload();
 });
 
-// ================= Giriş / çıkış =================
 function authCiz() {
   document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("cur", b.dataset.tab === sekme));
   $("regOnly").hidden = sekme !== "reg";
@@ -1039,7 +990,6 @@ function cikis() {
   location.reload();
 }
 
-// ================= Başlangıç =================
 try {
   authCiz();
   if (db.aktif && db.users[db.aktif]) basla();
