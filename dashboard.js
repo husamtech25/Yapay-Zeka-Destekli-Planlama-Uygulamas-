@@ -1,4 +1,4 @@
-console.log("[Planla] v9 + Pomodoro yüklendi");
+console.log("[Planla] v10 + mobil menü yüklendi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -48,7 +48,6 @@ function avatarRenkUygula(el, i) {
   el.classList.add(AVATARLAR[i] ? AVATARLAR[i].renk : "a0");
 }
 
-// ============ POMODORO AYARLARI ============
 const POMO_DEFAULTS = { focus: 25, short: 5, long: 15, cycle: 4, sound: "on", auto: "off" };
 
 function yeniVeri(mod, name) {
@@ -63,9 +62,8 @@ function yeniVeri(mod, name) {
     hedefler: [],
     pomo: {
       ...POMO_DEFAULTS,
-      // Bugün kaç pomodoro tamamlandı
-      stats: {}, // { "2026-10-05": { sayi: 3, dk: 75 } }
-      bind: null, // { tip: "gorev"|"ders", id: "..." }
+      stats: {},
+      bind: null,
     },
   };
 }
@@ -105,6 +103,7 @@ let sel = todayKey;
 let view = { y: now.getFullYear(), m: now.getMonth() };
 let q = "";
 let sekme = "login";
+let aktifView = "home";
 const M = () => MODLAR[S.mode] || MODLAR.student;
 const eslesir = s => String(s).toLowerCase().includes(q);
 
@@ -132,11 +131,35 @@ const ad = (list, id, field, text) =>
   `<span data-rename data-list="${list}" data-id="${id}" data-field="${field}" title="Çift tıkla: düzenle">${esc(text)}</span>`;
 const gunEvents = k => (S.events[k] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
 
+// ============ MOBİL MENÜ ============
+function mobilMenuAc() {
+  const sb = $("sidebar");
+  const ov = $("mobileOverlay");
+  if (sb) sb.classList.add("open");
+  if (ov) ov.classList.add("on");
+  document.body.style.overflow = "hidden";
+}
+function mobilMenuKapat() {
+  const sb = $("sidebar");
+  const ov = $("mobileOverlay");
+  if (sb) sb.classList.remove("open");
+  if (ov) ov.classList.remove("on");
+  document.body.style.overflow = "";
+}
+
+// ============ GÖRÜNÜM / MOD ============
 function goView(v) {
+  aktifView = v;
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("on", el.id === "v-" + v));
   document.querySelectorAll(".side-nav [data-view]").forEach(a => a.classList.toggle("active", a.dataset.view === v));
+  document.querySelectorAll(".mobile-nav-item").forEach(a => a.classList.toggle("active", a.dataset.view === v));
+  // body data-page — menü/geri butonu kontrolü için
+  document.body.dataset.page = v;
+  // Sidebar'ı kapat (mobilde bir link tıklandıysa)
+  mobilMenuKapat();
   window.scrollTo({ top: 0 });
 }
+
 function modUygula() {
   const m = M();
   document.body.dataset.mode = S.mode || "student";
@@ -303,18 +326,17 @@ function gunListesi(el, k) {
 }
 // ================= POMODORO =================
 let pomo = {
-  mod: "focus",        // "focus" | "short" | "long"
-  kalan: 25 * 60,      // saniye cinsinden kalan
-  toplam: 25 * 60,     // toplam süre (progress için)
+  mod: "focus",
+  kalan: 25 * 60,
+  toplam: 25 * 60,
   calisiyor: false,
   interval: null,
-  tur: 0,              // kaç odak tamamlandı (uzun mola için)
+  tur: 0,
 };
 
 function pomoAyarlari() {
   return (S && S.pomo) ? S.pomo : POMO_DEFAULTS;
 }
-
 function pomoSure(mod) {
   const a = pomoAyarlari();
   if (mod === "focus") return (+a.focus || 25) * 60;
@@ -322,22 +344,18 @@ function pomoSure(mod) {
   if (mod === "long") return (+a.long || 15) * 60;
   return 25 * 60;
 }
-
 function pomoModEtiket(mod) {
   return mod === "focus" ? "Odak" : mod === "short" ? "Kısa Mola" : "Uzun Mola";
 }
-
 function pomoBugun() {
   if (!S || !S.pomo || !S.pomo.stats) return { sayi: 0, dk: 0 };
   const b = S.pomo.stats[todayKey];
   return b ? b : { sayi: 0, dk: 0 };
 }
-
 function pomoHaftaToplam() {
   if (!S || !S.pomo || !S.pomo.stats) return 0;
   const bugun = new Date();
   const gunNo = bugun.getDay();
-  // Pazartesi başlangıç
   const pazartesiFark = (gunNo === 0 ? -6 : 1 - gunNo);
   let toplam = 0;
   for (let i = 0; i < 7; i++) {
@@ -349,7 +367,6 @@ function pomoHaftaToplam() {
   }
   return toplam;
 }
-
 function pomoStatsGuncelle() {
   const b = pomoBugun();
   const hafta = pomoHaftaToplam();
@@ -360,7 +377,6 @@ function pomoStatsGuncelle() {
   if (dkEl) dkEl.textContent = b.dk;
   if (haftaEl) haftaEl.textContent = hafta;
 }
-
 function pomoKaydet(tamamlananMod) {
   if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
   if (!S.pomo.stats) S.pomo.stats = {};
@@ -374,7 +390,9 @@ function pomoKaydet(tamamlananMod) {
   }
   kaydet();
 }
-
+function cevresiHesapla(cevre, oran) {
+  return cevre * (1 - oran);
+}
 function pomoRender() {
   const card = $("pomodoroCard");
   const timeEl = $("pomoTime");
@@ -382,17 +400,14 @@ function pomoRender() {
   const ring = $("pomoRingFg");
   if (!card || !timeEl) return;
 
-  // Mod göster
   card.classList.remove("mode-focus", "mode-short", "mode-long");
   card.classList.add("mode-" + pomo.mod);
 
-  // Süre
   const dk = Math.floor(pomo.kalan / 60);
   const sn = pomo.kalan % 60;
   timeEl.textContent = `${pad(dk)}:${pad(sn)}`;
   labelEl.textContent = pomoModEtiket(pomo.mod);
 
-  // Dairesel progress
   if (ring) {
     const r = 88;
     const cevre = 2 * Math.PI * r;
@@ -401,10 +416,7 @@ function pomoRender() {
     ring.style.strokeDashoffset = cevresiHesapla(cevre, oran);
   }
 
-  // Başlat butonu
   const startBtn = $("pomoStart");
-  const startLabel = $("pomoStartLabel");
-  if (startLabel) startLabel.textContent = pomo.calisiyor ? "Duraklat" : "Başlat";
   if (startBtn) {
     startBtn.innerHTML = pomo.calisiyor
       ? `<svg width="18" height="18"><use href="#i-pause"/></svg><span id="pomoStartLabel">Duraklat</span>`
@@ -414,11 +426,6 @@ function pomoRender() {
   pomoStatsGuncelle();
   pomoBindRender();
 }
-
-function cevresiHesapla(cevre, oran) {
-  return cevre * (1 - oran);
-}
-
 function pomoModDegistir(mod) {
   pomo.mod = mod;
   pomo.toplam = pomoSure(mod);
@@ -429,7 +436,6 @@ function pomoModDegistir(mod) {
   });
   pomoRender();
 }
-
 function pomoBaslat() {
   if (pomo.calisiyor) return;
   pomo.calisiyor = true;
@@ -443,108 +449,68 @@ function pomoBaslat() {
     pomoRender();
   }, 1000);
 }
-
 function pomoDurdur() {
   pomo.calisiyor = false;
   if (pomo.interval) clearInterval(pomo.interval);
   pomo.interval = null;
   pomoRender();
 }
-
 function pomoSifirla() {
   pomoDurdur();
   pomo.kalan = pomo.toplam;
   pomoRender();
 }
-
+function pomoSesCal() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = "sine"; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.8);
+    setTimeout(() => {
+      const o2 = ctx.createOscillator();
+      const g2 = ctx.createGain();
+      o2.connect(g2); g2.connect(ctx.destination);
+      o2.type = "sine"; o2.frequency.value = 1100;
+      g2.gain.setValueAtTime(0.15, ctx.currentTime);
+      g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      o2.start(ctx.currentTime); o2.stop(ctx.currentTime + 0.6);
+    }, 250);
+  } catch (e) {}
+}
 function pomoBitti() {
   if (pomo.interval) clearInterval(pomo.interval);
   pomo.interval = null;
   pomo.calisiyor = false;
 
-  // Ses
   if (pomoAyarlari().sound === "on") pomoSesCal();
+  if (pomo.mod === "focus") pomoKaydet("focus");
 
-  // Bildirim
-  const etiket = pomoModEtiket(pomo.mod);
-
-  // İstatistik kaydet (sadece odak için)
-  if (pomo.mod === "focus") {
-    pomoKaydet("focus");
-  }
-
-  // Mod geçişi
   const a = pomoAyarlari();
   if (pomo.mod === "focus") {
-    // Uzun mola zamanı mı?
     const turSayi = +a.cycle || 4;
-    if (pomo.tur > 0 && pomo.tur % turSayi === 0) {
-      pomoModDegistir("long");
-    } else {
-      pomoModDegistir("short");
-    }
+    if (pomo.tur > 0 && pomo.tur % turSayi === 0) pomoModDegistir("long");
+    else pomoModDegistir("short");
   } else {
-    // Mola bitti → odak
     pomoModDegistir("focus");
   }
 
-  // Otomatik geçiş
-  if (a.auto === "on") {
-    setTimeout(() => pomoBaslat(), 600);
-  }
-
-  // Sayfa başlığını güncelle
+  if (a.auto === "on") setTimeout(() => pomoBaslat(), 600);
   document.title = "Planla — Yapay Zeka Destekli Planlama";
 }
-
-function pomoSesCal() {
-  try {
-    // Basit beep — Web Audio API
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g);
-    g.connect(ctx.destination);
-    o.type = "sine";
-    o.frequency.value = 880;
-    g.gain.setValueAtTime(0.15, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-    o.start(ctx.currentTime);
-    o.stop(ctx.currentTime + 0.8);
-    // İkinci beep
-    setTimeout(() => {
-      const o2 = ctx.createOscillator();
-      const g2 = ctx.createGain();
-      o2.connect(g2);
-      g2.connect(ctx.destination);
-      o2.type = "sine";
-      o2.frequency.value = 1100;
-      g2.gain.setValueAtTime(0.15, ctx.currentTime);
-      g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-      o2.start(ctx.currentTime);
-      o2.stop(ctx.currentTime + 0.6);
-    }, 250);
-  } catch (e) {
-    // sessizce geç
-  }
-}
-
 function pomoBindRender() {
   const btn = document.querySelector(".pomo-bind-btn");
   if (!btn) return;
   const label = $("pomoBindLabel");
   if (!label) return;
-
   if (S.pomo && S.pomo.bind) {
     const { tip, id } = S.pomo.bind;
     let ad = "";
-    if (tip === "gorev") {
-      const t = bul("tasks", id);
-      ad = t ? t.t : "";
-    } else if (tip === "ders") {
-      const d = bul("dersler", id);
-      ad = d ? d.ad : "";
-    }
+    if (tip === "gorev") { const t = bul("tasks", id); ad = t ? t.t : ""; }
+    else if (tip === "ders") { const d = bul("dersler", id); ad = d ? d.ad : ""; }
     label.textContent = ad || "Seçili";
     btn.classList.add("active");
   } else {
@@ -552,39 +518,28 @@ function pomoBindRender() {
     btn.classList.remove("active");
   }
 }
-
 function pomoBindAc() {
   const list = $("pomoBindList");
   if (!list) return;
-
   const aktifTab = document.querySelector(".pomo-bind-tab.on");
   const tip = aktifTab ? aktifTab.dataset.bindTab : "gorev";
-
   let items = [];
   if (tip === "gorev") {
     items = (S.tasks || []).filter(t => !t.done);
-    if (!items.length) {
-      list.innerHTML = `<p class="pomo-bind-empty">Bekleyen görev yok.</p>`;
-    } else {
-      list.innerHTML = items.map(t =>
-        `<button type="button" class="pomo-bind-item" data-pomo-bind="gorev" data-id="${t.id}">
-          <span class="pbi-dot"></span>
-          <span>${esc(t.t)}</span>
-        </button>`
-      ).join("");
-    }
+    if (!items.length) list.innerHTML = `<p class="pomo-bind-empty">Bekleyen görev yok.</p>`;
+    else list.innerHTML = items.map(t =>
+      `<button type="button" class="pomo-bind-item" data-pomo-bind="gorev" data-id="${t.id}">
+        <span class="pbi-dot"></span><span>${esc(t.t)}</span>
+      </button>`
+    ).join("");
   } else {
     items = (S.dersler || []);
-    if (!items.length) {
-      list.innerHTML = `<p class="pomo-bind-empty">Henüz ders yok.</p>`;
-    } else {
-      list.innerHTML = items.map(d =>
-        `<button type="button" class="pomo-bind-item ders" data-pomo-bind="ders" data-id="${d.id}">
-          <span class="pbi-dot"></span>
-          <span>${esc(d.ad)}${d.kod ? ` · ${esc(d.kod)}` : ""}</span>
-        </button>`
-      ).join("");
-    }
+    if (!items.length) list.innerHTML = `<p class="pomo-bind-empty">Henüz ders yok.</p>`;
+    else list.innerHTML = items.map(d =>
+      `<button type="button" class="pomo-bind-item ders" data-pomo-bind="ders" data-id="${d.id}">
+        <span class="pbi-dot"></span><span>${esc(d.ad)}${d.kod ? ` · ${esc(d.kod)}` : ""}</span>
+      </button>`
+    ).join("");
   }
 }
 
@@ -593,19 +548,15 @@ function dersSirala(a, b) { return saatDk(a.bas) - saatDk(b.bas); }
 function bugunDersler() {
   return (S.dersler || []).filter(d => +d.gun === bugunGunNo).sort(dersSirala);
 }
-
 const SAATLER = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
-
 function haftalikGridCiz() {
   const grid = $("haftalikGrid");
   const empty = $("dersEmpty");
   if (!grid) return;
   const dersler = S.dersler || [];
-
   $("statDersSayi").textContent = dersler.length;
   $("statDersBugun").textContent = bugunDersler().length;
   $("statDersHafta").textContent = dersler.filter(d => +d.gun >= 1 && +d.gun <= 5).length;
-
   if (!dersler.length) {
     grid.innerHTML = "";
     grid.style.gridTemplateRows = "";
@@ -613,10 +564,8 @@ function haftalikGridCiz() {
     return;
   }
   if (empty) empty.hidden = true;
-
   const gunSirasi = [1, 2, 3, 4, 5, 6, 0];
   grid.style.gridTemplateRows = `40px repeat(${SAATLER.length}, 60px)`;
-
   let html = "";
   html += `<div class="hg-bos" style="grid-row:1;grid-column:1"></div>`;
   gunSirasi.forEach((g, idx) => {
@@ -624,7 +573,6 @@ function haftalikGridCiz() {
     const col = idx + 2;
     html += `<div class="hg-gun-head ${bugun ? "bugun" : ""}" style="grid-row:1;grid-column:${col}">${GUNLER[g].slice(0, 3)}</div>`;
   });
-
   SAATLER.forEach((saat, satirIdx) => {
     const row = satirIdx + 2;
     html += `<div class="hg-saat" style="grid-row:${row};grid-column:1">${pad(saat)}:00</div>`;
@@ -633,7 +581,6 @@ function haftalikGridCiz() {
       html += `<div class="hg-hucre" style="grid-row:${row};grid-column:${col}"></div>`;
     });
   });
-
   dersler.forEach(d => {
     const basSaat = +d.bas.split(":")[0];
     const bitSaat = +d.bit.split(":")[0];
@@ -653,33 +600,25 @@ function haftalikGridCiz() {
       ${d.sinif ? `<div class="hg-ders-yer"><svg width="10" height="10"><use href="#i-map-pin"/></svg> ${esc(d.sinif)}</div>` : ""}
     </div>`;
   });
-
   grid.innerHTML = html;
 }
-
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
   if (!el) return;
-
   const gunSirasi = [1, 2, 3, 4, 5];
   const miniSaatler = [9, 11, 13, 15, 17];
-
   let html = "";
   html += `<div class="mdg-head"></div>`;
   gunSirasi.forEach(g => {
     const bugun = g === bugunGunNo;
     html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
   });
-
   miniSaatler.forEach(saat => {
     html += `<div class="mdg-head" style="text-align:right;padding-right:2px">${pad(saat)}</div>`;
     gunSirasi.forEach(gunNo => {
       const ders = (S.dersler || []).find(d => +d.gun === gunNo && +d.bas.split(":")[0] === saat);
-      if (ders) {
-        html += `<div class="mdg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" title="${esc(ders.ad)}">${esc(ders.ad.slice(0, 8))}</div>`;
-      } else {
-        html += `<div class="mdg-cell"></div>`;
-      }
+      if (ders) html += `<div class="mdg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" title="${esc(ders.ad)}">${esc(ders.ad.slice(0, 8))}</div>`;
+      else html += `<div class="mdg-cell"></div>`;
     });
   });
   el.innerHTML = html;
@@ -687,40 +626,32 @@ function miniDersGridCiz() {
 
 // ================= Görevler =================
 function gorevOncelik(p) { return ONCELIK[p] ? p : "mid"; }
-
 function gorevlerCiz() {
   if (!S) return;
   const liste = $("tasksListFull");
   const bos = $("tasksEmpty");
   if (!liste) return;
-
   const tum = S.tasks || [];
   const toplam = tum.length;
   const tamamlanan = tum.filter(t => t.done).length;
   const bekleyen = toplam - tamamlanan;
-
   $("statTotal").textContent = toplam;
   $("statPending").textContent = bekleyen;
   $("statDone").textContent = tamamlanan;
-
   const filtre = S.taskFilter || "all";
   let gosterilecek = tum.slice().filter(t => !q || eslesir(t.t));
   if (filtre === "pending") gosterilecek = gosterilecek.filter(t => !t.done);
   else if (filtre === "done") gosterilecek = gosterilecek.filter(t => t.done);
-
   const priSirala = { high: 0, mid: 1, low: 2 };
   gosterilecek.sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
     return (priSirala[gorevOncelik(a.p)] || 1) - (priSirala[gorevOncelik(b.p)] || 1);
   });
-
   if (!gosterilecek.length) {
     liste.innerHTML = "";
     if (bos) {
       bos.hidden = false;
-      bos.textContent = toplam === 0
-        ? "Henüz görev yok. Yukarıdaki kutuya yazıp Enter'a bas."
-        : "Bu filtreye uyan görev yok.";
+      bos.textContent = toplam === 0 ? "Henüz görev yok." : "Bu filtreye uyan görev yok.";
     }
   } else {
     if (bos) bos.hidden = true;
@@ -742,22 +673,18 @@ function gorevlerCiz() {
     }).join("");
   }
 }
-
 function kanbanCiz() {
   const todoEl = $("kanbanTodo");
   const doingEl = $("kanbanDoing");
   const doneEl = $("kanbanDone");
   if (!todoEl) return;
-
   const tum = S.tasks || [];
   const todo = tum.filter(t => !t.done && !t.doing);
   const doing = tum.filter(t => !t.done && t.doing);
   const done = tum.filter(t => t.done);
-
   $("kanbanTodoCount").textContent = todo.length;
   $("kanbanDoingCount").textContent = doing.length;
   $("kanbanDoneCount").textContent = done.length;
-
   const renderItem = (t, kolon) => {
     const p = gorevOncelik(t.p);
     let aksiyonlar = "";
@@ -779,19 +706,10 @@ function kanbanCiz() {
       </div>
     </li>`;
   };
-
-  todoEl.innerHTML = todo.length
-    ? todo.slice(0, 5).map(t => renderItem(t, "todo")).join("")
-    : `<li class="kanban-empty">Görev yok</li>`;
-  doingEl.innerHTML = doing.length
-    ? doing.slice(0, 5).map(t => renderItem(t, "doing")).join("")
-    : `<li class="kanban-empty">Devam eden yok</li>`;
-  doneEl.innerHTML = done.length
-    ? done.slice(0, 5).map(t => renderItem(t, "done")).join("")
-    : `<li class="kanban-empty">Tamamlanan yok</li>`;
+  todoEl.innerHTML = todo.length ? todo.slice(0, 5).map(t => renderItem(t, "todo")).join("") : `<li class="kanban-empty">Görev yok</li>`;
+  doingEl.innerHTML = doing.length ? doing.slice(0, 5).map(t => renderItem(t, "doing")).join("") : `<li class="kanban-empty">Devam eden yok</li>`;
+  doneEl.innerHTML = done.length ? done.slice(0, 5).map(t => renderItem(t, "done")).join("") : `<li class="kanban-empty">Tamamlanan yok</li>`;
 }
-
-// ================= Hedefler =================
 function hedeflerCiz() {
   const el = $("hedefList");
   if (!el) return;
@@ -818,130 +736,86 @@ function hedeflerCiz() {
     </li>`;
   }).join("");
 }
-
-// ================= Hoş Geldin Özeti =================
 function ozetCiz() {
   const el = $("welcomeSummary");
   if (!el) return;
-
   const bugunEtkinlik = (S.events[todayKey] || []).length;
   const bekleyenGorev = (S.tasks || []).filter(t => !t.done).length;
   const bugunDers = bugunDersler().length;
-
   const parcalar = [];
   if (bugunDers) parcalar.push(`<div class="ws-item"><b>${bugunDers}</b> ders</div>`);
   if (bugunEtkinlik) parcalar.push(`<div class="ws-item"><b>${bugunEtkinlik}</b> etkinlik</div>`);
   if (bekleyenGorev) parcalar.push(`<div class="ws-item"><b>${bekleyenGorev}</b> görev</div>`);
-
-  el.innerHTML = parcalar.length
-    ? parcalar.join("")
-    : `<div class="ws-item">Bugün için plan yok 😌</div>`;
+  el.innerHTML = parcalar.length ? parcalar.join("") : `<div class="ws-item">Bugün için plan yok 😌</div>`;
 }
 
 // ================= Çizim =================
 function ciz() {
   if (!S) return;
-
   $("hello").textContent = `Hoş Geldin, ${S.name.split(" ")[0]}!`;
   $("uname").textContent = S.name;
   const bugun = new Date();
   $("welcomeDate").textContent = `${gunlerKisa[bugun.getDay()]}, ${bugun.getDate()} ${aylar[bugun.getMonth()]} ${bugun.getFullYear()}`;
-
   avatarUygula();
   ozetCiz();
-
-  // Mini takvim
   $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
   const cal = $("calendar");
   cal.innerHTML = "";
-  ["P","S","Ç","P","C","C","P"].forEach(g =>
-    cal.insertAdjacentHTML("beforeend", `<span class="dow">${g}</span>`)
-  );
+  ["P","S","Ç","P","C","C","P"].forEach(g => cal.insertAdjacentHTML("beforeend", `<span class="dow">${g}</span>`));
   const bosluk = (new Date(view.y, view.m, 1).getDay() + 6) % 7;
   const gunler = new Date(view.y, view.m + 1, 0).getDate();
   const onceki = new Date(view.y, view.m, 0).getDate();
-  for (let i = bosluk - 1; i >= 0; i--)
-    cal.insertAdjacentHTML("beforeend", `<span class="dim">${onceki - i}</span>`);
+  for (let i = bosluk - 1; i >= 0; i--) cal.insertAdjacentHTML("beforeend", `<span class="dim">${onceki - i}</span>`);
   for (let g = 1; g <= gunler; g++) {
     const k = key(view.y, view.m, g);
-    const cls = ["d",
-      k === todayKey && "today",
-      k === sel && "sel",
-      (S.events[k] || []).length && "has"
-    ].filter(Boolean).join(" ");
-    cal.insertAdjacentHTML("beforeend",
-      `<button type="button" class="${cls}" data-act="mini" data-date="${k}">${g}</button>`);
+    const cls = ["d", k === todayKey && "today", k === sel && "sel", (S.events[k] || []).length && "has"].filter(Boolean).join(" ");
+    cal.insertAdjacentHTML("beforeend", `<button type="button" class="${cls}" data-act="mini" data-date="${k}">${g}</button>`);
   }
-
-  // Büyük takvim
   $("bigTitle").textContent = `${aylar[view.m]} ${view.y}`;
-  let h = ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"]
-    .map(g => `<div class="dow">${g}</div>`).join("");
-  for (let i = bosluk - 1; i >= 0; i--)
-    h += `<div class="cell dim"><span class="n">${onceki - i}</span></div>`;
+  let h = ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map(g => `<div class="dow">${g}</div>`).join("");
+  for (let i = bosluk - 1; i >= 0; i--) h += `<div class="cell dim"><span class="n">${onceki - i}</span></div>`;
   for (let g = 1; g <= gunler; g++) {
     const k = key(view.y, view.m, g);
     const ev = gunEvents(k);
     h += `<button type="button" class="cell ${k === todayKey ? "today" : ""} ${k === sel ? "sel" : ""} ${ev.length ? "has" : ""}" data-act="big" data-date="${k}"><span class="n">${g}</span>` +
-      ev.slice(0, 3).map(e =>
-        `<span class="ce ${sinif[e.type] || "event"}">${esc(e.time)} ${esc(e.t)}</span>`
-      ).join("") +
-      (ev.length > 3 ? `<small>+${ev.length - 3} daha</small>` : "") +
-      `</button>`;
+      ev.slice(0, 3).map(e => `<span class="ce ${sinif[e.type] || "event"}">${esc(e.time)} ${esc(e.t)}</span>`).join("") +
+      (ev.length > 3 ? `<small>+${ev.length - 3} daha</small>` : "") + `</button>`;
   }
-  for (let i = (bosluk + gunler) % 7; i && i < 7; i++)
-    h += `<div class="cell dim"></div>`;
+  for (let i = (bosluk + gunler) % 7; i && i < 7; i++) h += `<div class="cell dim"></div>`;
   $("bigGrid").innerHTML = h;
-
   $("dayTitle").textContent = gunEtiket(sel);
   gunListesi($("dayList"), sel);
   gunListesi($("timeline"), todayKey);
-
-  // Akademik
   $("bars").innerHTML = S.courses.length
-    ? S.courses.map((c, i) =>
-        `<span title="${esc(c.n)}: ${c.g}" style="background:${renkler[i % renkler.length]};height:${Math.max(c.g, 3)}%"></span>`
-      ).join("")
+    ? S.courses.map((c, i) => `<span title="${esc(c.n)}: ${c.g}" style="background:${renkler[i % renkler.length]};height:${Math.max(c.g, 3)}%"></span>`).join("")
     : `<div class="bars-empty">Ekleyince grafik burada görünür.</div>`;
-  const ort = S.courses.length
-    ? S.courses.reduce((t, c) => t + c.g, 0) / S.courses.length
-    : 0;
-  $("gpa").textContent = !S.courses.length
-    ? "Henüz kayıt yok"
-    : S.mode === "work"
-      ? `Ortalama ilerleme: %${ort.toFixed(0)}`
-      : `Ortalama: ${ort.toFixed(0)} / 100  (GP: ${(ort / 25).toFixed(2)})`;
+  const ort = S.courses.length ? S.courses.reduce((t, c) => t + c.g, 0) / S.courses.length : 0;
+  $("gpa").textContent = !S.courses.length ? "Henüz kayıt yok"
+    : S.mode === "work" ? `Ortalama ilerleme: %${ort.toFixed(0)}`
+    : `Ortalama: ${ort.toFixed(0)} / 100  (GP: ${(ort / 25).toFixed(2)})`;
   $("courses").innerHTML = S.courses.map(c =>
     `<li>${ad("courses", c.id, "n", c.n)}<input type="number" min="0" max="100" value="${c.g}" data-act="grade" data-id="${c.id}">${delBtn("courses", c.id)}</li>`
-  ).join("") || `<li class="empty">Henüz kayıt yok. + butonuyla ekleyebilirsin.</li>`;
+  ).join("") || `<li class="empty">Henüz kayıt yok.</li>`;
   $("deadlines").innerHTML = [...S.deadlines].sort((a, b) => a.d.localeCompare(b.d)).map(d =>
     `<li>${ad("deadlines", d.id, "t", d.t)}<span>${gunEtiket(d.d)}</span>${delBtn("deadlines", d.id)}</li>`
   ).join("") || `<li class="empty">Teslim yok.</li>`;
-
-  // Kariyer
   const durumlar = ["Beklemede", "Mülakat", "Kabul", "Red"];
   $("jobs").innerHTML = S.jobs.filter(j => eslesir(j.n)).map(j =>
     `<li>${ad("jobs", j.id, "n", j.n)}` +
-    (j.st
-      ? `<select data-act="status" data-id="${j.id}">${durumlar.map(s => `<option ${s === j.st ? "selected" : ""}>${s}</option>`).join("")}</select>`
-      : `<button type="button" class="apply" data-act="apply" data-id="${j.id}">Başvur</button>`) +
+    (j.st ? `<select data-act="status" data-id="${j.id}">${durumlar.map(s => `<option ${s === j.st ? "selected" : ""}>${s}</option>`).join("")}</select>`
+          : `<button type="button" class="apply" data-act="apply" data-id="${j.id}">Başvur</button>`) +
     delBtn("jobs", j.id) + `</li>`
-  ).join("") || `<li class="empty">Henüz kayıt yok. + butonuyla ekleyebilirsin.</li>`;
+  ).join("") || `<li class="empty">Henüz kayıt yok.</li>`;
   $("skills").innerHTML = S.skills.map((s, i) =>
     `<li>${ad("skills", s.id, "n", s.n)}<input type="range" min="0" max="100" value="${s.p}" data-act="skill" data-id="${s.id}" style="accent-color:${renkler[(i + 4) % renkler.length]}"><span class="pct">%${s.p}</span>${delBtn("skills", s.id)}</li>`
   ).join("") || `<li class="empty">Henüz beceri yok.</li>`;
-
-  // Ana ekran kartları
   bildirimRozetiGuncelle();
   kanbanCiz();
   hedeflerCiz();
   miniDersGridCiz();
   pomoRender();
-
-  // Tam sayfa kartlar
   gorevlerCiz();
   haftalikGridCiz();
-
   kaydet();
 }
 // ================= Tıklama olayları =================
@@ -963,6 +837,35 @@ document.addEventListener("click", e => {
       return cikis();
     }
     return;
+  }
+
+  // ========== MOBİL MENÜ ==========
+  if (e.target.closest("#menuBtn")) {
+    e.preventDefault();
+    mobilMenuAc();
+    return;
+  }
+  if (e.target.closest("#sidebarClose")) {
+    e.preventDefault();
+    mobilMenuKapat();
+    return;
+  }
+  if (e.target.closest("#mobileOverlay")) {
+    e.preventDefault();
+    mobilMenuKapat();
+    return;
+  }
+  // Mobil "Daha Fazla" butonu
+  if (e.target.closest("#mobileMoreBtn")) {
+    e.preventDefault();
+    mobilMenuAc();
+    return;
+  }
+  // ========== GERİ BUTONU ==========
+  if (e.target.closest("#backBtn")) {
+    e.preventDefault();
+    goView("home");
+    return ciz();
   }
 
   if (e.target.closest("#notifClose")) { panelKapat(); return; }
@@ -1001,30 +904,22 @@ document.addEventListener("click", e => {
     pomoModDegistir(pomoTab.dataset.mode);
     return;
   }
-
-  // Pomodoro başlat/duraklat
   if (e.target.closest("#pomoStart")) {
     e.preventDefault();
     if (pomo.calisiyor) pomoDurdur();
     else pomoBaslat();
     return;
   }
-
-  // Pomodoro sıfırla
   if (e.target.closest("#pomoReset")) {
     e.preventDefault();
     pomoSifirla();
     return;
   }
-
-  // Pomodoro atla
   if (e.target.closest("#pomoSkip")) {
     e.preventDefault();
     pomoBitti();
     return;
   }
-
-  // Pomodoro bağla (görev/ders)
   const bindBtn = e.target.closest(".pomo-bind-btn");
   if (bindBtn) {
     e.preventDefault();
@@ -1032,8 +927,6 @@ document.addEventListener("click", e => {
     guvenliAc($("dlgPomoBind"));
     return;
   }
-
-  // Pomodoro bind tab değişimi
   const bindTab = e.target.closest(".pomo-bind-tab");
   if (bindTab) {
     e.preventDefault();
@@ -1041,8 +934,6 @@ document.addEventListener("click", e => {
     pomoBindAc();
     return;
   }
-
-  // Pomodoro bind item seçimi
   const bindItem = e.target.closest("[data-pomo-bind]");
   if (bindItem) {
     e.preventDefault();
@@ -1055,8 +946,6 @@ document.addEventListener("click", e => {
     kaydet();
     return;
   }
-
-  // Pomodoro serbest mod
   if (e.target.closest("#pomoBindFree")) {
     e.preventDefault();
     if (S.pomo) S.pomo.bind = null;
@@ -1065,8 +954,6 @@ document.addEventListener("click", e => {
     kaydet();
     return;
   }
-
-  // Pomodoro istatistik sıfırla
   if (e.target.closest("#pomoResetStats")) {
     e.preventDefault();
     if (confirm("Tüm pomodoro istatistikleri silinecek. Emin misin?")) {
@@ -1086,8 +973,6 @@ document.addEventListener("click", e => {
     kaydet();
     return;
   }
-
-  // Tamamlananları temizle
   if (e.target.closest("#btnClearDone")) {
     const sayi = (S.tasks || []).filter(t => t.done).length;
     if (sayi === 0) { alert("Silinecek tamamlanmış görev yok."); return; }
@@ -1184,7 +1069,7 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Modal açma (data-open)
+  // Modal açma
   const opener = e.target.closest("[data-open]");
   if (opener) {
     e.preventDefault();
@@ -1201,7 +1086,6 @@ document.addEventListener("click", e => {
       const selEl = form.querySelector("select[name=type]");
       if (selEl) selEl.innerHTML = M().tur.map(t => `<option>${t}</option>`).join("");
     }
-    // Pomodoro ayar modalı — mevcut değerleri doldur
     if (opener.dataset.open === "pomodoroAyarDlg") {
       const a = pomoAyarlari();
       form.querySelector("[name=focus]").value = a.focus;
@@ -1226,7 +1110,7 @@ document.addEventListener("click", e => {
     return guvenliAc($(dlgBtn.dataset.dlg));
   }
 
-  // Görünüm değiştir
+  // Görünüm değiştir (sidebar + mobil alt nav + diğer butonlar)
   const nav = e.target.closest("[data-view]");
   if (nav) {
     e.preventDefault();
@@ -1303,7 +1187,6 @@ $("reset").onclick = () => {
 
 // ================= Profil =================
 $("userBox").onclick = () => acProfil();
-
 $("profileSave").onclick = () => {
   if (!S) return;
   const yeniIsim = $("profileNameInput").value.trim();
@@ -1347,7 +1230,7 @@ document.addEventListener("input", e => {
   kaydet();
 });
 
-// ================= Ad değiştirme (çift tıkla) =================
+// ================= Ad değiştirme =================
 function adDegistir(e) {
   const el = e.target.closest("[data-rename]");
   if (!el) return;
@@ -1403,16 +1286,9 @@ document.addEventListener("submit", e => {
       break;
     case "ders": {
       const ders = {
-        id,
-        ad: v.ad.trim(),
-        kod: (v.kod || "").trim(),
-        hoca: (v.hoca || "").trim(),
-        sinif: (v.sinif || "").trim(),
-        gun: v.gun,
-        renk: v.renk || "blue",
-        bas: v.bas,
-        bit: v.bit,
-        notlar: (v.notlar || "").trim(),
+        id, ad: v.ad.trim(), kod: (v.kod || "").trim(), hoca: (v.hoca || "").trim(),
+        sinif: (v.sinif || "").trim(), gun: v.gun, renk: v.renk || "blue",
+        bas: v.bas, bit: v.bit, notlar: (v.notlar || "").trim(),
       };
       const idx = S.dersler.findIndex(d => d.id === id);
       if (idx >= 0) S.dersler[idx] = ders;
@@ -1421,12 +1297,10 @@ document.addEventListener("submit", e => {
     }
     case "hedef":
       S.hedefler.push({
-        id,
-        baslik: v.baslik.trim(),
+        id, baslik: v.baslik.trim(),
         hedef: Math.max(1, +v.hedef || 1),
         birim: (v.birim || "kez").trim(),
-        mevcut: 0,
-        zaman: new Date().toISOString(),
+        mevcut: 0, zaman: new Date().toISOString(),
       });
       break;
     case "pomo-ayar": {
@@ -1437,7 +1311,6 @@ document.addEventListener("submit", e => {
       S.pomo.cycle = Math.max(2, +v.cycle || 4);
       S.pomo.sound = v.sound || "on";
       S.pomo.auto = v.auto || "off";
-      // Şu anki mod süresi değiştiyse, kalan süreyi güncelle (çalışmıyorsa)
       if (!pomo.calisiyor) {
         pomo.toplam = pomoSure(pomo.mod);
         pomo.kalan = pomo.toplam;
@@ -1498,6 +1371,7 @@ $("authForm").addEventListener("submit", async e => {
   $("aPass").value = "";
   basla();
 });
+
 function basla() {
   const h = db.users[db.aktif];
   if (!h) { db.aktif = null; dbYaz(); $("auth").hidden = false; return; }
@@ -1514,7 +1388,6 @@ function basla() {
   });
   S = h.data;
 
-  // Pomodoro başlangıç değerleri
   pomo.mod = "focus";
   pomo.toplam = pomoSure("focus");
   pomo.kalan = pomo.toplam;
@@ -1534,6 +1407,7 @@ function basla() {
   otomatikBildirimler();
   bildirimRozetiGuncelle();
 }
+
 function cikis() {
   clearTimeout(kaydetZamani);
   db.aktif = null;
