@@ -1,4 +1,4 @@
-console.log("[Planla] v8 + yeni ana ekran yüklendi");
+console.log("[Planla] v9 + Pomodoro yüklendi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -48,6 +48,9 @@ function avatarRenkUygula(el, i) {
   el.classList.add(AVATARLAR[i] ? AVATARLAR[i].renk : "a0");
 }
 
+// ============ POMODORO AYARLARI ============
+const POMO_DEFAULTS = { focus: 25, short: 5, long: 15, cycle: 4, sound: "on", auto: "off" };
+
 function yeniVeri(mod, name) {
   return {
     mode: mod,
@@ -58,6 +61,12 @@ function yeniVeri(mod, name) {
     taskFilter: "all",
     dersler: [],
     hedefler: [],
+    pomo: {
+      ...POMO_DEFAULTS,
+      // Bugün kaç pomodoro tamamlandı
+      stats: {}, // { "2026-10-05": { sayi: 3, dk: 75 } }
+      bind: null, // { tip: "gorev"|"ders", id: "..." }
+    },
   };
 }
 const DB_KEY = "planla-v3";
@@ -292,6 +301,293 @@ function gunListesi(el, k) {
       ).join("")
     : `<li class="empty">Kayıt yok. + butonuyla ekleyebilirsin.</li>`;
 }
+// ================= POMODORO =================
+let pomo = {
+  mod: "focus",        // "focus" | "short" | "long"
+  kalan: 25 * 60,      // saniye cinsinden kalan
+  toplam: 25 * 60,     // toplam süre (progress için)
+  calisiyor: false,
+  interval: null,
+  tur: 0,              // kaç odak tamamlandı (uzun mola için)
+};
+
+function pomoAyarlari() {
+  return (S && S.pomo) ? S.pomo : POMO_DEFAULTS;
+}
+
+function pomoSure(mod) {
+  const a = pomoAyarlari();
+  if (mod === "focus") return (+a.focus || 25) * 60;
+  if (mod === "short") return (+a.short || 5) * 60;
+  if (mod === "long") return (+a.long || 15) * 60;
+  return 25 * 60;
+}
+
+function pomoModEtiket(mod) {
+  return mod === "focus" ? "Odak" : mod === "short" ? "Kısa Mola" : "Uzun Mola";
+}
+
+function pomoBugun() {
+  if (!S || !S.pomo || !S.pomo.stats) return { sayi: 0, dk: 0 };
+  const b = S.pomo.stats[todayKey];
+  return b ? b : { sayi: 0, dk: 0 };
+}
+
+function pomoHaftaToplam() {
+  if (!S || !S.pomo || !S.pomo.stats) return 0;
+  const bugun = new Date();
+  const gunNo = bugun.getDay();
+  // Pazartesi başlangıç
+  const pazartesiFark = (gunNo === 0 ? -6 : 1 - gunNo);
+  let toplam = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(bugun);
+    d.setDate(bugun.getDate() + pazartesiFark + i);
+    const k = key(d.getFullYear(), d.getMonth(), d.getDate());
+    const stat = S.pomo.stats[k];
+    if (stat) toplam += stat.sayi;
+  }
+  return toplam;
+}
+
+function pomoStatsGuncelle() {
+  const b = pomoBugun();
+  const hafta = pomoHaftaToplam();
+  const bugunEl = $("pomoBugun");
+  const dkEl = $("pomoBugunDk");
+  const haftaEl = $("pomoHafta");
+  if (bugunEl) bugunEl.textContent = b.sayi;
+  if (dkEl) dkEl.textContent = b.dk;
+  if (haftaEl) haftaEl.textContent = hafta;
+}
+
+function pomoKaydet(tamamlananMod) {
+  if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
+  if (!S.pomo.stats) S.pomo.stats = {};
+  if (tamamlananMod === "focus") {
+    const b = S.pomo.stats[todayKey] || { sayi: 0, dk: 0 };
+    b.sayi += 1;
+    b.dk += (+pomoAyarlari().focus || 25);
+    S.pomo.stats[todayKey] = b;
+    pomo.tur += 1;
+    bildirimEkle("success", "Pomodoro tamamlandı 🍅", `Bir odak turu bitti. Toplam: ${b.sayi}`, "pomo-" + todayKey + "-" + b.sayi);
+  }
+  kaydet();
+}
+
+function pomoRender() {
+  const card = $("pomodoroCard");
+  const timeEl = $("pomoTime");
+  const labelEl = $("pomoModeLabel");
+  const ring = $("pomoRingFg");
+  if (!card || !timeEl) return;
+
+  // Mod göster
+  card.classList.remove("mode-focus", "mode-short", "mode-long");
+  card.classList.add("mode-" + pomo.mod);
+
+  // Süre
+  const dk = Math.floor(pomo.kalan / 60);
+  const sn = pomo.kalan % 60;
+  timeEl.textContent = `${pad(dk)}:${pad(sn)}`;
+  labelEl.textContent = pomoModEtiket(pomo.mod);
+
+  // Dairesel progress
+  if (ring) {
+    const r = 88;
+    const cevre = 2 * Math.PI * r;
+    ring.style.strokeDasharray = cevre;
+    const oran = pomo.toplam > 0 ? (pomo.kalan / pomo.toplam) : 1;
+    ring.style.strokeDashoffset = cevresiHesapla(cevre, oran);
+  }
+
+  // Başlat butonu
+  const startBtn = $("pomoStart");
+  const startLabel = $("pomoStartLabel");
+  if (startLabel) startLabel.textContent = pomo.calisiyor ? "Duraklat" : "Başlat";
+  if (startBtn) {
+    startBtn.innerHTML = pomo.calisiyor
+      ? `<svg width="18" height="18"><use href="#i-pause"/></svg><span id="pomoStartLabel">Duraklat</span>`
+      : `<svg width="18" height="18"><use href="#i-play"/></svg><span id="pomoStartLabel">Başlat</span>`;
+  }
+
+  pomoStatsGuncelle();
+  pomoBindRender();
+}
+
+function cevresiHesapla(cevre, oran) {
+  return cevre * (1 - oran);
+}
+
+function pomoModDegistir(mod) {
+  pomo.mod = mod;
+  pomo.toplam = pomoSure(mod);
+  pomo.kalan = pomo.toplam;
+  pomoDurdur();
+  document.querySelectorAll(".pomo-tab").forEach(t => {
+    t.classList.toggle("on", t.dataset.mode === mod);
+  });
+  pomoRender();
+}
+
+function pomoBaslat() {
+  if (pomo.calisiyor) return;
+  pomo.calisiyor = true;
+  pomoRender();
+  pomo.interval = setInterval(() => {
+    pomo.kalan -= 1;
+    if (pomo.kalan <= 0) {
+      pomoBitti();
+      return;
+    }
+    pomoRender();
+  }, 1000);
+}
+
+function pomoDurdur() {
+  pomo.calisiyor = false;
+  if (pomo.interval) clearInterval(pomo.interval);
+  pomo.interval = null;
+  pomoRender();
+}
+
+function pomoSifirla() {
+  pomoDurdur();
+  pomo.kalan = pomo.toplam;
+  pomoRender();
+}
+
+function pomoBitti() {
+  if (pomo.interval) clearInterval(pomo.interval);
+  pomo.interval = null;
+  pomo.calisiyor = false;
+
+  // Ses
+  if (pomoAyarlari().sound === "on") pomoSesCal();
+
+  // Bildirim
+  const etiket = pomoModEtiket(pomo.mod);
+
+  // İstatistik kaydet (sadece odak için)
+  if (pomo.mod === "focus") {
+    pomoKaydet("focus");
+  }
+
+  // Mod geçişi
+  const a = pomoAyarlari();
+  if (pomo.mod === "focus") {
+    // Uzun mola zamanı mı?
+    const turSayi = +a.cycle || 4;
+    if (pomo.tur > 0 && pomo.tur % turSayi === 0) {
+      pomoModDegistir("long");
+    } else {
+      pomoModDegistir("short");
+    }
+  } else {
+    // Mola bitti → odak
+    pomoModDegistir("focus");
+  }
+
+  // Otomatik geçiş
+  if (a.auto === "on") {
+    setTimeout(() => pomoBaslat(), 600);
+  }
+
+  // Sayfa başlığını güncelle
+  document.title = "Planla — Yapay Zeka Destekli Planlama";
+}
+
+function pomoSesCal() {
+  try {
+    // Basit beep — Web Audio API
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.type = "sine";
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + 0.8);
+    // İkinci beep
+    setTimeout(() => {
+      const o2 = ctx.createOscillator();
+      const g2 = ctx.createGain();
+      o2.connect(g2);
+      g2.connect(ctx.destination);
+      o2.type = "sine";
+      o2.frequency.value = 1100;
+      g2.gain.setValueAtTime(0.15, ctx.currentTime);
+      g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      o2.start(ctx.currentTime);
+      o2.stop(ctx.currentTime + 0.6);
+    }, 250);
+  } catch (e) {
+    // sessizce geç
+  }
+}
+
+function pomoBindRender() {
+  const btn = document.querySelector(".pomo-bind-btn");
+  if (!btn) return;
+  const label = $("pomoBindLabel");
+  if (!label) return;
+
+  if (S.pomo && S.pomo.bind) {
+    const { tip, id } = S.pomo.bind;
+    let ad = "";
+    if (tip === "gorev") {
+      const t = bul("tasks", id);
+      ad = t ? t.t : "";
+    } else if (tip === "ders") {
+      const d = bul("dersler", id);
+      ad = d ? d.ad : "";
+    }
+    label.textContent = ad || "Seçili";
+    btn.classList.add("active");
+  } else {
+    label.textContent = "Görev/Ders seç";
+    btn.classList.remove("active");
+  }
+}
+
+function pomoBindAc() {
+  const list = $("pomoBindList");
+  if (!list) return;
+
+  const aktifTab = document.querySelector(".pomo-bind-tab.on");
+  const tip = aktifTab ? aktifTab.dataset.bindTab : "gorev";
+
+  let items = [];
+  if (tip === "gorev") {
+    items = (S.tasks || []).filter(t => !t.done);
+    if (!items.length) {
+      list.innerHTML = `<p class="pomo-bind-empty">Bekleyen görev yok.</p>`;
+    } else {
+      list.innerHTML = items.map(t =>
+        `<button type="button" class="pomo-bind-item" data-pomo-bind="gorev" data-id="${t.id}">
+          <span class="pbi-dot"></span>
+          <span>${esc(t.t)}</span>
+        </button>`
+      ).join("");
+    }
+  } else {
+    items = (S.dersler || []);
+    if (!items.length) {
+      list.innerHTML = `<p class="pomo-bind-empty">Henüz ders yok.</p>`;
+    } else {
+      list.innerHTML = items.map(d =>
+        `<button type="button" class="pomo-bind-item ders" data-pomo-bind="ders" data-id="${d.id}">
+          <span class="pbi-dot"></span>
+          <span>${esc(d.ad)}${d.kod ? ` · ${esc(d.kod)}` : ""}</span>
+        </button>`
+      ).join("");
+    }
+  }
+}
+
 // ================= Ders Programı =================
 function dersSirala(a, b) { return saatDk(a.bas) - saatDk(b.bas); }
 function bugunDersler() {
@@ -361,7 +657,6 @@ function haftalikGridCiz() {
   grid.innerHTML = html;
 }
 
-// Mini ders grid (ana ekran)
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
   if (!el) return;
@@ -370,14 +665,12 @@ function miniDersGridCiz() {
   const miniSaatler = [9, 11, 13, 15, 17];
 
   let html = "";
-  // Başlık
   html += `<div class="mdg-head"></div>`;
   gunSirasi.forEach(g => {
     const bugun = g === bugunGunNo;
     html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
   });
 
-  // Saat satırları
   miniSaatler.forEach(saat => {
     html += `<div class="mdg-head" style="text-align:right;padding-right:2px">${pad(saat)}</div>`;
     gunSirasi.forEach(gunNo => {
@@ -450,7 +743,6 @@ function gorevlerCiz() {
   }
 }
 
-// Kanban (ana ekran)
 function kanbanCiz() {
   const todoEl = $("kanbanTodo");
   const doingEl = $("kanbanDoing");
@@ -497,45 +789,6 @@ function kanbanCiz() {
   doneEl.innerHTML = done.length
     ? done.slice(0, 5).map(t => renderItem(t, "done")).join("")
     : `<li class="kanban-empty">Tamamlanan yok</li>`;
-}
-
-// ================= Yaklaşan Etkinlikler =================
-function yaklasanCiz() {
-  const el = $("yaklasanList");
-  if (!el) return;
-
-  const yakin = [];
-  for (const d in S.events) {
-    if (d >= todayKey) S.events[d].forEach(e => yakin.push({ ...e, d }));
-  }
-  yakin.sort((a, b) => (a.d + a.time).localeCompare(b.d + b.time));
-
-  if (!yakin.length) {
-    el.innerHTML = `<li class="yaklasan-empty">Yaklaşan etkinlik yok</li>`;
-    return;
-  }
-
-  el.innerHTML = yakin.slice(0, 5).map(e => {
-    const [y, m, d] = e.d.split("-");
-    const gun = +d;
-    const ay = aylar[+m - 1].slice(0, 3);
-    const bugun = e.d === todayKey;
-    const cls = sinif[e.type] || "event";
-    const tip = e.type || "Etkinlik";
-    return `<li class="yaklasan-item ${cls} ${bugun ? "bugun" : ""}">
-      <div class="yaklasan-time">
-        <span class="yt-gun">${gun} ${ay}</span>
-        <span class="yt-saat">${esc(e.time)}</span>
-      </div>
-      <div class="yaklasan-body">
-        <div class="yb-baslik">${esc(e.t)}</div>
-        <div class="yb-meta">
-          <span>${esc(tip)}</span>
-        </div>
-      </div>
-      ${bugun ? `<span class="yaklasan-badge">Bugün</span>` : ""}
-    </li>`;
-  }).join("");
 }
 
 // ================= Hedefler =================
@@ -585,7 +838,7 @@ function ozetCiz() {
     : `<div class="ws-item">Bugün için plan yok 😌</div>`;
 }
 
-// ================= Çizim: ana fonksiyon =================
+// ================= Çizim =================
 function ciz() {
   if (!S) return;
 
@@ -678,20 +931,12 @@ function ciz() {
     `<li>${ad("skills", s.id, "n", s.n)}<input type="range" min="0" max="100" value="${s.p}" data-act="skill" data-id="${s.id}" style="accent-color:${renkler[(i + 4) % renkler.length]}"><span class="pct">%${s.p}</span>${delBtn("skills", s.id)}</li>`
   ).join("") || `<li class="empty">Henüz beceri yok.</li>`;
 
-  // Ana ekran mini görev listesi (artık yok, kanban var)
-  const homeTaskList = $("homeTaskList");
-  if (homeTaskList) {
-    homeTaskList.innerHTML = S.tasks.slice(0, 4).map(t =>
-      `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-t" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span></li>`
-    ).join("") || `<li class="empty">Henüz görev yok.</li>`;
-  }
-
   // Ana ekran kartları
   bildirimRozetiGuncelle();
   kanbanCiz();
-  yaklasanCiz();
   hedeflerCiz();
   miniDersGridCiz();
+  pomoRender();
 
   // Tam sayfa kartlar
   gorevlerCiz();
@@ -746,6 +991,92 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // Pomodoro mod sekmeleri
+  const pomoTab = e.target.closest(".pomo-tab");
+  if (pomoTab) {
+    e.preventDefault();
+    if (pomo.calisiyor) {
+      if (!confirm("Çalışan pomodoro durdurulacak. Devam edilsin mi?")) return;
+    }
+    pomoModDegistir(pomoTab.dataset.mode);
+    return;
+  }
+
+  // Pomodoro başlat/duraklat
+  if (e.target.closest("#pomoStart")) {
+    e.preventDefault();
+    if (pomo.calisiyor) pomoDurdur();
+    else pomoBaslat();
+    return;
+  }
+
+  // Pomodoro sıfırla
+  if (e.target.closest("#pomoReset")) {
+    e.preventDefault();
+    pomoSifirla();
+    return;
+  }
+
+  // Pomodoro atla
+  if (e.target.closest("#pomoSkip")) {
+    e.preventDefault();
+    pomoBitti();
+    return;
+  }
+
+  // Pomodoro bağla (görev/ders)
+  const bindBtn = e.target.closest(".pomo-bind-btn");
+  if (bindBtn) {
+    e.preventDefault();
+    pomoBindAc();
+    guvenliAc($("dlgPomoBind"));
+    return;
+  }
+
+  // Pomodoro bind tab değişimi
+  const bindTab = e.target.closest(".pomo-bind-tab");
+  if (bindTab) {
+    e.preventDefault();
+    document.querySelectorAll(".pomo-bind-tab").forEach(t => t.classList.toggle("on", t === bindTab));
+    pomoBindAc();
+    return;
+  }
+
+  // Pomodoro bind item seçimi
+  const bindItem = e.target.closest("[data-pomo-bind]");
+  if (bindItem) {
+    e.preventDefault();
+    const tip = bindItem.dataset.pomoBind;
+    const id = bindItem.dataset.id;
+    if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
+    S.pomo.bind = { tip, id };
+    $("dlgPomoBind").close();
+    pomoBindRender();
+    kaydet();
+    return;
+  }
+
+  // Pomodoro serbest mod
+  if (e.target.closest("#pomoBindFree")) {
+    e.preventDefault();
+    if (S.pomo) S.pomo.bind = null;
+    $("dlgPomoBind").close();
+    pomoBindRender();
+    kaydet();
+    return;
+  }
+
+  // Pomodoro istatistik sıfırla
+  if (e.target.closest("#pomoResetStats")) {
+    e.preventDefault();
+    if (confirm("Tüm pomodoro istatistikleri silinecek. Emin misin?")) {
+      if (S.pomo) S.pomo.stats = {};
+      pomoStatsGuncelle();
+      kaydet();
+    }
+    return;
+  }
+
   // Görev filtresi
   const filterBtn = e.target.closest(".filter-btn");
   if (filterBtn) {
@@ -769,7 +1100,7 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Kanban butonları — devam et, bitir, geri al
+  // Kanban butonları
   const startBtn = e.target.closest("[data-act='task-start']");
   if (startBtn) {
     e.preventDefault();
@@ -870,6 +1201,16 @@ document.addEventListener("click", e => {
       const selEl = form.querySelector("select[name=type]");
       if (selEl) selEl.innerHTML = M().tur.map(t => `<option>${t}</option>`).join("");
     }
+    // Pomodoro ayar modalı — mevcut değerleri doldur
+    if (opener.dataset.open === "pomodoroAyarDlg") {
+      const a = pomoAyarlari();
+      form.querySelector("[name=focus]").value = a.focus;
+      form.querySelector("[name=short]").value = a.short;
+      form.querySelector("[name=long]").value = a.long;
+      form.querySelector("[name=cycle]").value = a.cycle;
+      form.querySelector("[name=sound]").value = a.sound;
+      form.querySelector("[name=auto]").value = a.auto;
+    }
     guvenliAc(dlg);
     return;
   }
@@ -897,7 +1238,7 @@ document.addEventListener("click", e => {
     return ciz();
   }
 
-  // Satır içi aksiyonlar (del, mini, big, apply)
+  // Satır içi aksiyonlar
   const b = e.target.closest("[data-act]");
   if (!b) return;
   if (["done", "grade", "status", "skill", "task-toggle", "ders-edit",
@@ -1022,7 +1363,7 @@ function adDegistir(e) {
 document.addEventListener("dblclick", adDegistir);
 
 // ================= Form gönderimleri =================
-const AUTOCLOSE = ["dlgEvent", "dlgLink", "dlgCourse", "dlgDeadline", "dlgJob", "dlgSkill", "dlgNote", "dlgDers", "dlgHedef"];
+const AUTOCLOSE = ["dlgEvent", "dlgLink", "dlgCourse", "dlgDeadline", "dlgJob", "dlgSkill", "dlgNote", "dlgDers", "dlgHedef", "pomodoroAyarDlg"];
 document.addEventListener("submit", e => {
   e.preventDefault();
   if (!e.target.dataset || !e.target.dataset.form || !S) return;
@@ -1088,6 +1429,22 @@ document.addEventListener("submit", e => {
         zaman: new Date().toISOString(),
       });
       break;
+    case "pomo-ayar": {
+      if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
+      S.pomo.focus = Math.max(1, +v.focus || 25);
+      S.pomo.short = Math.max(1, +v.short || 5);
+      S.pomo.long = Math.max(1, +v.long || 15);
+      S.pomo.cycle = Math.max(2, +v.cycle || 4);
+      S.pomo.sound = v.sound || "on";
+      S.pomo.auto = v.auto || "off";
+      // Şu anki mod süresi değiştiyse, kalan süreyi güncelle (çalışmıyorsa)
+      if (!pomo.calisiyor) {
+        pomo.toplam = pomoSure(pomo.mod);
+        pomo.kalan = pomo.toplam;
+      }
+      pomoRender();
+      break;
+    }
     default: return;
   }
   f.reset();
@@ -1150,11 +1507,22 @@ function basla() {
   if (!h.data.taskFilter) h.data.taskFilter = "all";
   if (!Array.isArray(h.data.dersler)) h.data.dersler = [];
   if (!Array.isArray(h.data.hedefler)) h.data.hedefler = [];
-  // Eski görevleri yeni alanlarla güncelle
+  if (!h.data.pomo) h.data.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
+  if (!h.data.pomo.stats) h.data.pomo.stats = {};
   (h.data.tasks || []).forEach(t => {
     if (typeof t.doing !== "boolean") t.doing = false;
   });
   S = h.data;
+
+  // Pomodoro başlangıç değerleri
+  pomo.mod = "focus";
+  pomo.toplam = pomoSure("focus");
+  pomo.kalan = pomo.toplam;
+  pomo.tur = 0;
+  pomo.calisiyor = false;
+  if (pomo.interval) clearInterval(pomo.interval);
+  pomo.interval = null;
+
   sel = todayKey;
   view = { y: now.getFullYear(), m: now.getMonth() };
   q = "";
@@ -1171,9 +1539,11 @@ function cikis() {
   db.aktif = null;
   dbYaz();
   S = null;
+  if (pomo.interval) clearInterval(pomo.interval);
   location.reload();
 }
 
+// ================= Başlangıç =================
 try {
   authCiz();
   if (db.aktif && db.users[db.aktif]) basla();
