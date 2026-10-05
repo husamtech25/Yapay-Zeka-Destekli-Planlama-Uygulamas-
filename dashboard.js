@@ -1,4 +1,4 @@
-console.log("[Planla] v7 + ders programı düzeltildi");
+console.log("[Planla] v8 + yeni ana ekran yüklendi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -9,6 +9,7 @@ const MODLAR = {
 const sinif = { Ders: "course", Toplantı: "course", Etkinlik: "event", Ödev: "hw", Görev: "hw" };
 const ONCELIK = { low: "Düşük", mid: "Orta", high: "Yüksek" };
 const GUNLER = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+const GUNLER_KISA = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
 
 const aylar = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 const gunlerKisa = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
@@ -56,10 +57,11 @@ function yeniVeri(mod, name) {
     notifications: [],
     taskFilter: "all",
     dersler: [],
+    hedefler: [],
   };
 }
 const DB_KEY = "planla-v3";
-const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler"];
+const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler"];
 const gecerli = v => v && MODLAR[v.mode] && typeof v.name === "string" && v.events && typeof v.events === "object" && DIZI.every(k => Array.isArray(v[k]));
 function dbOku() {
   try {
@@ -145,6 +147,11 @@ function avatarUygula() {
   const i = (typeof S.avatar === "number") ? S.avatar : 0;
   el.innerHTML = avatarHTML(i);
   avatarRenkUygula(el, i);
+  const xl = $("avatarXL");
+  if (xl) {
+    xl.innerHTML = avatarHTML(i);
+    avatarRenkUygula(xl, i);
+  }
 }
 
 function guvenliAc(dlg) {
@@ -171,6 +178,7 @@ function acProfil() {
   guvenliAc($("profileDlg"));
 }
 
+// ================= Bildirimler =================
 function bildirimEkle(tip, baslik, mesaj, ozelId) {
   if (!S) return;
   S.notifications = S.notifications || [];
@@ -285,52 +293,17 @@ function gunListesi(el, k) {
     : `<li class="empty">Kayıt yok. + butonuyla ekleyebilirsin.</li>`;
 }
 // ================= Ders Programı =================
-function dersOncelikSirala(a, b) {
-  return saatDk(a.bas) - saatDk(b.bas);
-}
-
+function dersSirala(a, b) { return saatDk(a.bas) - saatDk(b.bas); }
 function bugunDersler() {
-  return (S.dersler || [])
-    .filter(d => +d.gun === bugunGunNo)
-    .sort(dersOncelikSirala);
+  return (S.dersler || []).filter(d => +d.gun === bugunGunNo).sort(dersSirala);
 }
 
-function bugunDersleriCiz() {
-  const el = $("dersBugunList");
-  if (!el) return;
-  const liste = bugunDersler();
-  if (!liste.length) {
-    el.innerHTML = `<li class="ders-bugun-empty">Bugün dersin yok 🎉</li>`;
-    return;
-  }
-  el.innerHTML = liste.map(d =>
-    `<li class="ders-bugun-item ${d.renk || "teal"}" data-act="ders-edit" data-id="${d.id}">
-      <div class="db-saat">
-        ${esc(d.bas)} - ${esc(d.bit)}
-      </div>
-      <div class="db-body">
-        <div class="db-ad">${esc(d.ad)}</div>
-        <div class="db-meta">
-          ${d.kod ? `<span>${esc(d.kod)}</span>` : ""}
-          ${d.hoca ? `<span><svg width="11" height="11"><use href="#i-user"/></svg> ${esc(d.hoca)}</span>` : ""}
-          ${d.sinif ? `<span><svg width="11" height="11"><use href="#i-map-pin"/></svg> ${esc(d.sinif)}</span>` : ""}
-        </div>
-      </div>
-      <button type="button" class="x" data-act="del" data-list="dersler" data-id="${d.id}" aria-label="Sil" onclick="event.stopPropagation()">
-        <svg width="14" height="14"><use href="#i-x"/></svg>
-      </button>
-    </li>`
-  ).join("");
-}
-
-// Haftalık grid
 const SAATLER = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 function haftalikGridCiz() {
   const grid = $("haftalikGrid");
   const empty = $("dersEmpty");
   if (!grid) return;
-
   const dersler = S.dersler || [];
 
   $("statDersSayi").textContent = dersler.length;
@@ -346,13 +319,9 @@ function haftalikGridCiz() {
   if (empty) empty.hidden = true;
 
   const gunSirasi = [1, 2, 3, 4, 5, 6, 0];
-
-  // Grid template
   grid.style.gridTemplateRows = `40px repeat(${SAATLER.length}, 60px)`;
 
   let html = "";
-
-  // Başlık satırı
   html += `<div class="hg-bos" style="grid-row:1;grid-column:1"></div>`;
   gunSirasi.forEach((g, idx) => {
     const bugun = g === bugunGunNo;
@@ -360,7 +329,6 @@ function haftalikGridCiz() {
     html += `<div class="hg-gun-head ${bugun ? "bugun" : ""}" style="grid-row:1;grid-column:${col}">${GUNLER[g].slice(0, 3)}</div>`;
   });
 
-  // Saat satırları — boş hücreler
   SAATLER.forEach((saat, satirIdx) => {
     const row = satirIdx + 2;
     html += `<div class="hg-saat" style="grid-row:${row};grid-column:1">${pad(saat)}:00</div>`;
@@ -370,25 +338,18 @@ function haftalikGridCiz() {
     });
   });
 
-  // Ders bloklarını yerleştir
   dersler.forEach(d => {
     const basSaat = +d.bas.split(":")[0];
     const bitSaat = +d.bit.split(":")[0];
     const bitDk = +d.bit.split(":")[1] || 0;
-
     const basIdx = SAATLER.indexOf(basSaat);
     if (basIdx < 0) return;
-
-    // Bitiş dakikası 0 değilse bir saat daha ekle
     const bitSaatEtkin = bitDk > 0 ? bitSaat + 1 : bitSaat;
     const sure = Math.max(1, bitSaatEtkin - basSaat);
-
     const row = basIdx + 2;
     const col = gunSirasi.indexOf(+d.gun) + 2;
-
     html += `<div class="hg-ders ${d.renk || "teal"}"
-      data-act="ders-edit"
-      data-id="${d.id}"
+      data-act="ders-edit" data-id="${d.id}"
       style="grid-row:${row} / span ${sure};grid-column:${col}"
       title="${esc(d.ad)} (${esc(d.bas)}-${esc(d.bit)})">
       <div class="hg-ders-ad">${esc(d.ad)}</div>
@@ -400,10 +361,39 @@ function haftalikGridCiz() {
   grid.innerHTML = html;
 }
 
-// ================= Görevler tam sayfa =================
-function gorevOncelik(p) {
-  return ONCELIK[p] ? p : "mid";
+// Mini ders grid (ana ekran)
+function miniDersGridCiz() {
+  const el = $("miniDersGrid");
+  if (!el) return;
+
+  const gunSirasi = [1, 2, 3, 4, 5];
+  const miniSaatler = [9, 11, 13, 15, 17];
+
+  let html = "";
+  // Başlık
+  html += `<div class="mdg-head"></div>`;
+  gunSirasi.forEach(g => {
+    const bugun = g === bugunGunNo;
+    html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
+  });
+
+  // Saat satırları
+  miniSaatler.forEach(saat => {
+    html += `<div class="mdg-head" style="text-align:right;padding-right:2px">${pad(saat)}</div>`;
+    gunSirasi.forEach(gunNo => {
+      const ders = (S.dersler || []).find(d => +d.gun === gunNo && +d.bas.split(":")[0] === saat);
+      if (ders) {
+        html += `<div class="mdg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" title="${esc(ders.ad)}">${esc(ders.ad.slice(0, 8))}</div>`;
+      } else {
+        html += `<div class="mdg-cell"></div>`;
+      }
+    });
+  });
+  el.innerHTML = html;
 }
+
+// ================= Görevler =================
+function gorevOncelik(p) { return ONCELIK[p] ? p : "mid"; }
 
 function gorevlerCiz() {
   if (!S) return;
@@ -460,6 +450,141 @@ function gorevlerCiz() {
   }
 }
 
+// Kanban (ana ekran)
+function kanbanCiz() {
+  const todoEl = $("kanbanTodo");
+  const doingEl = $("kanbanDoing");
+  const doneEl = $("kanbanDone");
+  if (!todoEl) return;
+
+  const tum = S.tasks || [];
+  const todo = tum.filter(t => !t.done && !t.doing);
+  const doing = tum.filter(t => !t.done && t.doing);
+  const done = tum.filter(t => t.done);
+
+  $("kanbanTodoCount").textContent = todo.length;
+  $("kanbanDoingCount").textContent = doing.length;
+  $("kanbanDoneCount").textContent = done.length;
+
+  const renderItem = (t, kolon) => {
+    const p = gorevOncelik(t.p);
+    let aksiyonlar = "";
+    if (kolon === "todo") {
+      aksiyonlar = `<button type="button" class="ki-btn start" data-act="task-start" data-id="${t.id}">Başla</button>
+        <button type="button" class="ki-btn x-btn" data-act="del" data-list="tasks" data-id="${t.id}"><svg width="12" height="12"><use href="#i-x"/></svg></button>`;
+    } else if (kolon === "doing") {
+      aksiyonlar = `<button type="button" class="ki-btn done-btn" data-act="task-done" data-id="${t.id}">Bitti</button>
+        <button type="button" class="ki-btn undo" data-act="task-undo" data-id="${t.id}">Geri</button>`;
+    } else {
+      aksiyonlar = `<button type="button" class="ki-btn undo" data-act="task-undo" data-id="${t.id}">Geri Al</button>
+        <button type="button" class="ki-btn x-btn" data-act="del" data-list="tasks" data-id="${t.id}"><svg width="12" height="12"><use href="#i-x"/></svg></button>`;
+    }
+    return `<li class="kanban-item ${t.done ? "done" : ""}">
+      <div class="ki-text">${esc(t.t)}</div>
+      <div class="ki-meta">
+        <span class="ki-pri pri-${p}">${ONCELIK[p]}</span>
+        <span class="ki-actions">${aksiyonlar}</span>
+      </div>
+    </li>`;
+  };
+
+  todoEl.innerHTML = todo.length
+    ? todo.slice(0, 5).map(t => renderItem(t, "todo")).join("")
+    : `<li class="kanban-empty">Görev yok</li>`;
+  doingEl.innerHTML = doing.length
+    ? doing.slice(0, 5).map(t => renderItem(t, "doing")).join("")
+    : `<li class="kanban-empty">Devam eden yok</li>`;
+  doneEl.innerHTML = done.length
+    ? done.slice(0, 5).map(t => renderItem(t, "done")).join("")
+    : `<li class="kanban-empty">Tamamlanan yok</li>`;
+}
+
+// ================= Yaklaşan Etkinlikler =================
+function yaklasanCiz() {
+  const el = $("yaklasanList");
+  if (!el) return;
+
+  const yakin = [];
+  for (const d in S.events) {
+    if (d >= todayKey) S.events[d].forEach(e => yakin.push({ ...e, d }));
+  }
+  yakin.sort((a, b) => (a.d + a.time).localeCompare(b.d + b.time));
+
+  if (!yakin.length) {
+    el.innerHTML = `<li class="yaklasan-empty">Yaklaşan etkinlik yok</li>`;
+    return;
+  }
+
+  el.innerHTML = yakin.slice(0, 5).map(e => {
+    const [y, m, d] = e.d.split("-");
+    const gun = +d;
+    const ay = aylar[+m - 1].slice(0, 3);
+    const bugun = e.d === todayKey;
+    const cls = sinif[e.type] || "event";
+    const tip = e.type || "Etkinlik";
+    return `<li class="yaklasan-item ${cls} ${bugun ? "bugun" : ""}">
+      <div class="yaklasan-time">
+        <span class="yt-gun">${gun} ${ay}</span>
+        <span class="yt-saat">${esc(e.time)}</span>
+      </div>
+      <div class="yaklasan-body">
+        <div class="yb-baslik">${esc(e.t)}</div>
+        <div class="yb-meta">
+          <span>${esc(tip)}</span>
+        </div>
+      </div>
+      ${bugun ? `<span class="yaklasan-badge">Bugün</span>` : ""}
+    </li>`;
+  }).join("");
+}
+
+// ================= Hedefler =================
+function hedeflerCiz() {
+  const el = $("hedefList");
+  if (!el) return;
+  const liste = S.hedefler || [];
+  if (!liste.length) {
+    el.innerHTML = `<li class="hedef-empty">Henüz hedef yok. + butonuyla ekle.</li>`;
+    return;
+  }
+  el.innerHTML = liste.map(h => {
+    const yuzde = Math.min(100, Math.round((h.mevcut / h.hedef) * 100));
+    return `<li class="hedef-item" data-id="${h.id}">
+      <div class="hedef-head">
+        <span class="hedef-baslik">${esc(h.baslik)}</span>
+        <span class="hedef-sayi">${h.mevcut}/${h.hedef} ${esc(h.birim || "")}</span>
+      </div>
+      <div class="hedef-bar"><span style="width:${yuzde}%"></span></div>
+      <div class="hedef-actions">
+        <button type="button" class="hedef-btn minus" data-act="hedef-minus" data-id="${h.id}">−1</button>
+        <button type="button" class="hedef-btn" data-act="hedef-plus" data-id="${h.id}">+1</button>
+        <button type="button" class="hedef-btn del" data-act="del" data-list="hedefler" data-id="${h.id}">
+          <svg width="12" height="12"><use href="#i-trash"/></svg>
+        </button>
+      </div>
+    </li>`;
+  }).join("");
+}
+
+// ================= Hoş Geldin Özeti =================
+function ozetCiz() {
+  const el = $("welcomeSummary");
+  if (!el) return;
+
+  const bugunEtkinlik = (S.events[todayKey] || []).length;
+  const bekleyenGorev = (S.tasks || []).filter(t => !t.done).length;
+  const bugunDers = bugunDersler().length;
+
+  const parcalar = [];
+  if (bugunDers) parcalar.push(`<div class="ws-item"><b>${bugunDers}</b> ders</div>`);
+  if (bugunEtkinlik) parcalar.push(`<div class="ws-item"><b>${bugunEtkinlik}</b> etkinlik</div>`);
+  if (bekleyenGorev) parcalar.push(`<div class="ws-item"><b>${bekleyenGorev}</b> görev</div>`);
+
+  el.innerHTML = parcalar.length
+    ? parcalar.join("")
+    : `<div class="ws-item">Bugün için plan yok 😌</div>`;
+}
+
 // ================= Çizim: ana fonksiyon =================
 function ciz() {
   if (!S) return;
@@ -470,6 +595,7 @@ function ciz() {
   $("welcomeDate").textContent = `${gunlerKisa[bugun.getDay()]}, ${bugun.getDate()} ${aylar[bugun.getMonth()]} ${bugun.getFullYear()}`;
 
   avatarUygula();
+  ozetCiz();
 
   // Mini takvim
   $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
@@ -552,41 +678,23 @@ function ciz() {
     `<li>${ad("skills", s.id, "n", s.n)}<input type="range" min="0" max="100" value="${s.p}" data-act="skill" data-id="${s.id}" style="accent-color:${renkler[(i + 4) % renkler.length]}"><span class="pct">%${s.p}</span>${delBtn("skills", s.id)}</li>`
   ).join("") || `<li class="empty">Henüz beceri yok.</li>`;
 
-  // Yaklaşanlar
-  const yakin = [];
-  for (const d in S.events) {
-    if (d >= todayKey) S.events[d].forEach(e => yakin.push({ ...e, d }));
+  // Ana ekran mini görev listesi (artık yok, kanban var)
+  const homeTaskList = $("homeTaskList");
+  if (homeTaskList) {
+    homeTaskList.innerHTML = S.tasks.slice(0, 4).map(t =>
+      `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-t" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span></li>`
+    ).join("") || `<li class="empty">Henüz görev yok.</li>`;
   }
-  yakin.sort((a, b) => (a.d + a.time).localeCompare(b.d + b.time));
-  $("upcoming").innerHTML = yakin.slice(0, 4).map(e =>
-    `<li><span><b>${esc(e.t)}</b></span><span>${gunEtiket(e.d)}, ${esc(e.time)}</span></li>`
-  ).join("") || `<li class="empty">Yaklaşan kayıt yok.</li>`;
-  $("applied").innerHTML = S.jobs.filter(j => j.st).map(j =>
-    `<li><span><b>${esc(j.n)}</b></span><span class="badge">${j.st}</span></li>`
-  ).join("") || `<li class="empty">Henüz başvuru yok.</li>`;
 
+  // Ana ekran kartları
   bildirimRozetiGuncelle();
+  kanbanCiz();
+  yaklasanCiz();
+  hedeflerCiz();
+  miniDersGridCiz();
 
-  // Notlar
-  const notlar = (S.notes || []).filter(n => !q || eslesir(n.title) || eslesir(n.text));
-  $("notes").innerHTML = notlar.length
-    ? notlar.map(n =>
-        `<div class="note ${n.color || "yellow"}">
-          <div class="note-title">${esc(n.title)}</div>
-          <div class="note-text">${esc(n.text)}</div>
-          <button type="button" class="x" data-act="del" data-list="notes" data-id="${n.id}" aria-label="Sil">
-            <svg width="14" height="14"><use href="#i-x"/></svg>
-          </button>
-        </div>`
-      ).join("")
-    : `<p class="notes-empty">Henüz not yok. + butonuyla ekleyebilirsin.</p>`;
-
-  $("homeTaskList").innerHTML = S.tasks.slice(0, 4).map(t =>
-    `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-t" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span></li>`
-  ).join("") || `<li class="empty">Henüz görev yok.</li>`;
-
+  // Tam sayfa kartlar
   gorevlerCiz();
-  bugunDersleriCiz();
   haftalikGridCiz();
 
   kaydet();
@@ -638,6 +746,7 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // Görev filtresi
   const filterBtn = e.target.closest(".filter-btn");
   if (filterBtn) {
     S.taskFilter = filterBtn.dataset.filter;
@@ -647,17 +756,59 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // Tamamlananları temizle
   if (e.target.closest("#btnClearDone")) {
     const sayi = (S.tasks || []).filter(t => t.done).length;
     if (sayi === 0) { alert("Silinecek tamamlanmış görev yok."); return; }
     if (confirm(`${sayi} tamamlanmış görev silinecek. Emin misin?`)) {
       S.tasks = S.tasks.filter(t => !t.done);
       gorevlerCiz();
+      kanbanCiz();
       kaydet();
     }
     return;
   }
 
+  // Kanban butonları — devam et, bitir, geri al
+  const startBtn = e.target.closest("[data-act='task-start']");
+  if (startBtn) {
+    e.preventDefault();
+    const t = bul("tasks", startBtn.dataset.id);
+    if (t) { t.doing = true; kanbanCiz(); gorevlerCiz(); kaydet(); }
+    return;
+  }
+  const doneBtn2 = e.target.closest("[data-act='task-done']");
+  if (doneBtn2) {
+    e.preventDefault();
+    const t = bul("tasks", doneBtn2.dataset.id);
+    if (t) { t.done = true; t.doing = false; kanbanCiz(); gorevlerCiz(); kaydet(); }
+    return;
+  }
+  const undoBtn = e.target.closest("[data-act='task-undo']");
+  if (undoBtn) {
+    e.preventDefault();
+    const t = bul("tasks", undoBtn.dataset.id);
+    if (t) { t.done = false; t.doing = false; kanbanCiz(); gorevlerCiz(); kaydet(); }
+    return;
+  }
+
+  // Hedef +1 / -1
+  const hedefPlus = e.target.closest("[data-act='hedef-plus']");
+  if (hedefPlus) {
+    e.preventDefault();
+    const h = bul("hedefler", hedefPlus.dataset.id);
+    if (h) { h.mevcut = Math.min(h.hedef, h.mevcut + 1); hedeflerCiz(); kaydet(); }
+    return;
+  }
+  const hedefMinus = e.target.closest("[data-act='hedef-minus']");
+  if (hedefMinus) {
+    e.preventDefault();
+    const h = bul("hedefler", hedefMinus.dataset.id);
+    if (h) { h.mevcut = Math.max(0, h.mevcut - 1); hedeflerCiz(); kaydet(); }
+    return;
+  }
+
+  // Modal kapatma
   const closeBtn = e.target.closest("[data-dialog-close]");
   if (closeBtn) {
     const d = closeBtn.closest("dialog");
@@ -665,6 +816,7 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // Avatar seçimi
   const avBtn = e.target.closest("[data-avatar]");
   if (avBtn) {
     e.preventDefault();
@@ -701,6 +853,7 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // Modal açma (data-open)
   const opener = e.target.closest("[data-open]");
   if (opener) {
     e.preventDefault();
@@ -721,6 +874,7 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // Sidebar data-dlg (ayarlar)
   const dlgBtn = e.target.closest("[data-dlg]");
   if (dlgBtn) {
     e.preventDefault();
@@ -731,6 +885,7 @@ document.addEventListener("click", e => {
     return guvenliAc($(dlgBtn.dataset.dlg));
   }
 
+  // Görünüm değiştir
   const nav = e.target.closest("[data-view]");
   if (nav) {
     e.preventDefault();
@@ -742,9 +897,11 @@ document.addEventListener("click", e => {
     return ciz();
   }
 
+  // Satır içi aksiyonlar (del, mini, big, apply)
   const b = e.target.closest("[data-act]");
   if (!b) return;
-  if (["done", "grade", "status", "skill", "task-toggle", "ders-edit"].includes(b.dataset.act)) return;
+  if (["done", "grade", "status", "skill", "task-toggle", "ders-edit",
+       "task-start", "task-done", "task-undo", "hedef-plus", "hedef-minus"].includes(b.dataset.act)) return;
   e.preventDefault();
   const { act, id, list } = b.dataset;
   if (act === "mini") {
@@ -759,6 +916,7 @@ document.addEventListener("click", e => {
   ciz();
 });
 
+// ================= Ay gezinme =================
 const ayGit = d => {
   view.m += d;
   if (view.m < 0) { view.m = 11; view.y--; }
@@ -774,6 +932,7 @@ $("bToday").onclick = () => {
 };
 $("closeSettings").onclick = () => $("settingsDlg").close();
 
+// ================= Arama =================
 let aramaZamani;
 $("q").oninput = e => {
   q = e.target.value.toLowerCase();
@@ -781,6 +940,7 @@ $("q").oninput = e => {
   aramaZamani = setTimeout(ciz, 150);
 };
 
+// ================= Mini takvim katla/aç =================
 $("miniCalToggle").onclick = () => {
   const mc = $("miniCal");
   const collapsed = mc.dataset.collapsed === "true";
@@ -788,6 +948,7 @@ $("miniCalToggle").onclick = () => {
   $("miniCalToggle").setAttribute("aria-expanded", String(collapsed));
 };
 
+// ================= Ayarlar =================
 $("setName").onchange = e => {
   if (e.target.value.trim()) { S.name = e.target.value.trim(); ciz(); }
 };
@@ -799,6 +960,7 @@ $("reset").onclick = () => {
   }
 };
 
+// ================= Profil =================
 $("userBox").onclick = () => acProfil();
 
 $("profileSave").onclick = () => {
@@ -812,6 +974,7 @@ $("profileSave").onclick = () => {
   kaydet();
 };
 
+// ================= Change olayları =================
 document.addEventListener("change", e => {
   const act = e.target.dataset ? e.target.dataset.act : null;
   const id = e.target.dataset ? e.target.dataset.id : null;
@@ -825,7 +988,11 @@ document.addEventListener("change", e => {
     const it = bul("tasks", id); if (it) it.done = e.target.checked;
   } else if (act === "task-toggle") {
     const it = bul("tasks", id);
-    if (it) { it.done = e.target.checked; gorevlerCiz(); kaydet(); return; }
+    if (it) {
+      it.done = e.target.checked;
+      if (it.done) it.doing = false;
+      gorevlerCiz(); kanbanCiz(); kaydet(); return;
+    }
   } else return;
   ciz();
 });
@@ -839,6 +1006,7 @@ document.addEventListener("input", e => {
   kaydet();
 });
 
+// ================= Ad değiştirme (çift tıkla) =================
 function adDegistir(e) {
   const el = e.target.closest("[data-rename]");
   if (!el) return;
@@ -848,12 +1016,13 @@ function adDegistir(e) {
   if (yeni && yeni.trim()) {
     item[el.dataset.field] = yeni.trim();
     ciz();
-    if (el.dataset.list === "tasks") gorevlerCiz();
+    if (el.dataset.list === "tasks") { gorevlerCiz(); kanbanCiz(); }
   }
 }
 document.addEventListener("dblclick", adDegistir);
 
-const AUTOCLOSE = ["dlgEvent", "dlgLink", "dlgCourse", "dlgDeadline", "dlgJob", "dlgSkill", "dlgNote", "dlgDers"];
+// ================= Form gönderimleri =================
+const AUTOCLOSE = ["dlgEvent", "dlgLink", "dlgCourse", "dlgDeadline", "dlgJob", "dlgSkill", "dlgNote", "dlgDers", "dlgHedef"];
 document.addEventListener("submit", e => {
   e.preventDefault();
   if (!e.target.dataset || !e.target.dataset.form || !S) return;
@@ -880,10 +1049,10 @@ document.addEventListener("submit", e => {
       S.skills.push({ id, n: v.n.trim(), p: 50 });
       break;
     case "task":
-      S.tasks.push({ id, t: v.t.trim(), done: false, p: "mid", zaman: new Date().toISOString() });
+      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: "mid", zaman: new Date().toISOString() });
       break;
     case "task-quick":
-      S.tasks.push({ id, t: v.t.trim(), done: false, p: v.p || "mid", zaman: new Date().toISOString() });
+      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", zaman: new Date().toISOString() });
       break;
     case "note":
       S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" });
@@ -905,13 +1074,20 @@ document.addEventListener("submit", e => {
         notlar: (v.notlar || "").trim(),
       };
       const idx = S.dersler.findIndex(d => d.id === id);
-      if (idx >= 0) {
-        S.dersler[idx] = ders;
-      } else {
-        S.dersler.push(ders);
-      }
+      if (idx >= 0) S.dersler[idx] = ders;
+      else S.dersler.push(ders);
       break;
     }
+    case "hedef":
+      S.hedefler.push({
+        id,
+        baslik: v.baslik.trim(),
+        hedef: Math.max(1, +v.hedef || 1),
+        birim: (v.birim || "kez").trim(),
+        mevcut: 0,
+        zaman: new Date().toISOString(),
+      });
+      break;
     default: return;
   }
   f.reset();
@@ -920,13 +1096,16 @@ document.addEventListener("submit", e => {
   ciz();
 });
 
+// Backdrop'a tıklayınca kapat
 document.addEventListener("click", e => { if (e.target.tagName === "DIALOG") e.target.close(); });
 
+// Gece yarısı geçince yenile
 document.addEventListener("visibilitychange", () => {
   const d = new Date();
   if (!document.hidden && key(d.getFullYear(), d.getMonth(), d.getDate()) !== todayKey) location.reload();
 });
 
+// ================= Giriş / çıkış =================
 function authCiz() {
   document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("cur", b.dataset.tab === sekme));
   $("regOnly").hidden = sekme !== "reg";
@@ -970,6 +1149,11 @@ function basla() {
   if (!Array.isArray(h.data.notifications)) h.data.notifications = [];
   if (!h.data.taskFilter) h.data.taskFilter = "all";
   if (!Array.isArray(h.data.dersler)) h.data.dersler = [];
+  if (!Array.isArray(h.data.hedefler)) h.data.hedefler = [];
+  // Eski görevleri yeni alanlarla güncelle
+  (h.data.tasks || []).forEach(t => {
+    if (typeof t.doing !== "boolean") t.doing = false;
+  });
   S = h.data;
   sel = todayKey;
   view = { y: now.getFullYear(), m: now.getMonth() };
