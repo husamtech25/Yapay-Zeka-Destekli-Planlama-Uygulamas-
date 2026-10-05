@@ -82,10 +82,9 @@
         <input type="search" id="q" placeholder="Ara... (etkinlik, ders, görev)" aria-label="Ara">
       </div>
       <div class="user">
-        <button type="button" class="icon-btn bell" aria-label="Bildirimler">
+        <button type="button" class="icon-btn bell" id="bellBtn" aria-label="Bildirimler">
           <svg width="20" height="20"><use href="#i-bell"/></svg><i id="bell">0</i>
         </button>
-        <a href="#" class="icon-btn" data-dlg="tasks" aria-label="Görevler"><svg width="20" height="20"><use href="#i-check"/></svg></a>
         <a href="#" class="icon-btn" data-dlg="settingsDlg" aria-label="Ayarlar"><svg width="20" height="20"><use href="#i-settings"/></svg></a>
         <button type="button" class="profile" id="userBox" title="Profil">
           <span class="avatar" id="avatar">?</span>
@@ -200,6 +199,18 @@
         </section>
       </div>
     </main>
+  </div>
+
+  <!-- ============ BİLDİRİM PANELİ ============ -->
+  <div class="notif-panel" id="notifPanel" aria-hidden="true">
+    <div class="notif-head">
+      <h3>Bildirimler</h3>
+      <button type="button" class="icon-close" id="notifClose" aria-label="Kapat"><svg width="16" height="16"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="notif-list" id="notifList"></div>
+    <div class="notif-foot">
+      <button type="button" class="chip light-chip" id="notifClear">Tümünü temizle</button>
+    </div>
   </div>
 
   <!-- MODAL: Görevler -->
