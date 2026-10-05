@@ -1,4 +1,4 @@
-console.log("[Planla] v3 + profil/avatar yüklendi");
+console.log("[Planla] v4 + bildirim yüklendi");
 
 // ================= Moda göre metinler =================
 const MODLAR = {
@@ -52,12 +52,12 @@ function yeniVeri(mod, name) {
     mode: mod,
     name: name || (mod === "work" ? "Kullanıcı" : "Öğrenci"),
     avatar: 0,
-    events: {}, courses: [], deadlines: [], jobs: [], skills: [], tasks: [], notes: [],
-    links: [],
+    events: {}, courses: [], deadlines: [], jobs: [], skills: [], tasks: [], notes: [], links: [],
+    notifications: [],
   };
 }
 const DB_KEY = "planla-v3";
-const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes"];
+const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications"];
 const gecerli = v => v && MODLAR[v.mode] && typeof v.name === "string" && v.events && typeof v.events === "object" && DIZI.every(k => Array.isArray(v[k]));
 function dbOku() {
   try {
@@ -133,8 +133,8 @@ function modUygula() {
   $("acTitle").textContent = m.acBaslik;
   $("jobsTitle").textContent = m.jobs;
   $("helloSub").textContent = m.sub;
-  document.querySelectorAll("select[name=type]").forEach(sel => {
-    sel.innerHTML = m.tur.map(t => `<option>${t}</option>`).join("");
+  document.querySelectorAll("select[name=type]").forEach(s => {
+    s.innerHTML = m.tur.map(t => `<option>${t}</option>`).join("");
   });
 }
 
@@ -173,6 +173,134 @@ function acProfil() {
   ).join("");
 
   guvenliAc($("profileDlg"));
+}
+
+// ================= Bildirimler =================
+function bildirimEkle(tip, baslik, mesaj, ozelId) {
+  if (!S) return;
+  S.notifications = S.notifications || [];
+  // Aynı bildirim varsa tekrar ekleme (özellikle günlük otomatik bildirimler için)
+  const benzersizId = ozelId || (tip + "::" + baslik + "::" + mesaj);
+  if (S.notifications.some(n => n.uid === benzersizId)) return;
+  S.notifications.unshift({
+    uid: benzersizId,
+    tip,                 // "warn" | "info" | "success" | "purple"
+    baslik,
+    mesaj,
+    zaman: new Date().toISOString(),
+    okundu: false,
+  });
+  // Maksimum 50 tane tut
+  if (S.notifications.length > 50) S.notifications.length = 50;
+  kaydet();
+}
+
+function otomatikBildirimler() {
+  if (!S) return;
+  // Bugün ve yarın olan etkinlikler için
+  [todayKey, yarinKey].forEach(gun => {
+    const evler = S.events[gun] || [];
+    evler.forEach(ev => {
+      const zamanMetni = gun === todayKey ? "Bugün" : "Yarın";
+      const uidBildirim = "ev::" + ev.id + "::" + gun;
+      bildirimEkle(
+        gun === todayKey ? "warn" : "info",
+        `${zamanMetni}: ${ev.t}`,
+        `${ev.time} · ${ev.type}`,
+        uidBildirim
+      );
+    });
+  });
+
+  // Yaklaşan teslimler (3 gün içinde)
+  const bugun = new Date();
+  (S.deadlines || []).forEach(d => {
+    const hedef = new Date(d.d);
+    const fark = Math.ceil((hedef - bugun) / (1000 * 60 * 60 * 24));
+    if (fark >= 0 && fark <= 3) {
+      bildirimEkle(
+        fark === 0 ? "warn" : "info",
+        `Teslim: ${d.t}`,
+        fark === 0 ? "Bugün teslim!" : `${fark} gün kaldı (${gunEtiket(d.d)})`,
+        "dl::" + d.id + "::" + fark
+      );
+    }
+  });
+
+  // Beklemede olan başvurular için hatırlatma
+  const bekleyenSayisi = (S.jobs || []).filter(j => j.st === "Beklemede").length;
+  if (bekleyenSayisi > 0) {
+    bildirimEkle(
+      "purple",
+      "Başvurular",
+      `${bekleyenSayisi} başvurun hâlâ beklemede`,
+      "jobs-beklemede-" + todayKey
+    );
+  }
+}
+
+function okunmamisSayisi() {
+  if (!S || !S.notifications) return 0;
+  return S.notifications.filter(n => !n.okundu).length;
+}
+
+function bildirimCiz() {
+  if (!S) return;
+  const list = $("notifList");
+  if (!list) return;
+
+  const items = (S.notifications || []).slice(0, 30);
+  list.innerHTML = items.length
+    ? items.map(n => {
+        const zaman = new Date(n.zaman);
+        const saat = `${pad(zaman.getHours())}:${pad(zaman.getMinutes())}`;
+        const ikonMap = {
+          warn:    "#i-bell",
+          info:    "#i-clock",
+          success: "#i-check",
+          purple:  "#i-target",
+        };
+        return `<div class="notif-item ${n.okundu ? "read" : "unread"}" data-notif-id="${esc(n.uid)}">
+          <span class="notif-dot"></span>
+          <div class="notif-icon ${n.tip}"><svg width="16" height="16"><use href="${ikonMap[n.tip] || "#i-bell"}"/></svg></div>
+          <div class="notif-body">
+            <div class="notif-title">${esc(n.baslik)}</div>
+            <div class="notif-meta">${esc(n.mesaj)} · ${saat}</div>
+          </div>
+        </div>`;
+      }).join("")
+    : "";
+}
+
+function bildirimRozetiGuncelle() {
+  const sayi = okunmamisSayisi();
+  const bell = $("bell");
+  if (bell) bell.textContent = sayi;
+  const bellBtn = $("bellBtn");
+  if (bellBtn) {
+    bellBtn.classList.toggle("has-new", sayi > 0);
+  }
+}
+
+function panelAc() {
+  const panel = $("notifPanel");
+  if (!panel) return;
+  // Önce otomatik bildirimleri üret
+  otomatikBildirimler();
+  // Okunmamışları okundu yap
+  (S.notifications || []).forEach(n => n.okundu = true);
+  bildirimCiz();
+  bildirimRozetiGuncelle();
+  panel.classList.add("on");
+  panel.setAttribute("aria-hidden", "false");
+  kaydet();
+}
+
+function panelKapat() {
+  const panel = $("notifPanel");
+  if (!panel) return;
+  panel.classList.remove("on");
+  panel.setAttribute("aria-hidden", "true");
 }
 
 // ================= Çizim: günlük liste =================
@@ -291,7 +419,9 @@ function ciz() {
   $("applied").innerHTML = S.jobs.filter(j => j.st).map(j =>
     `<li><span><b>${esc(j.n)}</b></span><span class="badge">${j.st}</span></li>`
   ).join("") || `<li class="empty">Henüz başvuru yok.</li>`;
-  $("bell").textContent = yakin.filter(e => e.d === todayKey || e.d === yarinKey).length;
+
+  // Bildirim rozeti
+  bildirimRozetiGuncelle();
 
   // Notlar
   const notlar = (S.notes || []).filter(n => !q || eslesir(n.title) || eslesir(n.text));
@@ -313,7 +443,7 @@ function ciz() {
   ).join("");
   $("taskList").innerHTML = taskHTML || `<li class="empty">Görev yok.</li>`;
   $("homeTaskList").innerHTML = S.tasks.slice(0, 4).map(t =>
-    `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-t" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span></li>`
+    `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-text" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span></li>`
   ).join("") || `<li class="empty">Henüz görev yok.</li>`;
 
   kaydet();
@@ -336,6 +466,37 @@ document.addEventListener("click", e => {
     if (confirm("Hesabın ve tüm verilerin kalıcı olarak silinecek. Devam edilsin mi?")) {
       delete db.users[db.aktif];
       return cikis();
+    }
+    return;
+  }
+
+  // Bildirim paneli kapatma
+  if (e.target.closest("#notifClose")) { panelKapat(); return; }
+
+  // Bildirim paneli dışına tıklayınca kapat
+  const panel = $("notifPanel");
+  const bellBtn = $("bellBtn");
+  if (panel && panel.classList.contains("on")) {
+    if (!e.target.closest("#notifPanel") && !e.target.closest("#bellBtn")) {
+      panelKapat();
+    }
+  }
+
+  // Bildirim panelini aç
+  if (e.target.closest("#bellBtn")) {
+    e.preventDefault();
+    if (panel && panel.classList.contains("on")) panelKapat();
+    else panelAc();
+    return;
+  }
+
+  // Tümünü temizle
+  if (e.target.closest("#notifClear")) {
+    if (confirm("Tüm bildirimleri silmek istediğine emin misin?")) {
+      S.notifications = [];
+      bildirimCiz();
+      bildirimRozetiGuncelle();
+      kaydet();
     }
     return;
   }
@@ -609,6 +770,7 @@ function basla() {
   if (!h) { db.aktif = null; dbYaz(); $("auth").hidden = false; return; }
   if (!gecerli(h.data)) h.data = yeniVeri(h.tur, h.ad);
   if (typeof h.data.avatar !== "number") h.data.avatar = 0;
+  if (!Array.isArray(h.data.notifications)) h.data.notifications = [];
   S = h.data;
   sel = todayKey;
   view = { y: now.getFullYear(), m: now.getMonth() };
@@ -618,6 +780,9 @@ function basla() {
   modUygula();
   goView("home");
   ciz();
+  // Giriş yapıldığında otomatik bildirimleri oluştur (panel açılmadan da sayı güncellensin)
+  otomatikBildirimler();
+  bildirimRozetiGuncelle();
 }
 function cikis() {
   clearTimeout(kaydetZamani);
