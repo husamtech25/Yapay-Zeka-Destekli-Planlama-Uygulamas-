@@ -1,4 +1,4 @@
-console.log("[Planla] v4 + bildirim yüklendi");
+console.log("[Planla] v5 + görevler tam sayfa yüklendi");
 
 // ================= Moda göre metinler =================
 const MODLAR = {
@@ -8,6 +8,7 @@ const MODLAR = {
     tur: ["Toplantı", "Etkinlik", "Görev"], isim: "Proje adı", deger: "İlerleme (%)", jobs: "Fırsatlar & Başvurular", sub: "İşlerin, toplantıların ve hedeflerin tek yerde." },
 };
 const sinif = { Ders: "course", Toplantı: "course", Etkinlik: "event", Ödev: "hw", Görev: "hw" };
+const ONCELIK = { low: "Düşük", mid: "Orta", high: "Yüksek" };
 
 // ================= Yardımcılar =================
 const aylar = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
@@ -54,6 +55,7 @@ function yeniVeri(mod, name) {
     avatar: 0,
     events: {}, courses: [], deadlines: [], jobs: [], skills: [], tasks: [], notes: [], links: [],
     notifications: [],
+    taskFilter: "all",
   };
 }
 const DB_KEY = "planla-v3";
@@ -179,40 +181,32 @@ function acProfil() {
 function bildirimEkle(tip, baslik, mesaj, ozelId) {
   if (!S) return;
   S.notifications = S.notifications || [];
-  // Aynı bildirim varsa tekrar ekleme (özellikle günlük otomatik bildirimler için)
   const benzersizId = ozelId || (tip + "::" + baslik + "::" + mesaj);
   if (S.notifications.some(n => n.uid === benzersizId)) return;
   S.notifications.unshift({
-    uid: benzersizId,
-    tip,                 // "warn" | "info" | "success" | "purple"
-    baslik,
-    mesaj,
+    uid: benzersizId, tip, baslik, mesaj,
     zaman: new Date().toISOString(),
     okundu: false,
   });
-  // Maksimum 50 tane tut
   if (S.notifications.length > 50) S.notifications.length = 50;
   kaydet();
 }
 
 function otomatikBildirimler() {
   if (!S) return;
-  // Bugün ve yarın olan etkinlikler için
   [todayKey, yarinKey].forEach(gun => {
     const evler = S.events[gun] || [];
     evler.forEach(ev => {
       const zamanMetni = gun === todayKey ? "Bugün" : "Yarın";
-      const uidBildirim = "ev::" + ev.id + "::" + gun;
       bildirimEkle(
         gun === todayKey ? "warn" : "info",
         `${zamanMetni}: ${ev.t}`,
         `${ev.time} · ${ev.type}`,
-        uidBildirim
+        "ev::" + ev.id + "::" + gun
       );
     });
   });
 
-  // Yaklaşan teslimler (3 gün içinde)
   const bugun = new Date();
   (S.deadlines || []).forEach(d => {
     const hedef = new Date(d.d);
@@ -227,15 +221,9 @@ function otomatikBildirimler() {
     }
   });
 
-  // Beklemede olan başvurular için hatırlatma
   const bekleyenSayisi = (S.jobs || []).filter(j => j.st === "Beklemede").length;
   if (bekleyenSayisi > 0) {
-    bildirimEkle(
-      "purple",
-      "Başvurular",
-      `${bekleyenSayisi} başvurun hâlâ beklemede`,
-      "jobs-beklemede-" + todayKey
-    );
+    bildirimEkle("purple", "Başvurular", `${bekleyenSayisi} başvurun hâlâ beklemede`, "jobs-beklemede-" + todayKey);
   }
 }
 
@@ -254,12 +242,7 @@ function bildirimCiz() {
     ? items.map(n => {
         const zaman = new Date(n.zaman);
         const saat = `${pad(zaman.getHours())}:${pad(zaman.getMinutes())}`;
-        const ikonMap = {
-          warn:    "#i-bell",
-          info:    "#i-clock",
-          success: "#i-check",
-          purple:  "#i-target",
-        };
+        const ikonMap = { warn: "#i-bell", info: "#i-clock", success: "#i-check", purple: "#i-target" };
         return `<div class="notif-item ${n.okundu ? "read" : "unread"}" data-notif-id="${esc(n.uid)}">
           <span class="notif-dot"></span>
           <div class="notif-icon ${n.tip}"><svg width="16" height="16"><use href="${ikonMap[n.tip] || "#i-bell"}"/></svg></div>
@@ -277,17 +260,13 @@ function bildirimRozetiGuncelle() {
   const bell = $("bell");
   if (bell) bell.textContent = sayi;
   const bellBtn = $("bellBtn");
-  if (bellBtn) {
-    bellBtn.classList.toggle("has-new", sayi > 0);
-  }
+  if (bellBtn) bellBtn.classList.toggle("has-new", sayi > 0);
 }
 
 function panelAc() {
   const panel = $("notifPanel");
   if (!panel) return;
-  // Önce otomatik bildirimleri üret
   otomatikBildirimler();
-  // Okunmamışları okundu yap
   (S.notifications || []).forEach(n => n.okundu = true);
   bildirimCiz();
   bildirimRozetiGuncelle();
@@ -311,6 +290,67 @@ function gunListesi(el, k) {
         `<li><span>${esc(e.time)}</span><div class="ev ${sinif[e.type] || "event"}">${ad("events", e.id, "t", e.t)}${delBtn("events", e.id)}<small>${esc(e.type)}</small></div></li>`
       ).join("")
     : `<li class="empty">Kayıt yok. + butonuyla ekleyebilirsin.</li>`;
+}
+
+// ================= Görevler tam sayfa =================
+function gorevOncelik(p) {
+  return ONCELIK[p] ? p : "mid";
+}
+
+function gorevlerCiz() {
+  if (!S) return;
+  const liste = $("tasksListFull");
+  const bos = $("tasksEmpty");
+  if (!liste) return;
+
+  const tum = S.tasks || [];
+  const toplam = tum.length;
+  const tamamlanan = tum.filter(t => t.done).length;
+  const bekleyen = toplam - tamamlanan;
+
+  $("statTotal").textContent = toplam;
+  $("statPending").textContent = bekleyen;
+  $("statDone").textContent = tamamlanan;
+
+  const filtre = S.taskFilter || "all";
+  let gosterilecek = tum.slice().filter(t => !q || eslesir(t.t));
+  if (filtre === "pending") gosterilecek = gosterilecek.filter(t => !t.done);
+  else if (filtre === "done") gosterilecek = gosterilecek.filter(t => t.done);
+
+  // Sırala: bekleyenler önce, sonra önceliğe göre (high>mid>low)
+  const priSirala = { high: 0, mid: 1, low: 2 };
+  gosterilecek.sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return (priSirala[gorevOncelik(a.p)] || 1) - (priSirala[gorevOncelik(b.p)] || 1);
+  });
+
+  if (!gosterilecek.length) {
+    liste.innerHTML = "";
+    if (bos) {
+      bos.hidden = false;
+      bos.textContent = toplam === 0
+        ? "Henüz görev yok. Yukarıdaki kutuya yazıp Enter'a bas."
+        : "Bu filtreye uyan görev yok.";
+    }
+  } else {
+    if (bos) bos.hidden = true;
+    liste.innerHTML = gosterilecek.map(t => {
+      const p = gorevOncelik(t.p);
+      return `<li class="task-item pri-${p} ${t.done ? "done" : ""}" data-task-id="${t.id}">
+        <input type="checkbox" ${t.done ? "checked" : ""} data-act="task-toggle" data-id="${t.id}" aria-label="Tamamla">
+        <div class="task-body">
+          <div class="task-text" data-rename data-list="tasks" data-id="${t.id}" data-field="t" title="Çift tıkla: düzenle">${esc(t.t)}</div>
+          <div class="task-meta">
+            <span class="task-pri-badge pri-${p}"><svg width="10" height="10"><use href="#i-flag"/></svg> ${ONCELIK[p]}</span>
+            ${t.zaman ? `<span>${new Date(t.zaman).toLocaleDateString("tr-TR")}</span>` : ""}
+          </div>
+        </div>
+        <button type="button" class="task-del" data-act="del" data-list="tasks" data-id="${t.id}" aria-label="Sil">
+          <svg width="16" height="16"><use href="#i-trash"/></svg>
+        </button>
+      </li>`;
+    }).join("");
+  }
 }
 // ================= Çizim: ana fonksiyon =================
 function ciz() {
@@ -437,14 +477,13 @@ function ciz() {
       ).join("")
     : `<p class="notes-empty">Henüz not yok. + butonuyla ekleyebilirsin.</p>`;
 
-  // Görevler (modal + ana sayfa kartı)
-  const taskHTML = S.tasks.filter(t => eslesir(t.t)).map(t =>
-    `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-t" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span>${delBtn("tasks", t.id)}</li>`
-  ).join("");
-  $("taskList").innerHTML = taskHTML || `<li class="empty">Görev yok.</li>`;
+  // Ana sayfadaki mini görev listesi
   $("homeTaskList").innerHTML = S.tasks.slice(0, 4).map(t =>
-    `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-text" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span></li>`
+    `<li><input type="checkbox" data-act="done" data-id="${t.id}" ${t.done ? "checked" : ""}><span class="${t.done ? "done-t" : ""}" data-rename data-list="tasks" data-id="${t.id}" data-field="t">${esc(t.t)}</span></li>`
   ).join("") || `<li class="empty">Henüz görev yok.</li>`;
+
+  // Görevler tam sayfa
+  gorevlerCiz();
 
   kaydet();
 }
@@ -475,7 +514,6 @@ document.addEventListener("click", e => {
 
   // Bildirim paneli dışına tıklayınca kapat
   const panel = $("notifPanel");
-  const bellBtn = $("bellBtn");
   if (panel && panel.classList.contains("on")) {
     if (!e.target.closest("#notifPanel") && !e.target.closest("#bellBtn")) {
       panelKapat();
@@ -496,6 +534,28 @@ document.addEventListener("click", e => {
       S.notifications = [];
       bildirimCiz();
       bildirimRozetiGuncelle();
+      kaydet();
+    }
+    return;
+  }
+
+  // Görev filtresi
+  const filterBtn = e.target.closest(".filter-btn");
+  if (filterBtn) {
+    S.taskFilter = filterBtn.dataset.filter;
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("on", b === filterBtn));
+    gorevlerCiz();
+    kaydet();
+    return;
+  }
+
+  // Tamamlananları temizle
+  if (e.target.closest("#btnClearDone")) {
+    const sayi = (S.tasks || []).filter(t => t.done).length;
+    if (sayi === 0) { alert("Silinecek tamamlanmış görev yok."); return; }
+    if (confirm(`${sayi} tamamlanmış görev silinecek. Emin misin?`)) {
+      S.tasks = S.tasks.filter(t => !t.done);
+      gorevlerCiz();
       kaydet();
     }
     return;
@@ -540,7 +600,7 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Sidebar / üst bar data-dlg
+  // Sidebar data-dlg (sadece settingsDlg kaldı)
   const dlgBtn = e.target.closest("[data-dlg]");
   if (dlgBtn) {
     e.preventDefault();
@@ -551,7 +611,7 @@ document.addEventListener("click", e => {
     return guvenliAc($(dlgBtn.dataset.dlg));
   }
 
-  // Görünüm değiştir
+  // Görünüm değiştir (sidebar + butonlar)
   const nav = e.target.closest("[data-view]");
   if (nav) {
     e.preventDefault();
@@ -566,7 +626,7 @@ document.addEventListener("click", e => {
   // Satır içi aksiyonlar
   const b = e.target.closest("[data-act]");
   if (!b) return;
-  if (["done", "grade", "status", "skill"].includes(b.dataset.act)) return;
+  if (["done", "grade", "status", "skill", "task-toggle"].includes(b.dataset.act)) return;
   e.preventDefault();
   const { act, id, list } = b.dataset;
   if (act === "mini") {
@@ -595,7 +655,6 @@ $("bToday").onclick = () => {
   view = { y: now.getFullYear(), m: now.getMonth() };
   ciz();
 };
-$("closeTasks").onclick = () => $("tasks").close();
 $("closeSettings").onclick = () => $("settingsDlg").close();
 
 // ================= Arama =================
@@ -652,9 +711,13 @@ document.addEventListener("change", e => {
     const it = bul("jobs", id); if (it) it.st = e.target.value;
   } else if (act === "done") {
     const it = bul("tasks", id); if (it) it.done = e.target.checked;
+  } else if (act === "task-toggle") {
+    const it = bul("tasks", id);
+    if (it) { it.done = e.target.checked; gorevlerCiz(); kaydet(); return; }
   } else return;
   ciz();
 });
+
 document.addEventListener("input", e => {
   if (!e.target.dataset || e.target.dataset.act !== "skill") return;
   const it = bul("skills", e.target.dataset.id);
@@ -671,11 +734,13 @@ function adDegistir(e) {
   const item = bul(el.dataset.list, el.dataset.id);
   if (!item) return;
   const yeni = prompt("Yeni metin:", item[el.dataset.field]);
-  if (yeni && yeni.trim()) { item[el.dataset.field] = yeni.trim(); ciz(); }
+  if (yeni && yeni.trim()) {
+    item[el.dataset.field] = yeni.trim();
+    ciz();
+    if (el.dataset.list === "tasks") gorevlerCiz();
+  }
 }
 document.addEventListener("dblclick", adDegistir);
-const dokunmatik = matchMedia("(pointer: coarse)");
-document.addEventListener("click", e => { if (dokunmatik.matches) adDegistir(e); });
 
 // ================= Form gönderimleri =================
 const AUTOCLOSE = ["dlgEvent", "dlgLink", "dlgCourse", "dlgDeadline", "dlgJob", "dlgSkill", "dlgNote"];
@@ -704,7 +769,10 @@ document.addEventListener("submit", e => {
       S.skills.push({ id, n: v.n.trim(), p: 50 });
       break;
     case "task":
-      S.tasks.push({ id, t: v.t.trim(), done: false });
+      S.tasks.push({ id, t: v.t.trim(), done: false, p: "mid", zaman: new Date().toISOString() });
+      break;
+    case "task-quick":
+      S.tasks.push({ id, t: v.t.trim(), done: false, p: v.p || "mid", zaman: new Date().toISOString() });
       break;
     case "note":
       S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" });
@@ -771,6 +839,7 @@ function basla() {
   if (!gecerli(h.data)) h.data = yeniVeri(h.tur, h.ad);
   if (typeof h.data.avatar !== "number") h.data.avatar = 0;
   if (!Array.isArray(h.data.notifications)) h.data.notifications = [];
+  if (!h.data.taskFilter) h.data.taskFilter = "all";
   S = h.data;
   sel = todayKey;
   view = { y: now.getFullYear(), m: now.getMonth() };
@@ -780,7 +849,6 @@ function basla() {
   modUygula();
   goView("home");
   ciz();
-  // Giriş yapıldığında otomatik bildirimleri oluştur (panel açılmadan da sayı güncellensin)
   otomatikBildirimler();
   bildirimRozetiGuncelle();
 }
