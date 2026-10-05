@@ -2,7 +2,10 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e3a48">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Planla — Yapay Zeka Destekli Planlama</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,6 +27,8 @@
     <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
     <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></symbol>
     <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
     <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
@@ -44,8 +49,8 @@
     <symbol id="i-trending-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></symbol>
     <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
     <symbol id="i-book-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
-    <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></symbol>
     <symbol id="i-tomato" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="8"/><path d="M12 6c-1-2-3-3-5-3M12 6c1-2 3-3 5-3M12 6v-3"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></symbol>
     <symbol id="av-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
     <symbol id="av-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
     <symbol id="av-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
@@ -56,11 +61,19 @@
     <symbol id="av-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
   </svg>
 
+  <!-- ============ MOBİL OVERLAY (Menü arkası karartma) ============ -->
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
   <!-- ============ SOL MENÜ ============ -->
-  <aside class="sidebar">
-    <div class="logo">
-      <span class="logo-mark"><svg width="22" height="22"><use href="#i-graduation"/></svg></span>
-      <span>PLANLA<b>.</b></span>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="logo">
+        <span class="logo-mark"><svg width="22" height="22"><use href="#i-graduation"/></svg></span>
+        <span>PLANLA<b>.</b></span>
+      </div>
+      <button type="button" class="icon-close sidebar-close" id="sidebarClose" aria-label="Menüyü kapat">
+        <svg width="18" height="18"><use href="#i-x"/></svg>
+      </button>
     </div>
     <nav class="side-nav" aria-label="Ana menü">
       <a href="#" data-view="home" class="active"><svg width="18" height="18"><use href="#i-home"/></svg> Ana Sayfa</a>
@@ -91,6 +104,15 @@
   <div class="main">
     <!-- ============ ÜST BAR ============ -->
     <header class="topbar">
+      <!-- Mobil: Hamburger -->
+      <button type="button" class="icon-btn menu-btn" id="menuBtn" aria-label="Menü">
+        <svg width="22" height="22"><use href="#i-menu"/></svg>
+      </button>
+      <!-- Mobil: Geri -->
+      <button type="button" class="icon-btn back-btn" id="backBtn" aria-label="Geri" hidden>
+        <svg width="22" height="22"><use href="#i-arrow-left"/></svg>
+      </button>
+
       <div class="search-wrap">
         <svg width="18" height="18" class="search-icon"><use href="#i-search"/></svg>
         <input type="search" id="q" placeholder="Ara... (etkinlik, ders, görev)" aria-label="Ara">
@@ -108,10 +130,9 @@
     </header>
 
     <main class="content">
-      <!-- ANA SAYFA — YENİ YERLEŞİM -->
+      <!-- ANA SAYFA -->
       <div class="view on" id="v-home">
 
-        <!-- Hoş Geldin + Haftalık Ders Programı -->
         <section class="home-row home-row-top">
           <div class="card light welcome-card">
             <div class="welcome-inner">
@@ -136,7 +157,6 @@
           </div>
         </section>
 
-        <!-- Görevler Kanban -->
         <section class="card light home-row-full">
           <div class="card-head">
             <h2>Görevler</h2>
@@ -179,9 +199,7 @@
           </form>
         </section>
 
-        <!-- Alt Sıra: Kısayollar + Pomodoro + Hedefler -->
         <section class="home-row home-row-bottom">
-          <!-- Kısayollar -->
           <div class="card light kısayol-card">
             <div class="card-head"><h2>Kısayollar</h2></div>
             <div class="kısayol-grid">
@@ -204,21 +222,18 @@
             </div>
           </div>
 
-          <!-- POMODORO -->
           <div class="card light pomodoro-card" id="pomodoroCard">
             <div class="card-head">
               <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:4px"><use href="#i-tomato"/></svg> Pomodoro</h2>
               <button type="button" class="chip light-chip" data-dlg="pomodoroAyarDlg" aria-label="Ayarlar"><svg width="12" height="12"><use href="#i-settings"/></svg></button>
             </div>
 
-            <!-- Mod sekmeleri -->
             <div class="pomo-tabs">
               <button type="button" class="pomo-tab on" data-mode="focus">Odak</button>
               <button type="button" class="pomo-tab" data-mode="short">Kısa Mola</button>
               <button type="button" class="pomo-tab" data-mode="long">Uzun Mola</button>
             </div>
 
-            <!-- Dairesel Timer -->
             <div class="pomo-timer-wrap">
               <svg class="pomo-ring" viewBox="0 0 200 200">
                 <circle cx="100" cy="100" r="88" class="pomo-ring-bg"/>
@@ -230,7 +245,6 @@
               </div>
             </div>
 
-            <!-- Kontroller -->
             <div class="pomo-controls">
               <button type="button" class="pomo-btn pomo-btn-main" id="pomoStart">
                 <svg width="18" height="18"><use href="#i-play"/></svg>
@@ -244,7 +258,6 @@
               </button>
             </div>
 
-            <!-- Bağlantı (opsiyonel) -->
             <div class="pomo-bind" id="pomoBind">
               <button type="button" class="pomo-bind-btn" data-open="dlgPomoBind">
                 <svg width="14" height="14"><use href="#i-target"/></svg>
@@ -252,7 +265,6 @@
               </button>
             </div>
 
-            <!-- İstatistik -->
             <div class="pomo-stats">
               <div class="pomo-stat">
                 <span class="pomo-stat-num" id="pomoBugun">0</span>
@@ -269,7 +281,6 @@
             </div>
           </div>
 
-          <!-- Haftalık Hedefler -->
           <div class="card light hedefler-card">
             <div class="card-head">
               <h2>Haftalık Hedefler</h2>
@@ -280,7 +291,7 @@
         </section>
 
       </div>
-            <!-- DERS PROGRAMI (TAM SAYFA) -->
+            <!-- DERS PROGRAMI -->
       <div class="view" id="v-ders">
         <section class="card light ders-page">
           <div class="ders-head">
@@ -338,7 +349,7 @@
         </section>
       </div>
 
-      <!-- AKADEMİK / PROJELER -->
+      <!-- AKADEMİK -->
       <div class="view" id="v-ac">
         <section class="card light" id="card-ac">
           <div class="card-head">
@@ -373,7 +384,7 @@
         </section>
       </div>
 
-      <!-- GÖREVLER (TAM SAYFA) -->
+      <!-- GÖREVLER -->
       <div class="view" id="v-tasks">
         <section class="card light tasks-page">
           <div class="tasks-head">
@@ -430,6 +441,30 @@
     </main>
   </div>
 
+  <!-- ============ ALT NAVİGASYON (MOBİL) ============ -->
+  <nav class="mobile-nav" id="mobileNav" aria-label="Mobil navigasyon">
+    <a href="#" class="mobile-nav-item active" data-view="home" data-mobil-nav>
+      <svg width="22" height="22"><use href="#i-home"/></svg>
+      <span>Ana Sayfa</span>
+    </a>
+    <a href="#" class="mobile-nav-item" data-view="ders" data-mobil-nav>
+      <svg width="22" height="22"><use href="#i-graduation"/></svg>
+      <span>Ders</span>
+    </a>
+    <a href="#" class="mobile-nav-item" data-view="tasks" data-mobil-nav>
+      <svg width="22" height="22"><use href="#i-check-circle"/></svg>
+      <span>Görev</span>
+    </a>
+    <a href="#" class="mobile-nav-item" data-view="cal" data-mobil-nav>
+      <svg width="22" height="22"><use href="#i-calendar"/></svg>
+      <span>Takvim</span>
+    </a>
+    <button type="button" class="mobile-nav-item" id="mobileMoreBtn">
+      <svg width="22" height="22"><use href="#i-more"/></svg>
+      <span>Daha Fazla</span>
+    </button>
+  </nav>
+
   <!-- BİLDİRİM PANELİ -->
   <div class="notif-panel" id="notifPanel" aria-hidden="true">
     <div class="notif-head">
@@ -480,14 +515,11 @@
   <dialog id="dlgPomoBind">
     <div class="dlg-head"><h2>Ne için çalışıyorsun?</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
     <p class="pomo-bind-hint">Bir görev veya ders seç. Seçmezsen serbest modda çalışır.</p>
-
     <div class="pomo-bind-tabs">
       <button type="button" class="pomo-bind-tab on" data-bind-tab="gorev">Görevler</button>
       <button type="button" class="pomo-bind-tab" data-bind-tab="ders">Dersler</button>
     </div>
-
     <div class="pomo-bind-list" id="pomoBindList"></div>
-
     <div class="dialog-actions">
       <button type="button" class="btn-ghost" id="pomoBindFree">Serbest Mod</button>
       <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
