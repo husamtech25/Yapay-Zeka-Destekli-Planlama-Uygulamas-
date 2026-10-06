@@ -1,4 +1,4 @@
-console.log("[Planla] v11 + hata düzeltildi");
+console.log("[Planla] v12 + iş planı yüklendi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -60,11 +60,13 @@ function yeniVeri(mod, name) {
     taskFilter: "all",
     dersler: [],
     hedefler: [],
+    planItems: [],
+    toplantilar: [],
     pomo: { ...POMO_DEFAULTS, stats: {}, bind: null },
   };
 }
 const DB_KEY = "planla-v3";
-const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler"];
+const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler", "planItems", "toplantilar"];
 const gecerli = v => v && MODLAR[v.mode] && typeof v.name === "string" && v.events && typeof v.events === "object" && DIZI.every(k => Array.isArray(v[k]));
 function dbOku() {
   try {
@@ -100,6 +102,7 @@ let view = { y: now.getFullYear(), m: now.getMonth() };
 let q = "";
 let sekme = "login";
 let aktifView = "home";
+let planSekme = "haftalik";
 const M = () => MODLAR[S.mode] || MODLAR.student;
 const eslesir = s => String(s).toLowerCase().includes(q);
 
@@ -129,15 +132,13 @@ const gunEvents = k => (S.events[k] || []).slice().sort((a, b) => a.time.localeC
 
 // ============ MOBİL MENÜ ============
 function mobilMenuAc() {
-  const sb = $("sidebar");
-  const ov = $("mobileOverlay");
+  const sb = $("sidebar"); const ov = $("mobileOverlay");
   if (sb) sb.classList.add("open");
   if (ov) ov.classList.add("on");
   document.body.style.overflow = "hidden";
 }
 function mobilMenuKapat() {
-  const sb = $("sidebar");
-  const ov = $("mobileOverlay");
+  const sb = $("sidebar"); const ov = $("mobileOverlay");
   if (sb) sb.classList.remove("open");
   if (ov) ov.classList.remove("on");
   document.body.style.overflow = "";
@@ -164,6 +165,14 @@ function modUygula() {
   $("helloSub").textContent = m.sub;
   document.querySelectorAll("select[name=type]").forEach(s => {
     s.innerHTML = m.tur.map(t => `<option>${t}</option>`).join("");
+  });
+
+  // Moda göre menü elemanları
+  document.querySelectorAll(".menu-ogrenci").forEach(el => {
+    el.hidden = S.mode !== "student";
+  });
+  document.querySelectorAll(".menu-is").forEach(el => {
+    el.hidden = S.mode !== "work";
   });
 }
 
@@ -310,7 +319,6 @@ function panelKapat() {
   panel.setAttribute("aria-hidden", "true");
 }
 
-// ✅ DÜZELTİLDİ: if (!el) return; eklendi
 function gunListesi(el, k) {
   if (!el) return;
   const l = gunEvents(k).filter(e => eslesir(e.t));
@@ -321,18 +329,9 @@ function gunListesi(el, k) {
     : `<li class="empty">Kayıt yok. + butonuyla ekleyebilirsin.</li>`;
 }
 // ================= POMODORO =================
-let pomo = {
-  mod: "focus",
-  kalan: 25 * 60,
-  toplam: 25 * 60,
-  calisiyor: false,
-  interval: null,
-  tur: 0,
-};
+let pomo = { mod: "focus", kalan: 25*60, toplam: 25*60, calisiyor: false, interval: null, tur: 0 };
 
-function pomoAyarlari() {
-  return (S && S.pomo) ? S.pomo : POMO_DEFAULTS;
-}
+function pomoAyarlari() { return (S && S.pomo) ? S.pomo : POMO_DEFAULTS; }
 function pomoSure(mod) {
   const a = pomoAyarlari();
   if (mod === "focus") return (+a.focus || 25) * 60;
@@ -340,13 +339,10 @@ function pomoSure(mod) {
   if (mod === "long") return (+a.long || 15) * 60;
   return 25 * 60;
 }
-function pomoModEtiket(mod) {
-  return mod === "focus" ? "Odak" : mod === "short" ? "Kısa Mola" : "Uzun Mola";
-}
+function pomoModEtiket(mod) { return mod === "focus" ? "Odak" : mod === "short" ? "Kısa Mola" : "Uzun Mola"; }
 function pomoBugun() {
   if (!S || !S.pomo || !S.pomo.stats) return { sayi: 0, dk: 0 };
-  const b = S.pomo.stats[todayKey];
-  return b ? b : { sayi: 0, dk: 0 };
+  return S.pomo.stats[todayKey] || { sayi: 0, dk: 0 };
 }
 function pomoHaftaToplam() {
   if (!S || !S.pomo || !S.pomo.stats) return 0;
@@ -358,20 +354,15 @@ function pomoHaftaToplam() {
     const d = new Date(bugun);
     d.setDate(bugun.getDate() + pazartesiFark + i);
     const k = key(d.getFullYear(), d.getMonth(), d.getDate());
-    const stat = S.pomo.stats[k];
-    if (stat) toplam += stat.sayi;
+    if (S.pomo.stats[k]) toplam += S.pomo.stats[k].sayi;
   }
   return toplam;
 }
 function pomoStatsGuncelle() {
-  const b = pomoBugun();
-  const hafta = pomoHaftaToplam();
-  const bugunEl = $("pomoBugun");
-  const dkEl = $("pomoBugunDk");
-  const haftaEl = $("pomoHafta");
-  if (bugunEl) bugunEl.textContent = b.sayi;
-  if (dkEl) dkEl.textContent = b.dk;
-  if (haftaEl) haftaEl.textContent = hafta;
+  const b = pomoBugun(); const hafta = pomoHaftaToplam();
+  if ($("pomoBugun")) $("pomoBugun").textContent = b.sayi;
+  if ($("pomoBugunDk")) $("pomoBugunDk").textContent = b.dk;
+  if ($("pomoHafta")) $("pomoHafta").textContent = hafta;
 }
 function pomoKaydet(tamamlananMod) {
   if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
@@ -386,39 +377,27 @@ function pomoKaydet(tamamlananMod) {
   }
   kaydet();
 }
-function cevresiHesapla(cevre, oran) {
-  return cevre * (1 - oran);
-}
+function cevresiHesapla(cevre, oran) { return cevre * (1 - oran); }
 function pomoRender() {
-  const card = $("pomodoroCard");
-  const timeEl = $("pomoTime");
-  const labelEl = $("pomoModeLabel");
-  const ring = $("pomoRingFg");
+  const card = $("pomodoroCard"); const timeEl = $("pomoTime");
+  const labelEl = $("pomoModeLabel"); const ring = $("pomoRingFg");
   if (!card || !timeEl) return;
-
   card.classList.remove("mode-focus", "mode-short", "mode-long");
   card.classList.add("mode-" + pomo.mod);
-
-  const dk = Math.floor(pomo.kalan / 60);
-  const sn = pomo.kalan % 60;
-  timeEl.textContent = `${pad(dk)}:${pad(sn)}`;
-  labelEl.textContent = pomoModEtiket(pomo.mod);
-
+  timeEl.textContent = `${pad(Math.floor(pomo.kalan / 60))}:${pad(pomo.kalan % 60)}`;
+  if (labelEl) labelEl.textContent = pomoModEtiket(pomo.mod);
   if (ring) {
-    const r = 88;
-    const cevre = 2 * Math.PI * r;
+    const cevre = 2 * Math.PI * 88;
     ring.style.strokeDasharray = cevre;
     const oran = pomo.toplam > 0 ? (pomo.kalan / pomo.toplam) : 1;
     ring.style.strokeDashoffset = cevresiHesapla(cevre, oran);
   }
-
   const startBtn = $("pomoStart");
   if (startBtn) {
     startBtn.innerHTML = pomo.calisiyor
       ? `<svg width="18" height="18"><use href="#i-pause"/></svg><span id="pomoStartLabel">Duraklat</span>`
       : `<svg width="18" height="18"><use href="#i-play"/></svg><span id="pomoStartLabel">Başlat</span>`;
   }
-
   pomoStatsGuncelle();
   pomoBindRender();
 }
@@ -427,9 +406,7 @@ function pomoModDegistir(mod) {
   pomo.toplam = pomoSure(mod);
   pomo.kalan = pomo.toplam;
   pomoDurdur();
-  document.querySelectorAll(".pomo-tab").forEach(t => {
-    t.classList.toggle("on", t.dataset.mode === mod);
-  });
+  document.querySelectorAll(".pomo-tab").forEach(t => t.classList.toggle("on", t.dataset.mode === mod));
   pomoRender();
 }
 function pomoBaslat() {
@@ -438,10 +415,7 @@ function pomoBaslat() {
   pomoRender();
   pomo.interval = setInterval(() => {
     pomo.kalan -= 1;
-    if (pomo.kalan <= 0) {
-      pomoBitti();
-      return;
-    }
+    if (pomo.kalan <= 0) { pomoBitti(); return; }
     pomoRender();
   }, 1000);
 }
@@ -451,24 +425,18 @@ function pomoDurdur() {
   pomo.interval = null;
   pomoRender();
 }
-function pomoSifirla() {
-  pomoDurdur();
-  pomo.kalan = pomo.toplam;
-  pomoRender();
-}
+function pomoSifirla() { pomoDurdur(); pomo.kalan = pomo.toplam; pomoRender(); }
 function pomoSesCal() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
     o.connect(g); g.connect(ctx.destination);
     o.type = "sine"; o.frequency.value = 880;
     g.gain.setValueAtTime(0.15, ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
     o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.8);
     setTimeout(() => {
-      const o2 = ctx.createOscillator();
-      const g2 = ctx.createGain();
+      const o2 = ctx.createOscillator(); const g2 = ctx.createGain();
       o2.connect(g2); g2.connect(ctx.destination);
       o2.type = "sine"; o2.frequency.value = 1100;
       g2.gain.setValueAtTime(0.15, ctx.currentTime);
@@ -481,10 +449,8 @@ function pomoBitti() {
   if (pomo.interval) clearInterval(pomo.interval);
   pomo.interval = null;
   pomo.calisiyor = false;
-
   if (pomoAyarlari().sound === "on") pomoSesCal();
   if (pomo.mod === "focus") pomoKaydet("focus");
-
   const a = pomoAyarlari();
   if (pomo.mod === "focus") {
     const turSayi = +a.cycle || 4;
@@ -493,7 +459,6 @@ function pomoBitti() {
   } else {
     pomoModDegistir("focus");
   }
-
   if (a.auto === "on") setTimeout(() => pomoBaslat(), 600);
   document.title = "Planla — Yapay Zeka Destekli Planlama";
 }
@@ -519,37 +484,28 @@ function pomoBindAc() {
   if (!list) return;
   const aktifTab = document.querySelector(".pomo-bind-tab.on");
   const tip = aktifTab ? aktifTab.dataset.bindTab : "gorev";
-  let items = [];
   if (tip === "gorev") {
-    items = (S.tasks || []).filter(t => !t.done);
-    if (!items.length) list.innerHTML = `<p class="pomo-bind-empty">Bekleyen görev yok.</p>`;
-    else list.innerHTML = items.map(t =>
-      `<button type="button" class="pomo-bind-item" data-pomo-bind="gorev" data-id="${t.id}">
-        <span class="pbi-dot"></span><span>${esc(t.t)}</span>
-      </button>`
-    ).join("");
+    const items = (S.tasks || []).filter(t => !t.done);
+    list.innerHTML = items.length
+      ? items.map(t => `<button type="button" class="pomo-bind-item" data-pomo-bind="gorev" data-id="${t.id}"><span class="pbi-dot"></span><span>${esc(t.t)}</span></button>`).join("")
+      : `<p class="pomo-bind-empty">Bekleyen görev yok.</p>`;
   } else {
-    items = (S.dersler || []);
-    if (!items.length) list.innerHTML = `<p class="pomo-bind-empty">Henüz ders yok.</p>`;
-    else list.innerHTML = items.map(d =>
-      `<button type="button" class="pomo-bind-item ders" data-pomo-bind="ders" data-id="${d.id}">
-        <span class="pbi-dot"></span><span>${esc(d.ad)}${d.kod ? ` · ${esc(d.kod)}` : ""}</span>
-      </button>`
-    ).join("");
+    const items = (S.dersler || []);
+    list.innerHTML = items.length
+      ? items.map(d => `<button type="button" class="pomo-bind-item ders" data-pomo-bind="ders" data-id="${d.id}"><span class="pbi-dot"></span><span>${esc(d.ad)}${d.kod ? ` · ${esc(d.kod)}` : ""}</span></button>`).join("")
+      : `<p class="pomo-bind-empty">Henüz ders yok.</p>`;
   }
 }
 
-// ================= Ders Programı =================
+// ================= DERS PROGRAMI =================
 function dersSirala(a, b) { return saatDk(a.bas) - saatDk(b.bas); }
-function bugunDersler() {
-  return (S.dersler || []).filter(d => +d.gun === bugunGunNo).sort(dersSirala);
-}
+function bugunDersler() { return (S.dersler || []).filter(d => +d.gun === bugunGunNo).sort(dersSirala); }
 const SAATLER = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 function haftalikGridCiz() {
   const grid = $("haftalikGrid");
-  const empty = $("dersEmpty");
   if (!grid) return;
+  const empty = $("dersEmpty");
   const dersler = S.dersler || [];
   if ($("statDersSayi")) $("statDersSayi").textContent = dersler.length;
   if ($("statDersBugun")) $("statDersBugun").textContent = bugunDersler().length;
@@ -605,8 +561,7 @@ function miniDersGridCiz() {
   if (!el) return;
   const gunSirasi = [1, 2, 3, 4, 5];
   const miniSaatler = [9, 11, 13, 15, 17];
-  let html = "";
-  html += `<div class="mdg-head"></div>`;
+  let html = `<div class="mdg-head"></div>`;
   gunSirasi.forEach(g => {
     const bugun = g === bugunGunNo;
     html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
@@ -622,13 +577,175 @@ function miniDersGridCiz() {
   el.innerHTML = html;
 }
 
-// ================= Görevler =================
+// ================= İŞ PLANI =================
+function planKategoriEtiket(k) {
+  return k === "toplanti" ? "Toplantı" : k === "gorev" ? "Görev" : k === "odak" ? "Odak" : k === "mola" ? "Mola" : "Diğer";
+}
+function planItemSirala(a, b) { return (+a.gun) - (+b.gun) || saatDk(a.saat) - saatDk(b.saat); }
+
+function planHaftalikCiz() {
+  const el = $("haftalikPlanList");
+  if (!el) return;
+  const items = (S.planItems || []).slice().sort(planItemSirala);
+  if (!items.length) {
+    el.innerHTML = `<p class="plan-empty">Henüz plan yok. Aşağıdaki "Yeni İş Ekle" butonuna bas.</p>`;
+    return;
+  }
+  const gunler = [1, 2, 3, 4, 5, 6, 0];
+  const bugunDt = new Date();
+  let html = "";
+  gunler.forEach(gunNo => {
+    const gunItems = items.filter(it => +it.gun === gunNo);
+    if (!gunItems.length) return;
+    // Bu hafta içindeki bu günün tarihi
+    const offset = (gunNo === 0 ? 7 - bugunDt.getDay() : gunNo - bugunDt.getDay());
+    const tarih = new Date(bugunDt);
+    tarih.setDate(bugunDt.getDate() + offset);
+    const tarihMetni = `${tarih.getDate()} ${aylar[tarih.getMonth()]}`;
+    html += `<div class="plan-gun">
+      <div class="plan-gun-head">
+        <span class="plan-gun-title">${GUNLER[gunNo]}</span>
+        <span class="plan-gun-tarih">${tarihMetni}</span>
+      </div>
+      <ul class="plan-gun-items">` +
+      gunItems.map(it => `
+        <li class="plan-item ${it.kategori || "gorev"}">
+          <span class="pi-saat">${esc(it.saat)}</span>
+          <span class="pi-baslik">${esc(it.baslik)}</span>
+          <span class="pi-kategori">${planKategoriEtiket(it.kategori)}</span>
+          <button type="button" class="pi-del" data-act="del" data-list="planItems" data-id="${it.id}" aria-label="Sil">
+            <svg width="14" height="14"><use href="#i-x"/></svg>
+          </button>
+        </li>`).join("") +
+      `</ul></div>`;
+  });
+  el.innerHTML = html || `<p class="plan-empty">Bu hafta için plan yok.</p>`;
+}
+
+function planPerformansCiz() {
+  // Bu hafta tamamlanan görev
+  const bugunDt = new Date();
+  const gunNo = bugunDt.getDay();
+  const pazartesiFark = (gunNo === 0 ? -6 : 1 - gunNo);
+  let haftaGorev = 0, ayGorev = 0;
+  const gunSayilari = {}; // {1: 3, 2: 5, ...}
+  [1,2,3,4,5,6,0].forEach(g => gunSayilari[g] = 0);
+
+  (S.tasks || []).forEach(t => {
+    if (!t.done || !t.zaman) return;
+    const tz = new Date(t.zaman);
+    // Bu hafta içinde mi?
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(bugunDt);
+      d.setDate(bugunDt.getDate() + pazartesiFark + i);
+      if (tz.toDateString() === d.toDateString()) {
+        haftaGorev++;
+        const g = d.getDay() === 0 ? 0 : d.getDay();
+        gunSayilari[d.getDay()]++;
+      }
+    }
+    // Bu ay içinde mi?
+    if (tz.getMonth() === bugunDt.getMonth() && tz.getFullYear() === bugunDt.getFullYear()) {
+      ayGorev++;
+    }
+  });
+
+  if ($("perfHaftaGorev")) $("perfHaftaGorev").textContent = haftaGorev;
+  if ($("perfHaftaSaat")) $("perfHaftaSaat").textContent = pomoHaftaToplam() * (+(pomoAyarlari().focus || 25)) / 60 | 0;
+  if ($("perfAyGorev")) $("perfAyGorev").textContent = ayGorev;
+  if ($("perfProje")) $("perfProje").textContent = (S.courses || []).length;
+
+  // Grafik
+  const chart = $("perfChart");
+  if (!chart) return;
+  const gunSirasi = [1, 2, 3, 4, 5, 6, 0];
+  const maks = Math.max(1, ...Object.values(gunSayilari));
+  chart.innerHTML = gunSirasi.map(g => {
+    const sayi = gunSayilari[g] || 0;
+    const yuzde = (sayi / maks) * 100;
+    return `<div class="perf-bar">
+      <span class="perf-bar-num">${sayi}</span>
+      <div class="perf-bar-inner" style="height:${yuzde}%"></div>
+      <span class="perf-bar-label">${GUNLER_KISA[g]}</span>
+    </div>`;
+  }).join("");
+}
+
+function planToplantilarCiz() {
+  const yakEl = $("toplantiYaklasan");
+  const gecEl = $("toplantiGecmis");
+  if (!yakEl || !gecEl) return;
+
+  const now2 = new Date();
+  const toplantilar = S.toplantilar || [];
+  const yaklasan = [];
+  const gecmis = [];
+  toplantilar.forEach(t => {
+    const dt = new Date(t.tarih + "T" + (t.saat || "00:00"));
+    if (dt >= now2) yaklasan.push({ ...t, _dt: dt });
+    else gecmis.push({ ...t, _dt: dt });
+  });
+  yaklasan.sort((a, b) => a._dt - b._dt);
+  gecmis.sort((a, b) => b._dt - a._dt);
+
+  const renderItem = t => {
+    const [y, m, d] = t.tarih.split("-");
+    const gun = +d;
+    const ay = aylar[+m - 1].slice(0, 3);
+    return `<li class="toplanti-item">
+      <div class="toplanti-tarih">
+        <span class="tt-gun">${gun} ${ay}</span>
+        <span class="tt-saat">${esc(t.saat)}</span>
+      </div>
+      <div class="toplanti-body">
+        <div class="tb-baslik">${esc(t.baslik)}</div>
+        <div class="tb-meta">
+          ${t.sure ? `<span><svg width="11" height="11"><use href="#i-clock"/></svg> ${t.sure} dk</span>` : ""}
+          ${t.katilimcilar ? `<span><svg width="11" height="11"><use href="#i-users"/></svg> ${esc(t.katilimcilar)}</span>` : ""}
+        </div>
+      </div>
+      <button type="button" class="toplanti-del" data-act="del" data-list="toplantilar" data-id="${t.id}" aria-label="Sil">
+        <svg width="14" height="14"><use href="#i-trash"/></svg>
+      </button>
+    </li>`;
+  };
+
+  yakEl.innerHTML = yaklasan.length ? yaklasan.map(renderItem).join("") : `<li class="toplanti-empty">Yaklaşan toplantı yok.</li>`;
+  gecEl.innerHTML = gecmis.length ? gecmis.slice(0, 10).map(renderItem).join("") : `<li class="toplanti-empty">Geçmiş toplantı yok.</li>`;
+}
+
+function planSekmeDegistir(s) {
+  planSekme = s;
+  document.querySelectorAll(".plan-tab").forEach(t => t.classList.toggle("on", t.dataset.planTab === s));
+  document.querySelectorAll(".plan-panel").forEach(p => p.classList.toggle("on", p.dataset.planPanel === s));
+  if (s === "haftalik") planHaftalikCiz();
+  if (s === "performans") planPerformansCiz();
+  if (s === "toplantilar") planToplantilarCiz();
+}
+
+function miniPlanCiz() {
+  const el = $("miniPlanList");
+  if (!el) return;
+  const items = (S.planItems || []).slice().sort(planItemSirala).slice(0, 5);
+  if (!items.length) {
+    el.innerHTML = `<li class="mini-plan-empty">Bu hafta plan yok.</li>`;
+    return;
+  }
+  el.innerHTML = items.map(it => {
+    const gunKisa = GUNLER_KISA[+it.gun];
+    return `<li class="mini-plan-item ${it.kategori || "gorev"}">
+      <span class="mp-gun">${gunKisa}</span>
+      <span class="mp-saat">${esc(it.saat)}</span>
+      <span class="mp-baslik">${esc(it.baslik)}</span>
+    </li>`;
+  }).join("");
+}
+// ================= GÖREVLER =================
 function gorevOncelik(p) { return ONCELIK[p] ? p : "mid"; }
 
 function gorevlerCiz() {
   if (!S) return;
-  const liste = $("tasksListFull");
-  const bos = $("tasksEmpty");
+  const liste = $("tasksListFull"); const bos = $("tasksEmpty");
   if (!liste) return;
   const tum = S.tasks || [];
   const toplam = tum.length;
@@ -674,9 +791,7 @@ function gorevlerCiz() {
 }
 
 function kanbanCiz() {
-  const todoEl = $("kanbanTodo");
-  const doingEl = $("kanbanDoing");
-  const doneEl = $("kanbanDone");
+  const todoEl = $("kanbanTodo"); const doingEl = $("kanbanDoing"); const doneEl = $("kanbanDone");
   if (!todoEl) return;
   const tum = S.tasks || [];
   const todo = tum.filter(t => !t.done && !t.doing);
@@ -685,6 +800,7 @@ function kanbanCiz() {
   if ($("kanbanTodoCount")) $("kanbanTodoCount").textContent = todo.length;
   if ($("kanbanDoingCount")) $("kanbanDoingCount").textContent = doing.length;
   if ($("kanbanDoneCount")) $("kanbanDoneCount").textContent = done.length;
+
   const renderItem = (t, kolon) => {
     const p = gorevOncelik(t.p);
     let aksiyonlar = "";
@@ -744,8 +860,13 @@ function ozetCiz() {
   const bugunEtkinlik = (S.events[todayKey] || []).length;
   const bekleyenGorev = (S.tasks || []).filter(t => !t.done).length;
   const bugunDers = bugunDersler().length;
+  const bugunPlan = (S.planItems || []).filter(p => +p.gun === bugunGunNo).length;
   const parcalar = [];
-  if (bugunDers) parcalar.push(`<div class="ws-item"><b>${bugunDers}</b> ders</div>`);
+  if (S.mode === "student") {
+    if (bugunDers) parcalar.push(`<div class="ws-item"><b>${bugunDers}</b> ders</div>`);
+  } else {
+    if (bugunPlan) parcalar.push(`<div class="ws-item"><b>${bugunPlan}</b> iş</div>`);
+  }
   if (bugunEtkinlik) parcalar.push(`<div class="ws-item"><b>${bugunEtkinlik}</b> etkinlik</div>`);
   if (bekleyenGorev) parcalar.push(`<div class="ws-item"><b>${bekleyenGorev}</b> görev</div>`);
   el.innerHTML = parcalar.length ? parcalar.join("") : `<div class="ws-item">Bugün için plan yok 😌</div>`;
@@ -846,29 +967,26 @@ function ciz() {
   kanbanCiz();
   hedeflerCiz();
   miniDersGridCiz();
+  miniPlanCiz();
   pomoRender();
   gorevlerCiz();
   haftalikGridCiz();
+  planHaftalikCiz();
+  planPerformansCiz();
+  planToplantilarCiz();
   kaydet();
 }
+
 // ================= Tıklama olayları =================
 document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
   if (tab) { sekme = tab.dataset.tab; $("authMsg").textContent = ""; return authCiz(); }
   const acc = e.target.closest("[data-acc]");
-  if (acc) {
-    sekme = "login";
-    $("aUser").value = db.users[acc.dataset.acc].ad;
-    authCiz();
-    return $("aPass").focus();
-  }
+  if (acc) { sekme = "login"; $("aUser").value = db.users[acc.dataset.acc].ad; authCiz(); return $("aPass").focus(); }
 
   if (e.target.closest("[data-logout]")) { e.preventDefault(); return cikis(); }
   if (e.target.closest("[data-delacc]")) {
-    if (confirm("Hesabın ve tüm verilerin kalıcı olarak silinecek. Devam edilsin mi?")) {
-      delete db.users[db.aktif];
-      return cikis();
-    }
+    if (confirm("Hesabın ve tüm verilerin kalıcı olarak silinecek. Devam edilsin mi?")) { delete db.users[db.aktif]; return cikis(); }
     return;
   }
 
@@ -880,38 +998,28 @@ document.addEventListener("click", e => {
   if (e.target.closest("#backBtn")) { e.preventDefault(); goView("home"); return ciz(); }
 
   if (e.target.closest("#notifClose")) { panelKapat(); return; }
-
   const panel = $("notifPanel");
   if (panel && panel.classList.contains("on")) {
-    if (!e.target.closest("#notifPanel") && !e.target.closest("#bellBtn")) {
-      panelKapat();
-    }
+    if (!e.target.closest("#notifPanel") && !e.target.closest("#bellBtn")) panelKapat();
   }
-
   if (e.target.closest("#bellBtn")) {
     e.preventDefault();
     if (panel && panel.classList.contains("on")) panelKapat();
     else panelAc();
     return;
   }
-
   if (e.target.closest("#notifClear")) {
     if (confirm("Tüm bildirimleri silmek istediğine emin misin?")) {
-      S.notifications = [];
-      bildirimCiz();
-      bildirimRozetiGuncelle();
-      kaydet();
+      S.notifications = []; bildirimCiz(); bildirimRozetiGuncelle(); kaydet();
     }
     return;
   }
 
-  // Pomodoro
+  // POMODORO
   const pomoTab = e.target.closest(".pomo-tab");
   if (pomoTab) {
     e.preventDefault();
-    if (pomo.calisiyor) {
-      if (!confirm("Çalışan pomodoro durdurulacak. Devam edilsin mi?")) return;
-    }
+    if (pomo.calisiyor && !confirm("Çalışan pomodoro durdurulacak. Devam edilsin mi?")) return;
     pomoModDegistir(pomoTab.dataset.mode);
     return;
   }
@@ -923,12 +1031,8 @@ document.addEventListener("click", e => {
   }
   if (e.target.closest("#pomoReset")) { e.preventDefault(); pomoSifirla(); return; }
   if (e.target.closest("#pomoSkip")) { e.preventDefault(); pomoBitti(); return; }
-  const bindBtn = e.target.closest(".pomo-bind-btn");
-  if (bindBtn) {
-    e.preventDefault();
-    pomoBindAc();
-    guvenliAc($("dlgPomoBind"));
-    return;
+  if (e.target.closest(".pomo-bind-btn")) {
+    e.preventDefault(); pomoBindAc(); guvenliAc($("dlgPomoBind")); return;
   }
   const bindTab = e.target.closest(".pomo-bind-tab");
   if (bindTab) {
@@ -940,10 +1044,8 @@ document.addEventListener("click", e => {
   const bindItem = e.target.closest("[data-pomo-bind]");
   if (bindItem) {
     e.preventDefault();
-    const tip = bindItem.dataset.pomoBind;
-    const id = bindItem.dataset.id;
     if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
-    S.pomo.bind = { tip, id };
+    S.pomo.bind = { tip: bindItem.dataset.pomoBind, id: bindItem.dataset.id };
     $("dlgPomoBind").close();
     pomoBindRender();
     kaydet();
@@ -967,6 +1069,14 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // İŞ PLANI SEKMELERİ
+  const planTab = e.target.closest(".plan-tab");
+  if (planTab) {
+    e.preventDefault();
+    planSekmeDegistir(planTab.dataset.planTab);
+    return;
+  }
+
   // Görev filtresi
   const filterBtn = e.target.closest(".filter-btn");
   if (filterBtn) {
@@ -981,14 +1091,12 @@ document.addEventListener("click", e => {
     if (sayi === 0) { alert("Silinecek tamamlanmış görev yok."); return; }
     if (confirm(`${sayi} tamamlanmış görev silinecek. Emin misin?`)) {
       S.tasks = S.tasks.filter(t => !t.done);
-      gorevlerCiz();
-      kanbanCiz();
-      kaydet();
+      gorevlerCiz(); kanbanCiz(); kaydet();
     }
     return;
   }
 
-  // Kanban
+  // Kanban butonları
   const startBtn = e.target.closest("[data-act='task-start']");
   if (startBtn) {
     e.preventDefault();
@@ -1029,11 +1137,7 @@ document.addEventListener("click", e => {
 
   // Modal kapatma
   const closeBtn = e.target.closest("[data-dialog-close]");
-  if (closeBtn) {
-    const d = closeBtn.closest("dialog");
-    if (d) d.close();
-    return;
-  }
+  if (closeBtn) { const d = closeBtn.closest("dialog"); if (d) d.close(); return; }
 
   // Avatar seçimi
   const avBtn = e.target.closest("[data-avatar]");
@@ -1117,10 +1221,7 @@ document.addEventListener("click", e => {
   const nav = e.target.closest("[data-view]");
   if (nav) {
     e.preventDefault();
-    if (nav.hasAttribute("data-today")) {
-      sel = todayKey;
-      view = { y: now.getFullYear(), m: now.getMonth() };
-    }
+    if (nav.hasAttribute("data-today")) { sel = todayKey; view = { y: now.getFullYear(), m: now.getMonth() }; }
     goView(nav.dataset.view);
     return ciz();
   }
@@ -1155,11 +1256,7 @@ if ($("prev")) $("prev").onclick = () => ayGit(-1);
 if ($("next")) $("next").onclick = () => ayGit(1);
 if ($("bPrev")) $("bPrev").onclick = () => ayGit(-1);
 if ($("bNext")) $("bNext").onclick = () => ayGit(1);
-if ($("bToday")) $("bToday").onclick = () => {
-  sel = todayKey;
-  view = { y: now.getFullYear(), m: now.getMonth() };
-  ciz();
-};
+if ($("bToday")) $("bToday").onclick = () => { sel = todayKey; view = { y: now.getFullYear(), m: now.getMonth() }; ciz(); };
 if ($("closeSettings")) $("closeSettings").onclick = () => $("settingsDlg").close();
 
 // Arama
@@ -1183,55 +1280,39 @@ if ($("miniCalToggle")) {
 }
 
 // Ayarlar
-if ($("setName")) {
-  $("setName").onchange = e => {
-    if (e.target.value.trim()) { S.name = e.target.value.trim(); ciz(); }
-  };
-}
-if ($("reset")) {
-  $("reset").onclick = () => {
-    if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
-      db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
-      $("settingsDlg").close();
-      ciz();
-    }
-  };
-}
+if ($("setName")) $("setName").onchange = e => { if (e.target.value.trim()) { S.name = e.target.value.trim(); ciz(); } };
+if ($("reset")) $("reset").onclick = () => {
+  if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
+    db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
+    $("settingsDlg").close();
+    ciz();
+  }
+};
 
 // Profil
 if ($("userBox")) $("userBox").onclick = () => acProfil();
-if ($("profileSave")) {
-  $("profileSave").onclick = () => {
-    if (!S) return;
-    const yeniIsim = $("profileNameInput").value.trim();
-    if (yeniIsim) S.name = yeniIsim;
-    const pending = $("profileAvatar").dataset.pending;
-    if (pending !== undefined && pending !== "") S.avatar = +pending;
-    $("profileDlg").close();
-    ciz();
-    kaydet();
-  };
-}
+if ($("profileSave")) $("profileSave").onclick = () => {
+  if (!S) return;
+  const yeniIsim = $("profileNameInput").value.trim();
+  if (yeniIsim) S.name = yeniIsim;
+  const pending = $("profileAvatar").dataset.pending;
+  if (pending !== undefined && pending !== "") S.avatar = +pending;
+  $("profileDlg").close();
+  ciz();
+  kaydet();
+};
 
-// Change olayları
+// Change
 document.addEventListener("change", e => {
   const act = e.target.dataset ? e.target.dataset.act : null;
   const id = e.target.dataset ? e.target.dataset.id : null;
   if (!act) return;
-  if (act === "grade") {
-    const it = bul("courses", id);
-    if (it) it.g = Math.min(100, Math.max(0, +e.target.value || 0));
-  } else if (act === "status") {
-    const it = bul("jobs", id); if (it) it.st = e.target.value;
-  } else if (act === "done") {
-    const it = bul("tasks", id); if (it) it.done = e.target.checked;
-  } else if (act === "task-toggle") {
+  if (act === "grade") { const it = bul("courses", id); if (it) it.g = Math.min(100, Math.max(0, +e.target.value || 0)); }
+  else if (act === "status") { const it = bul("jobs", id); if (it) it.st = e.target.value; }
+  else if (act === "done") { const it = bul("tasks", id); if (it) it.done = e.target.checked; }
+  else if (act === "task-toggle") {
     const it = bul("tasks", id);
-    if (it) {
-      it.done = e.target.checked;
-      if (it.done) it.doing = false;
-      gorevlerCiz(); kanbanCiz(); kaydet(); return;
-    }
+    if (it) { it.done = e.target.checked; if (it.done) it.doing = false; gorevlerCiz(); kanbanCiz(); kaydet(); return; }
   } else return;
   ciz();
 });
@@ -1261,7 +1342,7 @@ function adDegistir(e) {
 document.addEventListener("dblclick", adDegistir);
 
 // Form gönderimleri
-const AUTOCLOSE = ["dlgEvent", "dlgLink", "dlgCourse", "dlgDeadline", "dlgJob", "dlgSkill", "dlgNote", "dlgDers", "dlgHedef", "pomodoroAyarDlg"];
+const AUTOCLOSE = ["dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti"];
 document.addEventListener("submit", e => {
   e.preventDefault();
   if (!e.target.dataset || !e.target.dataset.form || !S) return;
@@ -1275,48 +1356,31 @@ document.addEventListener("submit", e => {
       (S.events[k] = S.events[k] || []).push({ id, t: v.t.trim(), time: v.time, type: v.type });
       break;
     }
-    case "course":
-      S.courses.push({ id, n: v.n.trim(), g: Math.min(100, Math.max(0, +v.g)) });
-      break;
-    case "deadline":
-      S.deadlines.push({ id, t: v.t.trim(), d: v.d });
-      break;
-    case "job":
-      S.jobs.push({ id, n: v.n.trim(), st: "" });
-      break;
-    case "skill":
-      S.skills.push({ id, n: v.n.trim(), p: 50 });
-      break;
+    case "course": S.courses.push({ id, n: v.n.trim(), g: Math.min(100, Math.max(0, +v.g)) }); break;
+    case "deadline": S.deadlines.push({ id, t: v.t.trim(), d: v.d }); break;
+    case "job": S.jobs.push({ id, n: v.n.trim(), st: "" }); break;
+    case "skill": S.skills.push({ id, n: v.n.trim(), p: 50 }); break;
     case "task":
-      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: "mid", zaman: new Date().toISOString() });
-      break;
     case "task-quick":
       S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", zaman: new Date().toISOString() });
       break;
-    case "note":
-      S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" });
-      break;
-    case "link":
-      S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() });
-      break;
+    case "note": S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" }); break;
+    case "link": S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() }); break;
     case "ders": {
-      const ders = {
-        id, ad: v.ad.trim(), kod: (v.kod || "").trim(), hoca: (v.hoca || "").trim(),
-        sinif: (v.sinif || "").trim(), gun: v.gun, renk: v.renk || "blue",
-        bas: v.bas, bit: v.bit, notlar: (v.notlar || "").trim(),
-      };
+      const ders = { id, ad: v.ad.trim(), kod: (v.kod||"").trim(), hoca: (v.hoca||"").trim(), sinif: (v.sinif||"").trim(), gun: v.gun, renk: v.renk || "blue", bas: v.bas, bit: v.bit, notlar: (v.notlar||"").trim() };
       const idx = S.dersler.findIndex(d => d.id === id);
       if (idx >= 0) S.dersler[idx] = ders;
       else S.dersler.push(ders);
       break;
     }
     case "hedef":
-      S.hedefler.push({
-        id, baslik: v.baslik.trim(),
-        hedef: Math.max(1, +v.hedef || 1),
-        birim: (v.birim || "kez").trim(),
-        mevcut: 0, zaman: new Date().toISOString(),
-      });
+      S.hedefler.push({ id, baslik: v.baslik.trim(), hedef: Math.max(1, +v.hedef || 1), birim: (v.birim || "kez").trim(), mevcut: 0, zaman: new Date().toISOString() });
+      break;
+    case "plan-item":
+      S.planItems.push({ id, baslik: v.baslik.trim(), gun: v.gun, saat: v.saat, kategori: v.kategori || "gorev", zaman: new Date().toISOString() });
+      break;
+    case "toplanti":
+      S.toplantilar.push({ id, baslik: v.baslik.trim(), tarih: v.tarih, saat: v.saat, katilimcilar: (v.katilimcilar||"").trim(), sure: +(v.sure || 30), notlar: (v.notlar||"").trim(), zaman: new Date().toISOString() });
       break;
     case "pomo-ayar": {
       if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
@@ -1326,10 +1390,7 @@ document.addEventListener("submit", e => {
       S.pomo.cycle = Math.max(2, +v.cycle || 4);
       S.pomo.sound = v.sound || "on";
       S.pomo.auto = v.auto || "off";
-      if (!pomo.calisiyor) {
-        pomo.toplam = pomoSure(pomo.mod);
-        pomo.kalan = pomo.toplam;
-      }
+      if (!pomo.calisiyor) { pomo.toplam = pomoSure(pomo.mod); pomo.kalan = pomo.toplam; }
       pomoRender();
       break;
     }
@@ -1341,10 +1402,8 @@ document.addEventListener("submit", e => {
   ciz();
 });
 
-// Backdrop tıklama
 document.addEventListener("click", e => { if (e.target.tagName === "DIALOG") e.target.close(); });
 
-// Gece yarısı geçince yenile
 document.addEventListener("visibilitychange", () => {
   const d = new Date();
   if (!document.hidden && key(d.getFullYear(), d.getMonth(), d.getDate()) !== todayKey) location.reload();
@@ -1360,9 +1419,7 @@ function authCiz() {
   if ($("accList")) {
     $("accList").innerHTML = ids.length
       ? `<p class="lbl">Bu cihazdaki hesaplar</p><div class="acc">` +
-        ids.map(id =>
-          `<button type="button" data-acc="${esc(id)}">${db.users[id].tur === "work" ? "İş" : "Öğrenci"} · ${esc(db.users[id].ad)}</button>`
-        ).join("") + `</div>`
+        ids.map(id => `<button type="button" data-acc="${esc(id)}">${db.users[id].tur === "work" ? "İş" : "Öğrenci"} · ${esc(db.users[id].ad)}</button>`).join("") + `</div>`
       : "";
   }
 }
@@ -1375,7 +1432,7 @@ if ($("authForm")) {
     const msg = t => ($("authMsg").textContent = t);
     if (!ad || sifre.length < 4) return msg("Kullanıcı adını yaz, şifre en az 4 karakter olsun.");
     if (sekme === "reg") {
-      if (db.users[id]) return msg("Bu kullanıcı adı zaten var. Giriş yapmayı dene.");
+      if (db.users[id]) return msg("Bu kullanıcı adı zaten var.");
       const tur = document.querySelector("input[name=tur]:checked").value;
       const tuz = uid() + uid();
       db.users[id] = { ad, tur, tuz, hash: await hashle(sifre, tuz), data: yeniVeri(tur, ad) };
@@ -1383,14 +1440,9 @@ if ($("authForm")) {
       const h = db.users[id];
       if (!h || h.hash !== await hashle(sifre, h.tuz)) return msg("Kullanıcı adı veya şifre yanlış.");
     }
-    db.aktif = id;
-    dbYaz();
-    msg("");
-    $("aPass").value = "";
-    basla();
+    db.aktif = id; dbYaz(); msg(""); $("aPass").value = ""; basla();
   });
 }
-
 function basla() {
   const h = db.users[db.aktif];
   if (!h) { db.aktif = null; dbYaz(); if ($("auth")) $("auth").hidden = false; return; }
@@ -1400,11 +1452,11 @@ function basla() {
   if (!h.data.taskFilter) h.data.taskFilter = "all";
   if (!Array.isArray(h.data.dersler)) h.data.dersler = [];
   if (!Array.isArray(h.data.hedefler)) h.data.hedefler = [];
+  if (!Array.isArray(h.data.planItems)) h.data.planItems = [];
+  if (!Array.isArray(h.data.toplantilar)) h.data.toplantilar = [];
   if (!h.data.pomo) h.data.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
   if (!h.data.pomo.stats) h.data.pomo.stats = {};
-  (h.data.tasks || []).forEach(t => {
-    if (typeof t.doing !== "boolean") t.doing = false;
-  });
+  (h.data.tasks || []).forEach(t => { if (typeof t.doing !== "boolean") t.doing = false; });
   S = h.data;
 
   pomo.mod = "focus";
@@ -1426,17 +1478,13 @@ function basla() {
   otomatikBildirimler();
   bildirimRozetiGuncelle();
 }
-
 function cikis() {
   clearTimeout(kaydetZamani);
-  db.aktif = null;
-  dbYaz();
-  S = null;
+  db.aktif = null; dbYaz(); S = null;
   if (pomo.interval) clearInterval(pomo.interval);
   location.reload();
 }
 
-// ================= Başlangıç =================
 try {
   authCiz();
   if (db.aktif && db.users[db.aktif]) basla();
