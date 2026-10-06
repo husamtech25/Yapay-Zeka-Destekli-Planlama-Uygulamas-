@@ -1,4 +1,4 @@
-console.log("[Planla] v14 + kısayollar düzeltildi");
+console.log("[Planla] v15 + mini ders grid düzeltildi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -565,23 +565,28 @@ function haftalikGridCiz() {
   grid.innerHTML = html;
 }
 
+// ✅ DÜZELTİLDİ: 5x5 grid, inline style
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
   if (!el) return;
   const gunSirasi = [1, 2, 3, 4, 5];
   const miniSaatler = [9, 11, 13, 15, 17];
+
+  el.style.gridTemplateColumns = "repeat(5, minmax(0, 1fr))";
+  el.style.gridAutoRows = "32px";
+
   let html = "";
-  html += `<div class="mdg-head"></div>`;
+  // 1. satır: 5 gün başlığı (ilk hücre boş, gün başlıkları)
   gunSirasi.forEach(g => {
     const bugun = g === bugunGunNo;
     html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
   });
+  // 5 saat satırı, her satır 5 hücre
   miniSaatler.forEach(saat => {
-    html += `<div class="mdg-head" style="text-align:right;padding-right:4px">${pad(saat)}:00</div>`;
     gunSirasi.forEach(gunNo => {
       const ders = (S.dersler || []).find(d => +d.gun === gunNo && +d.bas.split(":")[0] === saat);
       if (ders) {
-        html += `<div class="mdg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" title="${esc(ders.ad)}">${esc(ders.ad.slice(0, 6))}</div>`;
+        html += `<div class="mdg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" title="${esc(ders.ad)}">${esc(ders.ad.slice(0, 8))}</div>`;
       } else {
         html += `<div class="mdg-cell"></div>`;
       }
@@ -960,7 +965,7 @@ function ciz() {
   bildirimRozetiGuncelle();
   kanbanCiz();
   hedeflerCiz();
-  kisayolCiz();          // ✅ YENİ
+  kisayolCiz();
   miniDersGridCiz();
   miniPlanCiz();
   pomoRender();
