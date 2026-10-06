@@ -1,10 +1,10 @@
-console.log("[Planla] v15 + mini ders grid düzeltildi");
+console.log("[Planla] v16 + rozet ve karşılama eklendi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
-    tur: ["Ders", "Etkinlik", "Ödev"], isim: "Ders adı", deger: "Not (0-100)", jobs: "Önerilen Stajlar", sub: "Akademik ve kariyer planlaman tek yerde." },
+    tur: ["Ders", "Etkinlik", "Ödev"], isim: "Ders adı", deger: "Not (0-100)", jobs: "Önerilen Stajlar", sub: "Bugün harika bir gün olacak!" },
   work: { rol: "Çalışan", ac: "Projeler", acSub: "Projeler  Teslimler", caSub: "Hedefler  Fırsatlar", acBaslik: "Projelerim",
-    tur: ["Toplantı", "Etkinlik", "Görev"], isim: "Proje adı", deger: "İlerleme (%)", jobs: "Fırsatlar & Başvurular", sub: "İşlerin, toplantıların ve hedeflerin tek yerde." },
+    tur: ["Toplantı", "Etkinlik", "Görev"], isim: "Proje adı", deger: "İlerleme (%)", jobs: "Fırsatlar & Başvurular", sub: "Bugün harika bir gün olacak!" },
 };
 const sinif = { Ders: "course", Toplantı: "course", Etkinlik: "event", Ödev: "hw", Görev: "hw" };
 const ONCELIK = { low: "Düşük", mid: "Orta", high: "Yüksek" };
@@ -204,6 +204,57 @@ function acProfil() {
   guvenliAc($("profileDlg"));
 }
 
+// ================= KARŞILAMA VE ROZET =================
+function karsilamaMetni() {
+  const saat = new Date().getHours();
+  if (saat >= 5 && saat < 12) return { metin: "Günaydın", emoji: "☀️" };
+  if (saat >= 12 && saat < 17) return { metin: "İyi öğlenler", emoji: "🌤️" };
+  if (saat >= 17 && saat < 22) return { metin: "İyi akşamlar", emoji: "🌆" };
+  return { metin: "İyi geceler", emoji: "🌙" };
+}
+
+function bugunRozet() {
+  // Her gün için rozet hesapla
+  const saat = new Date().getHours();
+  const bugunGorev = (S.tasks || []).filter(t => {
+    if (!t.done || !t.zaman) return false;
+    const z = new Date(t.zaman);
+    return z.toDateString() === new Date().toDateString();
+  }).length;
+
+  const bugunPomo = (S.pomo && S.pomo.stats && S.pomo.stats[todayKey]) ? S.pomo.stats[todayKey].sayi : 0;
+  const bugunDers = bugunDersler().length;
+  const bugunPlan = (S.planItems || []).filter(p => +p.gun === bugunGunNo).length;
+  const bugunToplanti = (S.toplantilar || []).filter(t => t.tarih === todayKey).length;
+  const bugunNot = (S.notes || []).length; // basit kontrol
+
+  // Öncelik sırası
+  if (saat >= 5 && saat < 8) return { emoji: "🌅", baslik: "Erken Kuş", desc: "Sabahın erken saatlerinde başladın!", stil: "rozet-saat" };
+  if (saat >= 22 || saat < 2) return { emoji: "🌙", baslik: "Gece Kuşu", desc: "Gece geç saatlerde çalışıyorsun.", stil: "rozet-saat" };
+  if (bugunGorev >= 5) return { emoji: "🏆", baslik: "Görev Avcısı", desc: `Bugün ${bugunGorev} görev tamamladın!`, stil: "rozet-odul" };
+  if (bugunPomo >= 4) return { emoji: "⚡", baslik: "Süper Odak", desc: `Bugün ${bugunPomo} pomodoro tamamladın!`, stil: "rozet-odul" };
+  if (bugunGorev >= 3) return { emoji: "🐝", baslik: "Üretken Arı", desc: `Bugün ${bugunGorev} görev tamamladın.`, stil: "rozet-odul" };
+  if (bugunPomo >= 2) return { emoji: "🎯", baslik: "Odaklanmış", desc: `Bugün ${bugunPomo} pomodoro tamamladın.`, stil: "rozet-odul" };
+  if (bugunDers >= 3) return { emoji: "📚", baslik: "Kitap Kurdu", desc: `Bugün ${bugunDers} dersin var.`, stil: "rozet-odul" };
+  if (bugunPlan >= 1) return { emoji: "📋", baslik: "Planlı", desc: `Bugün ${bugunPlan} planlı işin var.`, stil: "rozet-odul" };
+  if (bugunToplanti >= 1) return { emoji: "👥", baslik: "Toplantıcı", desc: `Bugün ${bugunToplanti} toplantın var.`, stil: "rozet-odul" };
+  if (bugunNot >= 1) return { emoji: "📝", baslik: "Not Tutan", desc: `${bugunNot} notun var.`, stil: "rozet-odul" };
+  // Standart
+  return { emoji: "✨", baslik: "Güzel Bir Gün", desc: "Bugün güzel şeyler yapabilirsin.", stil: "rozet-standart" };
+}
+
+function rozetCiz() {
+  const el = $("welcomeRozet");
+  if (!el) return;
+  const r = bugunRozet();
+  el.innerHTML = `<div class="rozet-badge ${r.stil}">
+    <span class="rozet-emoji">${r.emoji}</span>
+    <div class="rozet-body">
+      <span class="rozet-title">${r.baslik}</span>
+      <span class="rozet-desc">${r.desc}</span>
+    </div>
+  </div>`;
+}
 // ================= Bildirimler =================
 function bildirimEkle(tip, baslik, mesaj, ozelId) {
   if (!S) return;
@@ -337,6 +388,7 @@ function kisayolCiz() {
     </button>`
   ).join("");
 }
+
 // ================= POMODORO =================
 let pomo = { mod: "focus", kalan: 25*60, toplam: 25*60, calisiyor: false, interval: null, tur: 0 };
 
@@ -565,7 +617,6 @@ function haftalikGridCiz() {
   grid.innerHTML = html;
 }
 
-// ✅ DÜZELTİLDİ: 5x5 grid, inline style
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
   if (!el) return;
@@ -576,12 +627,10 @@ function miniDersGridCiz() {
   el.style.gridAutoRows = "32px";
 
   let html = "";
-  // 1. satır: 5 gün başlığı (ilk hücre boş, gün başlıkları)
   gunSirasi.forEach(g => {
     const bugun = g === bugunGunNo;
     html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
   });
-  // 5 saat satırı, her satır 5 hücre
   miniSaatler.forEach(saat => {
     gunSirasi.forEach(gunNo => {
       const ders = (S.dersler || []).find(d => +d.gun === gunNo && +d.bas.split(":")[0] === saat);
@@ -879,12 +928,18 @@ function ozetCiz() {
 // ================= Çizim =================
 function ciz() {
   if (!S) return;
-  if ($("hello")) $("hello").textContent = `Hoş Geldin, ${S.name.split(" ")[0]}!`;
+
+  // ✅ KARŞILAMA (saate göre)
+  const k = karsilamaMetni();
+  const ilkAd = S.name.split(" ")[0];
+  if ($("hello")) $("hello").textContent = `${k.metin}, ${ilkAd}! ${k.emoji}`;
   if ($("uname")) $("uname").textContent = S.name;
   const bugun = new Date();
   if ($("welcomeDate")) $("welcomeDate").textContent = `${gunlerKisa[bugun.getDay()]}, ${bugun.getDate()} ${aylar[bugun.getMonth()]} ${bugun.getFullYear()}`;
+
   avatarUygula();
   ozetCiz();
+  rozetCiz();
 
   if ($("calTitle")) $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
   const cal = $("calendar");
@@ -896,9 +951,9 @@ function ciz() {
     const onceki = new Date(view.y, view.m, 0).getDate();
     for (let i = bosluk - 1; i >= 0; i--) cal.insertAdjacentHTML("beforeend", `<span class="dim">${onceki - i}</span>`);
     for (let g = 1; g <= gunler; g++) {
-      const k = key(view.y, view.m, g);
-      const cls = ["d", k === todayKey && "today", k === sel && "sel", (S.events[k] || []).length && "has"].filter(Boolean).join(" ");
-      cal.insertAdjacentHTML("beforeend", `<button type="button" class="${cls}" data-act="mini" data-date="${k}">${g}</button>`);
+      const kk = key(view.y, view.m, g);
+      const cls = ["d", kk === todayKey && "today", kk === sel && "sel", (S.events[kk] || []).length && "has"].filter(Boolean).join(" ");
+      cal.insertAdjacentHTML("beforeend", `<button type="button" class="${cls}" data-act="mini" data-date="${kk}">${g}</button>`);
     }
   }
 
@@ -911,9 +966,9 @@ function ciz() {
     let h = ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map(g => `<div class="dow">${g}</div>`).join("");
     for (let i = bosluk - 1; i >= 0; i--) h += `<div class="cell dim"><span class="n">${onceki - i}</span></div>`;
     for (let g = 1; g <= gunler; g++) {
-      const k = key(view.y, view.m, g);
-      const ev = gunEvents(k);
-      h += `<button type="button" class="cell ${k === todayKey ? "today" : ""} ${k === sel ? "sel" : ""} ${ev.length ? "has" : ""}" data-act="big" data-date="${k}"><span class="n">${g}</span>` +
+      const kk = key(view.y, view.m, g);
+      const ev = gunEvents(kk);
+      h += `<button type="button" class="cell ${kk === todayKey ? "today" : ""} ${kk === sel ? "sel" : ""} ${ev.length ? "has" : ""}" data-act="big" data-date="${kk}"><span class="n">${g}</span>` +
         ev.slice(0, 3).map(e => `<span class="ce ${sinif[e.type] || "event"}">${esc(e.time)} ${esc(e.t)}</span>`).join("") +
         (ev.length > 3 ? `<small>+${ev.length - 3} daha</small>` : "") + `</button>`;
     }
