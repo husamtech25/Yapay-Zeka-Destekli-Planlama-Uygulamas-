@@ -1,4 +1,4 @@
-console.log("[Planla] v16 + rozet ve karşılama eklendi");
+console.log("[Planla] v17 + ders silme eklendi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -214,7 +214,6 @@ function karsilamaMetni() {
 }
 
 function bugunRozet() {
-  // Her gün için rozet hesapla
   const saat = new Date().getHours();
   const bugunGorev = (S.tasks || []).filter(t => {
     if (!t.done || !t.zaman) return false;
@@ -226,9 +225,8 @@ function bugunRozet() {
   const bugunDers = bugunDersler().length;
   const bugunPlan = (S.planItems || []).filter(p => +p.gun === bugunGunNo).length;
   const bugunToplanti = (S.toplantilar || []).filter(t => t.tarih === todayKey).length;
-  const bugunNot = (S.notes || []).length; // basit kontrol
+  const bugunNot = (S.notes || []).length;
 
-  // Öncelik sırası
   if (saat >= 5 && saat < 8) return { emoji: "🌅", baslik: "Erken Kuş", desc: "Sabahın erken saatlerinde başladın!", stil: "rozet-saat" };
   if (saat >= 22 || saat < 2) return { emoji: "🌙", baslik: "Gece Kuşu", desc: "Gece geç saatlerde çalışıyorsun.", stil: "rozet-saat" };
   if (bugunGorev >= 5) return { emoji: "🏆", baslik: "Görev Avcısı", desc: `Bugün ${bugunGorev} görev tamamladın!`, stil: "rozet-odul" };
@@ -239,7 +237,6 @@ function bugunRozet() {
   if (bugunPlan >= 1) return { emoji: "📋", baslik: "Planlı", desc: `Bugün ${bugunPlan} planlı işin var.`, stil: "rozet-odul" };
   if (bugunToplanti >= 1) return { emoji: "👥", baslik: "Toplantıcı", desc: `Bugün ${bugunToplanti} toplantın var.`, stil: "rozet-odul" };
   if (bugunNot >= 1) return { emoji: "📝", baslik: "Not Tutan", desc: `${bugunNot} notun var.`, stil: "rozet-odul" };
-  // Standart
   return { emoji: "✨", baslik: "Güzel Bir Gün", desc: "Bugün güzel şeyler yapabilirsin.", stil: "rozet-standart" };
 }
 
@@ -255,6 +252,7 @@ function rozetCiz() {
     </div>
   </div>`;
 }
+
 // ================= Bildirimler =================
 function bildirimEkle(tip, baslik, mesaj, ozelId) {
   if (!S) return;
@@ -929,7 +927,6 @@ function ozetCiz() {
 function ciz() {
   if (!S) return;
 
-  // ✅ KARŞILAMA (saate göre)
   const k = karsilamaMetni();
   const ilkAd = S.name.split(" ")[0];
   if ($("hello")) $("hello").textContent = `${k.metin}, ${ilkAd}! ${k.emoji}`;
@@ -1129,6 +1126,22 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // ✅ DERS SİLME
+  if (e.target.closest("#silDers")) {
+    e.preventDefault();
+    const form = $("dlgDers").querySelector("form");
+    const id = form.querySelector("[name=id]").value;
+    if (!id) { $("dlgDers").close(); return; }
+    const d = bul("dersler", id);
+    if (!d) { $("dlgDers").close(); return; }
+    if (confirm(`"${d.ad}" dersini silmek istediğine emin misin?`)) {
+      sil("dersler", id);
+      $("dlgDers").close();
+      ciz();
+    }
+    return;
+  }
+
   const filterBtn = e.target.closest(".filter-btn");
   if (filterBtn) {
     S.taskFilter = filterBtn.dataset.filter;
@@ -1200,6 +1213,7 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // ✅ DERS DÜZENLE (Sil butonunu göster)
   const dersItem = e.target.closest("[data-act='ders-edit']");
   if (dersItem) {
     e.preventDefault();
@@ -1218,6 +1232,7 @@ document.addEventListener("click", e => {
     form.querySelector("[name=bit]").value = d.bit || "";
     form.querySelector("[name=notlar]").value = d.notlar || "";
     $("dlgDersTitle").textContent = "Dersi Düzenle";
+    if ($("silDers")) $("silDers").hidden = false;   // ✅ Sil butonu göster
     guvenliAc($("dlgDers"));
     return;
   }
@@ -1233,6 +1248,7 @@ document.addEventListener("click", e => {
       if (opener.dataset.open === "dlgDers") {
         form.querySelector("[name=id]").value = "";
         $("dlgDersTitle").textContent = "Ders Ekle";
+        if ($("silDers")) $("silDers").hidden = true;   // ✅ Sil butonu gizle
       }
       if (opener.dataset.open === "dlgEvent") form.dataset.day = opener.dataset.day || "today";
       const selEl = form.querySelector("select[name=type]");
