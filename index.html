@@ -57,6 +57,7 @@
     <symbol id="i-bar-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></symbol>
     <symbol id="i-message" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
     <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+    <symbol id="i-award" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></symbol>
     <symbol id="av-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
     <symbol id="av-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
     <symbol id="av-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
@@ -87,9 +88,7 @@
       <a href="#" data-view="ca"><svg width="18" height="18"><use href="#i-briefcase"/></svg> Kariyer</a>
       <a href="#" data-view="cal"><svg width="18" height="18"><use href="#i-calendar"/></svg> Takvim</a>
       <a href="#" data-view="tasks"><svg width="18" height="18"><use href="#i-check-circle"/></svg> Görevler</a>
-      <!-- Öğrenci: Ders Programı -->
       <a href="#" data-view="ders" class="menu-ogrenci"><svg width="18" height="18"><use href="#i-graduation"/></svg> Ders Programı</a>
-      <!-- İş: İş Planı -->
       <a href="#" data-view="plan" class="menu-is" hidden><svg width="18" height="18"><use href="#i-bar-chart"/></svg> İş Planı</a>
       <a href="#" data-logout><svg width="18" height="18"><use href="#i-logout"/></svg> Çıkış Yap</a>
     </nav>
@@ -146,6 +145,8 @@
               <div class="welcome-text">
                 <h1 id="hello"></h1>
                 <p id="helloSub"></p>
+                <!-- ROZET ALANI -->
+                <div class="welcome-rozet" id="welcomeRozet"></div>
                 <div class="welcome-summary" id="welcomeSummary"></div>
                 <div class="welcome-date" id="welcomeDate"></div>
               </div>
@@ -217,9 +218,7 @@
         <section class="home-row home-row-bottom">
           <div class="card light kısayol-card">
             <div class="card-head"><h2>Kısayollar</h2></div>
-            <div class="kısayol-grid" id="kisayolGrid">
-              <!-- Moda göre doldurulacak -->
-            </div>
+            <div class="kısayol-grid" id="kisayolGrid"></div>
           </div>
 
           <div class="card light pomodoro-card" id="pomodoroCard">
@@ -227,13 +226,11 @@
               <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:4px"><use href="#i-tomato"/></svg> Pomodoro</h2>
               <button type="button" class="chip light-chip" data-dlg="pomodoroAyarDlg" aria-label="Ayarlar"><svg width="12" height="12"><use href="#i-settings"/></svg></button>
             </div>
-
             <div class="pomo-tabs">
               <button type="button" class="pomo-tab on" data-mode="focus">Odak</button>
               <button type="button" class="pomo-tab" data-mode="short">Kısa Mola</button>
               <button type="button" class="pomo-tab" data-mode="long">Uzun Mola</button>
             </div>
-
             <div class="pomo-timer-wrap">
               <svg class="pomo-ring" viewBox="0 0 200 200">
                 <circle cx="100" cy="100" r="88" class="pomo-ring-bg"/>
@@ -244,7 +241,6 @@
                 <div class="pomo-mode-label" id="pomoModeLabel">Odak</div>
               </div>
             </div>
-
             <div class="pomo-controls">
               <button type="button" class="pomo-btn pomo-btn-main" id="pomoStart">
                 <svg width="18" height="18"><use href="#i-play"/></svg>
@@ -257,14 +253,12 @@
                 <svg width="16" height="16"><use href="#i-skip-forward"/></svg>
               </button>
             </div>
-
             <div class="pomo-bind" id="pomoBind">
               <button type="button" class="pomo-bind-btn" data-open="dlgPomoBind">
                 <svg width="14" height="14"><use href="#i-target"/></svg>
                 <span id="pomoBindLabel">Görev/Ders seç</span>
               </button>
             </div>
-
             <div class="pomo-stats">
               <div class="pomo-stat">
                 <span class="pomo-stat-num" id="pomoBugun">0</span>
@@ -349,7 +343,6 @@
             </button>
           </div>
 
-          <!-- Sekme 1: Haftalık Plan -->
           <div class="plan-panel on" data-plan-panel="haftalik">
             <div class="haftalik-plan-list" id="haftalikPlanList"></div>
             <button type="button" class="plan-add-btn" data-open="dlgPlanItem">
@@ -357,7 +350,6 @@
             </button>
           </div>
 
-          <!-- Sekme 2: Performans -->
           <div class="plan-panel" data-plan-panel="performans">
             <div class="perf-cards">
               <div class="perf-card">
@@ -386,7 +378,6 @@
             <div class="perf-chart" id="perfChart"></div>
           </div>
 
-          <!-- Sekme 3: Toplantılar -->
           <div class="plan-panel" data-plan-panel="toplantilar">
             <div class="toplanti-head">
               <h3 class="perf-section-title">Yaklaşan Toplantılar</h3>
