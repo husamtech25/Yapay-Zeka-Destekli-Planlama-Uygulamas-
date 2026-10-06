@@ -1,4 +1,4 @@
-console.log("[Planla] v10 + mobil menü yüklendi");
+console.log("[Planla] v11 + hata düzeltildi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -60,11 +60,7 @@ function yeniVeri(mod, name) {
     taskFilter: "all",
     dersler: [],
     hedefler: [],
-    pomo: {
-      ...POMO_DEFAULTS,
-      stats: {},
-      bind: null,
-    },
+    pomo: { ...POMO_DEFAULTS, stats: {}, bind: null },
   };
 }
 const DB_KEY = "planla-v3";
@@ -147,15 +143,13 @@ function mobilMenuKapat() {
   document.body.style.overflow = "";
 }
 
-// ============ GÖRÜNÜM / MOD ============
+// ============ GÖRÜNÜM ============
 function goView(v) {
   aktifView = v;
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("on", el.id === "v-" + v));
   document.querySelectorAll(".side-nav [data-view]").forEach(a => a.classList.toggle("active", a.dataset.view === v));
   document.querySelectorAll(".mobile-nav-item").forEach(a => a.classList.toggle("active", a.dataset.view === v));
-  // body data-page — menü/geri butonu kontrolü için
   document.body.dataset.page = v;
-  // Sidebar'ı kapat (mobilde bir link tıklandıysa)
   mobilMenuKapat();
   window.scrollTo({ top: 0 });
 }
@@ -316,7 +310,9 @@ function panelKapat() {
   panel.setAttribute("aria-hidden", "true");
 }
 
+// ✅ DÜZELTİLDİ: if (!el) return; eklendi
 function gunListesi(el, k) {
+  if (!el) return;
   const l = gunEvents(k).filter(e => eslesir(e.t));
   el.innerHTML = l.length
     ? l.map(e =>
@@ -549,14 +545,15 @@ function bugunDersler() {
   return (S.dersler || []).filter(d => +d.gun === bugunGunNo).sort(dersSirala);
 }
 const SAATLER = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+
 function haftalikGridCiz() {
   const grid = $("haftalikGrid");
   const empty = $("dersEmpty");
   if (!grid) return;
   const dersler = S.dersler || [];
-  $("statDersSayi").textContent = dersler.length;
-  $("statDersBugun").textContent = bugunDersler().length;
-  $("statDersHafta").textContent = dersler.filter(d => +d.gun >= 1 && +d.gun <= 5).length;
+  if ($("statDersSayi")) $("statDersSayi").textContent = dersler.length;
+  if ($("statDersBugun")) $("statDersBugun").textContent = bugunDersler().length;
+  if ($("statDersHafta")) $("statDersHafta").textContent = dersler.filter(d => +d.gun >= 1 && +d.gun <= 5).length;
   if (!dersler.length) {
     grid.innerHTML = "";
     grid.style.gridTemplateRows = "";
@@ -602,6 +599,7 @@ function haftalikGridCiz() {
   });
   grid.innerHTML = html;
 }
+
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
   if (!el) return;
@@ -626,6 +624,7 @@ function miniDersGridCiz() {
 
 // ================= Görevler =================
 function gorevOncelik(p) { return ONCELIK[p] ? p : "mid"; }
+
 function gorevlerCiz() {
   if (!S) return;
   const liste = $("tasksListFull");
@@ -635,9 +634,9 @@ function gorevlerCiz() {
   const toplam = tum.length;
   const tamamlanan = tum.filter(t => t.done).length;
   const bekleyen = toplam - tamamlanan;
-  $("statTotal").textContent = toplam;
-  $("statPending").textContent = bekleyen;
-  $("statDone").textContent = tamamlanan;
+  if ($("statTotal")) $("statTotal").textContent = toplam;
+  if ($("statPending")) $("statPending").textContent = bekleyen;
+  if ($("statDone")) $("statDone").textContent = tamamlanan;
   const filtre = S.taskFilter || "all";
   let gosterilecek = tum.slice().filter(t => !q || eslesir(t.t));
   if (filtre === "pending") gosterilecek = gosterilecek.filter(t => !t.done);
@@ -673,6 +672,7 @@ function gorevlerCiz() {
     }).join("");
   }
 }
+
 function kanbanCiz() {
   const todoEl = $("kanbanTodo");
   const doingEl = $("kanbanDoing");
@@ -682,9 +682,9 @@ function kanbanCiz() {
   const todo = tum.filter(t => !t.done && !t.doing);
   const doing = tum.filter(t => !t.done && t.doing);
   const done = tum.filter(t => t.done);
-  $("kanbanTodoCount").textContent = todo.length;
-  $("kanbanDoingCount").textContent = doing.length;
-  $("kanbanDoneCount").textContent = done.length;
+  if ($("kanbanTodoCount")) $("kanbanTodoCount").textContent = todo.length;
+  if ($("kanbanDoingCount")) $("kanbanDoingCount").textContent = doing.length;
+  if ($("kanbanDoneCount")) $("kanbanDoneCount").textContent = done.length;
   const renderItem = (t, kolon) => {
     const p = gorevOncelik(t.p);
     let aksiyonlar = "";
@@ -710,6 +710,7 @@ function kanbanCiz() {
   doingEl.innerHTML = doing.length ? doing.slice(0, 5).map(t => renderItem(t, "doing")).join("") : `<li class="kanban-empty">Devam eden yok</li>`;
   doneEl.innerHTML = done.length ? done.slice(0, 5).map(t => renderItem(t, "done")).join("") : `<li class="kanban-empty">Tamamlanan yok</li>`;
 }
+
 function hedeflerCiz() {
   const el = $("hedefList");
   if (!el) return;
@@ -736,6 +737,7 @@ function hedeflerCiz() {
     </li>`;
   }).join("");
 }
+
 function ozetCiz() {
   const el = $("welcomeSummary");
   if (!el) return;
@@ -752,63 +754,94 @@ function ozetCiz() {
 // ================= Çizim =================
 function ciz() {
   if (!S) return;
-  $("hello").textContent = `Hoş Geldin, ${S.name.split(" ")[0]}!`;
-  $("uname").textContent = S.name;
+  if ($("hello")) $("hello").textContent = `Hoş Geldin, ${S.name.split(" ")[0]}!`;
+  if ($("uname")) $("uname").textContent = S.name;
   const bugun = new Date();
-  $("welcomeDate").textContent = `${gunlerKisa[bugun.getDay()]}, ${bugun.getDate()} ${aylar[bugun.getMonth()]} ${bugun.getFullYear()}`;
+  if ($("welcomeDate")) $("welcomeDate").textContent = `${gunlerKisa[bugun.getDay()]}, ${bugun.getDate()} ${aylar[bugun.getMonth()]} ${bugun.getFullYear()}`;
   avatarUygula();
   ozetCiz();
-  $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
+
+  // Mini takvim
+  if ($("calTitle")) $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
   const cal = $("calendar");
-  cal.innerHTML = "";
-  ["P","S","Ç","P","C","C","P"].forEach(g => cal.insertAdjacentHTML("beforeend", `<span class="dow">${g}</span>`));
-  const bosluk = (new Date(view.y, view.m, 1).getDay() + 6) % 7;
-  const gunler = new Date(view.y, view.m + 1, 0).getDate();
-  const onceki = new Date(view.y, view.m, 0).getDate();
-  for (let i = bosluk - 1; i >= 0; i--) cal.insertAdjacentHTML("beforeend", `<span class="dim">${onceki - i}</span>`);
-  for (let g = 1; g <= gunler; g++) {
-    const k = key(view.y, view.m, g);
-    const cls = ["d", k === todayKey && "today", k === sel && "sel", (S.events[k] || []).length && "has"].filter(Boolean).join(" ");
-    cal.insertAdjacentHTML("beforeend", `<button type="button" class="${cls}" data-act="mini" data-date="${k}">${g}</button>`);
+  if (cal) {
+    cal.innerHTML = "";
+    ["P","S","Ç","P","C","C","P"].forEach(g => cal.insertAdjacentHTML("beforeend", `<span class="dow">${g}</span>`));
+    const bosluk = (new Date(view.y, view.m, 1).getDay() + 6) % 7;
+    const gunler = new Date(view.y, view.m + 1, 0).getDate();
+    const onceki = new Date(view.y, view.m, 0).getDate();
+    for (let i = bosluk - 1; i >= 0; i--) cal.insertAdjacentHTML("beforeend", `<span class="dim">${onceki - i}</span>`);
+    for (let g = 1; g <= gunler; g++) {
+      const k = key(view.y, view.m, g);
+      const cls = ["d", k === todayKey && "today", k === sel && "sel", (S.events[k] || []).length && "has"].filter(Boolean).join(" ");
+      cal.insertAdjacentHTML("beforeend", `<button type="button" class="${cls}" data-act="mini" data-date="${k}">${g}</button>`);
+    }
   }
-  $("bigTitle").textContent = `${aylar[view.m]} ${view.y}`;
-  let h = ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map(g => `<div class="dow">${g}</div>`).join("");
-  for (let i = bosluk - 1; i >= 0; i--) h += `<div class="cell dim"><span class="n">${onceki - i}</span></div>`;
-  for (let g = 1; g <= gunler; g++) {
-    const k = key(view.y, view.m, g);
-    const ev = gunEvents(k);
-    h += `<button type="button" class="cell ${k === todayKey ? "today" : ""} ${k === sel ? "sel" : ""} ${ev.length ? "has" : ""}" data-act="big" data-date="${k}"><span class="n">${g}</span>` +
-      ev.slice(0, 3).map(e => `<span class="ce ${sinif[e.type] || "event"}">${esc(e.time)} ${esc(e.t)}</span>`).join("") +
-      (ev.length > 3 ? `<small>+${ev.length - 3} daha</small>` : "") + `</button>`;
+
+  // Büyük takvim
+  if ($("bigTitle")) $("bigTitle").textContent = `${aylar[view.m]} ${view.y}`;
+  const bigGrid = $("bigGrid");
+  if (bigGrid) {
+    const bosluk = (new Date(view.y, view.m, 1).getDay() + 6) % 7;
+    const gunler = new Date(view.y, view.m + 1, 0).getDate();
+    const onceki = new Date(view.y, view.m, 0).getDate();
+    let h = ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map(g => `<div class="dow">${g}</div>`).join("");
+    for (let i = bosluk - 1; i >= 0; i--) h += `<div class="cell dim"><span class="n">${onceki - i}</span></div>`;
+    for (let g = 1; g <= gunler; g++) {
+      const k = key(view.y, view.m, g);
+      const ev = gunEvents(k);
+      h += `<button type="button" class="cell ${k === todayKey ? "today" : ""} ${k === sel ? "sel" : ""} ${ev.length ? "has" : ""}" data-act="big" data-date="${k}"><span class="n">${g}</span>` +
+        ev.slice(0, 3).map(e => `<span class="ce ${sinif[e.type] || "event"}">${esc(e.time)} ${esc(e.t)}</span>`).join("") +
+        (ev.length > 3 ? `<small>+${ev.length - 3} daha</small>` : "") + `</button>`;
+    }
+    for (let i = (bosluk + gunler) % 7; i && i < 7; i++) h += `<div class="cell dim"></div>`;
+    bigGrid.innerHTML = h;
   }
-  for (let i = (bosluk + gunler) % 7; i && i < 7; i++) h += `<div class="cell dim"></div>`;
-  $("bigGrid").innerHTML = h;
-  $("dayTitle").textContent = gunEtiket(sel);
+
+  if ($("dayTitle")) $("dayTitle").textContent = gunEtiket(sel);
   gunListesi($("dayList"), sel);
   gunListesi($("timeline"), todayKey);
-  $("bars").innerHTML = S.courses.length
-    ? S.courses.map((c, i) => `<span title="${esc(c.n)}: ${c.g}" style="background:${renkler[i % renkler.length]};height:${Math.max(c.g, 3)}%"></span>`).join("")
-    : `<div class="bars-empty">Ekleyince grafik burada görünür.</div>`;
+
+  // Akademik
+  if ($("bars")) {
+    $("bars").innerHTML = S.courses.length
+      ? S.courses.map((c, i) => `<span title="${esc(c.n)}: ${c.g}" style="background:${renkler[i % renkler.length]};height:${Math.max(c.g, 3)}%"></span>`).join("")
+      : `<div class="bars-empty">Ekleyince grafik burada görünür.</div>`;
+  }
   const ort = S.courses.length ? S.courses.reduce((t, c) => t + c.g, 0) / S.courses.length : 0;
-  $("gpa").textContent = !S.courses.length ? "Henüz kayıt yok"
-    : S.mode === "work" ? `Ortalama ilerleme: %${ort.toFixed(0)}`
-    : `Ortalama: ${ort.toFixed(0)} / 100  (GP: ${(ort / 25).toFixed(2)})`;
-  $("courses").innerHTML = S.courses.map(c =>
-    `<li>${ad("courses", c.id, "n", c.n)}<input type="number" min="0" max="100" value="${c.g}" data-act="grade" data-id="${c.id}">${delBtn("courses", c.id)}</li>`
-  ).join("") || `<li class="empty">Henüz kayıt yok.</li>`;
-  $("deadlines").innerHTML = [...S.deadlines].sort((a, b) => a.d.localeCompare(b.d)).map(d =>
-    `<li>${ad("deadlines", d.id, "t", d.t)}<span>${gunEtiket(d.d)}</span>${delBtn("deadlines", d.id)}</li>`
-  ).join("") || `<li class="empty">Teslim yok.</li>`;
+  if ($("gpa")) {
+    $("gpa").textContent = !S.courses.length ? "Henüz kayıt yok"
+      : S.mode === "work" ? `Ortalama ilerleme: %${ort.toFixed(0)}`
+      : `Ortalama: ${ort.toFixed(0)} / 100  (GP: ${(ort / 25).toFixed(2)})`;
+  }
+  if ($("courses")) {
+    $("courses").innerHTML = S.courses.map(c =>
+      `<li>${ad("courses", c.id, "n", c.n)}<input type="number" min="0" max="100" value="${c.g}" data-act="grade" data-id="${c.id}">${delBtn("courses", c.id)}</li>`
+    ).join("") || `<li class="empty">Henüz kayıt yok.</li>`;
+  }
+  if ($("deadlines")) {
+    $("deadlines").innerHTML = [...S.deadlines].sort((a, b) => a.d.localeCompare(b.d)).map(d =>
+      `<li>${ad("deadlines", d.id, "t", d.t)}<span>${gunEtiket(d.d)}</span>${delBtn("deadlines", d.id)}</li>`
+    ).join("") || `<li class="empty">Teslim yok.</li>`;
+  }
+
+  // Kariyer
   const durumlar = ["Beklemede", "Mülakat", "Kabul", "Red"];
-  $("jobs").innerHTML = S.jobs.filter(j => eslesir(j.n)).map(j =>
-    `<li>${ad("jobs", j.id, "n", j.n)}` +
-    (j.st ? `<select data-act="status" data-id="${j.id}">${durumlar.map(s => `<option ${s === j.st ? "selected" : ""}>${s}</option>`).join("")}</select>`
-          : `<button type="button" class="apply" data-act="apply" data-id="${j.id}">Başvur</button>`) +
-    delBtn("jobs", j.id) + `</li>`
-  ).join("") || `<li class="empty">Henüz kayıt yok.</li>`;
-  $("skills").innerHTML = S.skills.map((s, i) =>
-    `<li>${ad("skills", s.id, "n", s.n)}<input type="range" min="0" max="100" value="${s.p}" data-act="skill" data-id="${s.id}" style="accent-color:${renkler[(i + 4) % renkler.length]}"><span class="pct">%${s.p}</span>${delBtn("skills", s.id)}</li>`
-  ).join("") || `<li class="empty">Henüz beceri yok.</li>`;
+  if ($("jobs")) {
+    $("jobs").innerHTML = S.jobs.filter(j => eslesir(j.n)).map(j =>
+      `<li>${ad("jobs", j.id, "n", j.n)}` +
+      (j.st ? `<select data-act="status" data-id="${j.id}">${durumlar.map(s => `<option ${s === j.st ? "selected" : ""}>${s}</option>`).join("")}</select>`
+            : `<button type="button" class="apply" data-act="apply" data-id="${j.id}">Başvur</button>`) +
+      delBtn("jobs", j.id) + `</li>`
+    ).join("") || `<li class="empty">Henüz kayıt yok.</li>`;
+  }
+  if ($("skills")) {
+    $("skills").innerHTML = S.skills.map((s, i) =>
+      `<li>${ad("skills", s.id, "n", s.n)}<input type="range" min="0" max="100" value="${s.p}" data-act="skill" data-id="${s.id}" style="accent-color:${renkler[(i + 4) % renkler.length]}"><span class="pct">%${s.p}</span>${delBtn("skills", s.id)}</li>`
+    ).join("") || `<li class="empty">Henüz beceri yok.</li>`;
+  }
+
+  // Diğer kartlar
   bildirimRozetiGuncelle();
   kanbanCiz();
   hedeflerCiz();
@@ -839,34 +872,12 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // ========== MOBİL MENÜ ==========
-  if (e.target.closest("#menuBtn")) {
-    e.preventDefault();
-    mobilMenuAc();
-    return;
-  }
-  if (e.target.closest("#sidebarClose")) {
-    e.preventDefault();
-    mobilMenuKapat();
-    return;
-  }
-  if (e.target.closest("#mobileOverlay")) {
-    e.preventDefault();
-    mobilMenuKapat();
-    return;
-  }
-  // Mobil "Daha Fazla" butonu
-  if (e.target.closest("#mobileMoreBtn")) {
-    e.preventDefault();
-    mobilMenuAc();
-    return;
-  }
-  // ========== GERİ BUTONU ==========
-  if (e.target.closest("#backBtn")) {
-    e.preventDefault();
-    goView("home");
-    return ciz();
-  }
+  // MOBİL MENÜ
+  if (e.target.closest("#menuBtn")) { e.preventDefault(); mobilMenuAc(); return; }
+  if (e.target.closest("#sidebarClose")) { e.preventDefault(); mobilMenuKapat(); return; }
+  if (e.target.closest("#mobileOverlay")) { e.preventDefault(); mobilMenuKapat(); return; }
+  if (e.target.closest("#mobileMoreBtn")) { e.preventDefault(); mobilMenuAc(); return; }
+  if (e.target.closest("#backBtn")) { e.preventDefault(); goView("home"); return ciz(); }
 
   if (e.target.closest("#notifClose")) { panelKapat(); return; }
 
@@ -894,7 +905,7 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Pomodoro mod sekmeleri
+  // Pomodoro
   const pomoTab = e.target.closest(".pomo-tab");
   if (pomoTab) {
     e.preventDefault();
@@ -910,16 +921,8 @@ document.addEventListener("click", e => {
     else pomoBaslat();
     return;
   }
-  if (e.target.closest("#pomoReset")) {
-    e.preventDefault();
-    pomoSifirla();
-    return;
-  }
-  if (e.target.closest("#pomoSkip")) {
-    e.preventDefault();
-    pomoBitti();
-    return;
-  }
+  if (e.target.closest("#pomoReset")) { e.preventDefault(); pomoSifirla(); return; }
+  if (e.target.closest("#pomoSkip")) { e.preventDefault(); pomoBitti(); return; }
   const bindBtn = e.target.closest(".pomo-bind-btn");
   if (bindBtn) {
     e.preventDefault();
@@ -985,7 +988,7 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Kanban butonları
+  // Kanban
   const startBtn = e.target.closest("[data-act='task-start']");
   if (startBtn) {
     e.preventDefault();
@@ -1008,7 +1011,7 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Hedef +1 / -1
+  // Hedef
   const hedefPlus = e.target.closest("[data-act='hedef-plus']");
   if (hedefPlus) {
     e.preventDefault();
@@ -1099,7 +1102,7 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // Sidebar data-dlg (ayarlar)
+  // Sidebar data-dlg
   const dlgBtn = e.target.closest("[data-dlg]");
   if (dlgBtn) {
     e.preventDefault();
@@ -1110,7 +1113,7 @@ document.addEventListener("click", e => {
     return guvenliAc($(dlgBtn.dataset.dlg));
   }
 
-  // Görünüm değiştir (sidebar + mobil alt nav + diğer butonlar)
+  // Görünüm değiştir
   const nav = e.target.closest("[data-view]");
   if (nav) {
     e.preventDefault();
@@ -1148,57 +1151,69 @@ const ayGit = d => {
   if (view.m > 11) { view.m = 0; view.y++; }
   ciz();
 };
-$("prev").onclick = $("bPrev").onclick = () => ayGit(-1);
-$("next").onclick = $("bNext").onclick = () => ayGit(1);
-$("bToday").onclick = () => {
+if ($("prev")) $("prev").onclick = () => ayGit(-1);
+if ($("next")) $("next").onclick = () => ayGit(1);
+if ($("bPrev")) $("bPrev").onclick = () => ayGit(-1);
+if ($("bNext")) $("bNext").onclick = () => ayGit(1);
+if ($("bToday")) $("bToday").onclick = () => {
   sel = todayKey;
   view = { y: now.getFullYear(), m: now.getMonth() };
   ciz();
 };
-$("closeSettings").onclick = () => $("settingsDlg").close();
+if ($("closeSettings")) $("closeSettings").onclick = () => $("settingsDlg").close();
 
-// ================= Arama =================
+// Arama
 let aramaZamani;
-$("q").oninput = e => {
-  q = e.target.value.toLowerCase();
-  clearTimeout(aramaZamani);
-  aramaZamani = setTimeout(ciz, 150);
-};
+if ($("q")) {
+  $("q").oninput = e => {
+    q = e.target.value.toLowerCase();
+    clearTimeout(aramaZamani);
+    aramaZamani = setTimeout(ciz, 150);
+  };
+}
 
-// ================= Mini takvim katla/aç =================
-$("miniCalToggle").onclick = () => {
-  const mc = $("miniCal");
-  const collapsed = mc.dataset.collapsed === "true";
-  mc.dataset.collapsed = collapsed ? "false" : "true";
-  $("miniCalToggle").setAttribute("aria-expanded", String(collapsed));
-};
+// Mini takvim katla/aç
+if ($("miniCalToggle")) {
+  $("miniCalToggle").onclick = () => {
+    const mc = $("miniCal");
+    const collapsed = mc.dataset.collapsed === "true";
+    mc.dataset.collapsed = collapsed ? "false" : "true";
+    $("miniCalToggle").setAttribute("aria-expanded", String(collapsed));
+  };
+}
 
-// ================= Ayarlar =================
-$("setName").onchange = e => {
-  if (e.target.value.trim()) { S.name = e.target.value.trim(); ciz(); }
-};
-$("reset").onclick = () => {
-  if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
-    db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
-    $("settingsDlg").close();
+// Ayarlar
+if ($("setName")) {
+  $("setName").onchange = e => {
+    if (e.target.value.trim()) { S.name = e.target.value.trim(); ciz(); }
+  };
+}
+if ($("reset")) {
+  $("reset").onclick = () => {
+    if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
+      db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
+      $("settingsDlg").close();
+      ciz();
+    }
+  };
+}
+
+// Profil
+if ($("userBox")) $("userBox").onclick = () => acProfil();
+if ($("profileSave")) {
+  $("profileSave").onclick = () => {
+    if (!S) return;
+    const yeniIsim = $("profileNameInput").value.trim();
+    if (yeniIsim) S.name = yeniIsim;
+    const pending = $("profileAvatar").dataset.pending;
+    if (pending !== undefined && pending !== "") S.avatar = +pending;
+    $("profileDlg").close();
     ciz();
-  }
-};
+    kaydet();
+  };
+}
 
-// ================= Profil =================
-$("userBox").onclick = () => acProfil();
-$("profileSave").onclick = () => {
-  if (!S) return;
-  const yeniIsim = $("profileNameInput").value.trim();
-  if (yeniIsim) S.name = yeniIsim;
-  const pending = $("profileAvatar").dataset.pending;
-  if (pending !== undefined && pending !== "") S.avatar = +pending;
-  $("profileDlg").close();
-  ciz();
-  kaydet();
-};
-
-// ================= Change olayları =================
+// Change olayları
 document.addEventListener("change", e => {
   const act = e.target.dataset ? e.target.dataset.act : null;
   const id = e.target.dataset ? e.target.dataset.id : null;
@@ -1230,7 +1245,7 @@ document.addEventListener("input", e => {
   kaydet();
 });
 
-// ================= Ad değiştirme =================
+// Ad değiştirme
 function adDegistir(e) {
   const el = e.target.closest("[data-rename]");
   if (!el) return;
@@ -1245,7 +1260,7 @@ function adDegistir(e) {
 }
 document.addEventListener("dblclick", adDegistir);
 
-// ================= Form gönderimleri =================
+// Form gönderimleri
 const AUTOCLOSE = ["dlgEvent", "dlgLink", "dlgCourse", "dlgDeadline", "dlgJob", "dlgSkill", "dlgNote", "dlgDers", "dlgHedef", "pomodoroAyarDlg"];
 document.addEventListener("submit", e => {
   e.preventDefault();
@@ -1326,7 +1341,7 @@ document.addEventListener("submit", e => {
   ciz();
 });
 
-// Backdrop'a tıklayınca kapat
+// Backdrop tıklama
 document.addEventListener("click", e => { if (e.target.tagName === "DIALOG") e.target.close(); });
 
 // Gece yarısı geçince yenile
@@ -1338,43 +1353,47 @@ document.addEventListener("visibilitychange", () => {
 // ================= Giriş / çıkış =================
 function authCiz() {
   document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("cur", b.dataset.tab === sekme));
-  $("regOnly").hidden = sekme !== "reg";
-  $("authBtn").textContent = sekme === "reg" ? "Hesap oluştur" : "Giriş yap";
-  $("aPass").autocomplete = sekme === "reg" ? "new-password" : "current-password";
+  if ($("regOnly")) $("regOnly").hidden = sekme !== "reg";
+  if ($("authBtn")) $("authBtn").textContent = sekme === "reg" ? "Hesap oluştur" : "Giriş yap";
+  if ($("aPass")) $("aPass").autocomplete = sekme === "reg" ? "new-password" : "current-password";
   const ids = Object.keys(db.users);
-  $("accList").innerHTML = ids.length
-    ? `<p class="lbl">Bu cihazdaki hesaplar</p><div class="acc">` +
-      ids.map(id =>
-        `<button type="button" data-acc="${esc(id)}">${db.users[id].tur === "work" ? "İş" : "Öğrenci"} · ${esc(db.users[id].ad)}</button>`
-      ).join("") + `</div>`
-    : "";
-}
-$("authForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  const ad = $("aUser").value.trim();
-  const id = ad.toLowerCase();
-  const sifre = $("aPass").value;
-  const msg = t => ($("authMsg").textContent = t);
-  if (!ad || sifre.length < 4) return msg("Kullanıcı adını yaz, şifre en az 4 karakter olsun.");
-  if (sekme === "reg") {
-    if (db.users[id]) return msg("Bu kullanıcı adı zaten var. Giriş yapmayı dene.");
-    const tur = document.querySelector("input[name=tur]:checked").value;
-    const tuz = uid() + uid();
-    db.users[id] = { ad, tur, tuz, hash: await hashle(sifre, tuz), data: yeniVeri(tur, ad) };
-  } else {
-    const h = db.users[id];
-    if (!h || h.hash !== await hashle(sifre, h.tuz)) return msg("Kullanıcı adı veya şifre yanlış.");
+  if ($("accList")) {
+    $("accList").innerHTML = ids.length
+      ? `<p class="lbl">Bu cihazdaki hesaplar</p><div class="acc">` +
+        ids.map(id =>
+          `<button type="button" data-acc="${esc(id)}">${db.users[id].tur === "work" ? "İş" : "Öğrenci"} · ${esc(db.users[id].ad)}</button>`
+        ).join("") + `</div>`
+      : "";
   }
-  db.aktif = id;
-  dbYaz();
-  msg("");
-  $("aPass").value = "";
-  basla();
-});
+}
+if ($("authForm")) {
+  $("authForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const ad = $("aUser").value.trim();
+    const id = ad.toLowerCase();
+    const sifre = $("aPass").value;
+    const msg = t => ($("authMsg").textContent = t);
+    if (!ad || sifre.length < 4) return msg("Kullanıcı adını yaz, şifre en az 4 karakter olsun.");
+    if (sekme === "reg") {
+      if (db.users[id]) return msg("Bu kullanıcı adı zaten var. Giriş yapmayı dene.");
+      const tur = document.querySelector("input[name=tur]:checked").value;
+      const tuz = uid() + uid();
+      db.users[id] = { ad, tur, tuz, hash: await hashle(sifre, tuz), data: yeniVeri(tur, ad) };
+    } else {
+      const h = db.users[id];
+      if (!h || h.hash !== await hashle(sifre, h.tuz)) return msg("Kullanıcı adı veya şifre yanlış.");
+    }
+    db.aktif = id;
+    dbYaz();
+    msg("");
+    $("aPass").value = "";
+    basla();
+  });
+}
 
 function basla() {
   const h = db.users[db.aktif];
-  if (!h) { db.aktif = null; dbYaz(); $("auth").hidden = false; return; }
+  if (!h) { db.aktif = null; dbYaz(); if ($("auth")) $("auth").hidden = false; return; }
   if (!gecerli(h.data)) h.data = yeniVeri(h.tur, h.ad);
   if (typeof h.data.avatar !== "number") h.data.avatar = 0;
   if (!Array.isArray(h.data.notifications)) h.data.notifications = [];
@@ -1399,8 +1418,8 @@ function basla() {
   sel = todayKey;
   view = { y: now.getFullYear(), m: now.getMonth() };
   q = "";
-  $("q").value = "";
-  $("auth").hidden = true;
+  if ($("q")) $("q").value = "";
+  if ($("auth")) $("auth").hidden = true;
   modUygula();
   goView("home");
   ciz();
@@ -1421,7 +1440,7 @@ function cikis() {
 try {
   authCiz();
   if (db.aktif && db.users[db.aktif]) basla();
-  else $("auth").hidden = false;
+  else if ($("auth")) $("auth").hidden = false;
   console.log("[Planla] başlatıldı");
 } catch (err) {
   console.error("[Planla] başlatma hatası:", err);
