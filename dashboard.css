@@ -1,5 +1,5 @@
 /* ==============================================
-   PLANLA — Görsel Kimlik Sistemi v11
+   PLANLA — Görsel Kimlik Sistemi v12
    ============================================== */
 :root{
   --navy-900:#0a2a35;
@@ -219,11 +219,11 @@ p{line-height:1.55}
 
 /* ============ HOŞ GELDİN ============ */
 .welcome-card{background:linear-gradient(135deg,var(--surface),#f0f7f9)}
-.welcome-inner{display:flex;align-items:center;gap:var(--s5);justify-content:space-between}
+.welcome-inner{display:flex;align-items:flex-start;gap:var(--s5);justify-content:space-between}
 .welcome-text{flex:1;min-width:0}
 .welcome-text h1{font-size:1.7rem;margin-bottom:4px}
-.welcome-text p{color:var(--ink-3);font-size:.9rem;margin-bottom:var(--s3)}
-.welcome-summary{display:flex;gap:var(--s3);flex-wrap:wrap;margin:var(--s3) 0}
+.welcome-text p{color:var(--ink-3);font-size:.9rem;margin-bottom:var(--s2)}
+.welcome-summary{display:flex;gap:var(--s3);flex-wrap:wrap;margin:var(--s3) 0 0}
 .welcome-summary .ws-item{
   background:var(--surface);
   border:1px solid var(--border-2);
@@ -234,15 +234,65 @@ p{line-height:1.55}
   box-shadow:var(--shadow-sm);
 }
 .welcome-summary .ws-item b{color:var(--teal);font-size:1rem}
-.welcome-date{font-size:.78rem;color:var(--ink-3);font-weight:600}
-.welcome-avatar{flex-shrink:0}
+.welcome-date{font-size:.78rem;color:var(--ink-3);font-weight:600;margin-top:var(--s3)}
+.welcome-avatar{flex-shrink:0;margin-top:4px}
 .avatar-xl{width:84px !important;height:84px !important;border-radius:50%;display:grid;place-items:center;font-size:2rem;font-weight:700;color:#fff;box-shadow:var(--shadow-md)}
+
+/* ============ ROZET ============ */
+.welcome-rozet{margin-top:var(--s3);margin-bottom:var(--s2)}
+.rozet-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:var(--s3);
+  padding:10px 16px;
+  background:linear-gradient(135deg,#fff9e6,#fff2c9);
+  border:1px solid #f5d97a;
+  border-radius:var(--r-lg);
+  box-shadow:0 2px 8px rgba(240,184,64,.15);
+  max-width:100%;
+}
+.rozet-emoji{
+  font-size:1.8rem;
+  line-height:1;
+  flex-shrink:0;
+}
+.rozet-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rozet-title{
+  font-weight:800;
+  font-size:.85rem;
+  color:#6b4a05;
+  letter-spacing:-.01em;
+}
+.rozet-desc{
+  font-size:.75rem;
+  color:#8a6615;
+  font-weight:500;
+  overflow-wrap:anywhere;
+}
+.rozet-badge.rozet-standart{
+  background:linear-gradient(135deg,#eef4f6,#e2eaee);
+  border-color:var(--border);
+}
+.rozet-badge.rozet-standart .rozet-title{color:var(--ink-2)}
+.rozet-badge.rozet-standart .rozet-desc{color:var(--ink-3)}
+.rozet-badge.rozet-odul{
+  background:linear-gradient(135deg,#f3e8ff,#e5d4ff);
+  border-color:#c9a9ff;
+}
+.rozet-badge.rozet-odul .rozet-title{color:#4c2d8a}
+.rozet-badge.rozet-odul .rozet-desc{color:#6b4ba8}
+.rozet-badge.rozet-saat{
+  background:linear-gradient(135deg,#e0f5ff,#c7ecff);
+  border-color:#8dd4f0;
+}
+.rozet-badge.rozet-saat .rozet-title{color:#0a4a63}
+.rozet-badge.rozet-saat .rozet-desc{color:#1a6d8c}
 
 /* ============ MİNİ DERS GRID ============ */
 .mini-ders-card{display:flex;flex-direction:column}
 .mini-ders-grid{
   display:grid;
-  grid-template-columns:repeat(5,1fr);
+  grid-template-columns:repeat(5,minmax(0,1fr));
   grid-auto-rows:32px;
   gap:3px;
   flex:1;
@@ -686,15 +736,9 @@ body:not([data-mode]) .menu-is{display:none !important}
 
 /* ============ GİRİŞ YAPILMAMIŞSA SIDEBAR/TOPBAR GİZLE ============ */
 body:not([data-logged-in="true"]) .sidebar,
-body:not([data-logged-in="true"]) .topbar{
-  display:none !important;
-}
-body:not([data-logged-in="true"]) .content{
-  padding-top:var(--s5);
-}
-body:not([data-logged-in="true"]){
-  grid-template-columns:1fr;
-}
+body:not([data-logged-in="true"]) .topbar{display:none !important}
+body:not([data-logged-in="true"]) .content{padding-top:var(--s5)}
+body:not([data-logged-in="true"]){grid-template-columns:1fr}
 
 /* ============ MOBİL NAV ============ */
 .mobile-nav{display:none}
@@ -702,11 +746,7 @@ body:not([data-logged-in="true"]){
 
 /* ============ PC'DE MENÜ BUTONLARINI GİZLE ============ */
 @media(min-width:761px){
-  .menu-btn,
-  .back-btn,
-  .sidebar-close{
-    display:none !important;
-  }
+  .menu-btn,.back-btn,.sidebar-close{display:none !important}
 }
 
 /* ============ RESPONSIVE ============ */
@@ -739,9 +779,11 @@ body:not([data-logged-in="true"]){
   .content{padding:var(--s4) var(--s4) var(--s6);gap:var(--s4)}
   .home-row,.home-row-top,.home-row-bottom{grid-template-columns:1fr}
   .welcome-inner{flex-direction:column-reverse;text-align:center;gap:var(--s3)}
-  .welcome-avatar{align-self:center}
+  .welcome-avatar{align-self:center;margin-top:0}
   .welcome-text h1{font-size:1.4rem}
   .welcome-summary{justify-content:center}
+  .welcome-rozet{display:flex;justify-content:center}
+  .rozet-badge{max-width:100%}
   .avatar-xl{width:64px !important;height:64px !important;font-size:1.5rem !important}
   .card{padding:var(--s4)}
   .card:hover{transform:none}
@@ -759,7 +801,7 @@ body:not([data-logged-in="true"]){
   .hg-ders{padding:4px 6px;font-size:.62rem}
   .hg-ders .hg-ders-ad{font-size:.65rem}
   .hg-ders .hg-ders-kod,.hg-ders .hg-ders-yer{font-size:.55rem}
-  .mini-ders-grid{grid-auto-rows:28px;grid-template-columns:repeat(5,1fr) !important}
+  .mini-ders-grid{grid-auto-rows:28px;grid-template-columns:repeat(5,minmax(0,1fr)) !important}
   .mini-ders-grid .mdg-head{font-size:.6rem}
   .mini-ders-grid .mdg-ders{font-size:.55rem}
   .tasks-head,.ders-head,.plan-head{flex-direction:column;gap:var(--s3)}
