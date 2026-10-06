@@ -1,4 +1,4 @@
-console.log("[Planla] v13 + data-logged-in düzeltildi");
+console.log("[Planla] v14 + kısayollar düzeltildi");
 
 const MODLAR = {
   student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -309,6 +309,34 @@ function gunListesi(el, k) {
       ).join("")
     : `<li class="empty">Kayıt yok. + butonuyla ekleyebilirsin.</li>`;
 }
+
+// ================= KISAYOLLAR =================
+function kisayolCiz() {
+  const el = $("kisayolGrid");
+  if (!el || !S) return;
+  let items = [];
+  if (S.mode === "student") {
+    items = [
+      { view: "ders",  ikon: "#i-graduation",   label: "Ders Programı" },
+      { view: "cal",   ikon: "#i-calendar",     label: "Takvim" },
+      { view: "tasks", ikon: "#i-check-circle", label: "Görevler" },
+      { view: "ac",    ikon: "#i-book-open",    label: "Akademik" },
+    ];
+  } else {
+    items = [
+      { view: "plan",  ikon: "#i-bar-chart",    label: "İş Planı" },
+      { view: "cal",   ikon: "#i-calendar",     label: "Takvim" },
+      { view: "tasks", ikon: "#i-check-circle", label: "Görevler" },
+      { view: "ac",    ikon: "#i-briefcase",    label: "Projeler" },
+    ];
+  }
+  el.innerHTML = items.map(it =>
+    `<button type="button" class="kısayol" data-view="${it.view}">
+      <svg width="28" height="28"><use href="${it.ikon}"/></svg>
+      <span>${it.label}</span>
+    </button>`
+  ).join("");
+}
 // ================= POMODORO =================
 let pomo = { mod: "focus", kalan: 25*60, toplam: 25*60, calisiyor: false, interval: null, tur: 0 };
 
@@ -540,17 +568,14 @@ function haftalikGridCiz() {
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
   if (!el) return;
-  // 5 gün × 5 saat grid (hafta içi, 09-11-13-15-17)
   const gunSirasi = [1, 2, 3, 4, 5];
   const miniSaatler = [9, 11, 13, 15, 17];
   let html = "";
-  // Üst başlık satırı (boş + 5 gün)
   html += `<div class="mdg-head"></div>`;
   gunSirasi.forEach(g => {
     const bugun = g === bugunGunNo;
     html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
   });
-  // Her saat için bir satır
   miniSaatler.forEach(saat => {
     html += `<div class="mdg-head" style="text-align:right;padding-right:4px">${pad(saat)}:00</div>`;
     gunSirasi.forEach(gunNo => {
@@ -654,7 +679,6 @@ function planToplantilarCiz() {
   const yakEl = $("toplantiYaklasan");
   const gecEl = $("toplantiGecmis");
   if (!yakEl || !gecEl) return;
-
   const now2 = new Date();
   const toplantilar = S.toplantilar || [];
   const yaklasan = []; const gecmis = [];
@@ -665,7 +689,6 @@ function planToplantilarCiz() {
   });
   yaklasan.sort((a, b) => a._dt - b._dt);
   gecmis.sort((a, b) => b._dt - a._dt);
-
   const renderItem = t => {
     const [, m, d] = t.tarih.split("-");
     const gun = +d;
@@ -687,7 +710,6 @@ function planToplantilarCiz() {
       </button>
     </li>`;
   };
-
   yakEl.innerHTML = yaklasan.length ? yaklasan.map(renderItem).join("") : `<li class="toplanti-empty">Yaklaşan toplantı yok.</li>`;
   gecEl.innerHTML = gecmis.length ? gecmis.slice(0, 10).map(renderItem).join("") : `<li class="toplanti-empty">Geçmiş toplantı yok.</li>`;
 }
@@ -778,7 +800,6 @@ function kanbanCiz() {
   if ($("kanbanTodoCount")) $("kanbanTodoCount").textContent = todo.length;
   if ($("kanbanDoingCount")) $("kanbanDoingCount").textContent = doing.length;
   if ($("kanbanDoneCount")) $("kanbanDoneCount").textContent = done.length;
-
   const renderItem = (t, kolon) => {
     const p = gorevOncelik(t.p);
     let aksiyonlar = "";
@@ -939,6 +960,7 @@ function ciz() {
   bildirimRozetiGuncelle();
   kanbanCiz();
   hedeflerCiz();
+  kisayolCiz();          // ✅ YENİ
   miniDersGridCiz();
   miniPlanCiz();
   pomoRender();
@@ -1219,7 +1241,6 @@ if ($("bNext")) $("bNext").onclick = () => ayGit(1);
 if ($("bToday")) $("bToday").onclick = () => { sel = todayKey; view = { y: now.getFullYear(), m: now.getMonth() }; ciz(); };
 if ($("closeSettings")) $("closeSettings").onclick = () => $("settingsDlg").close();
 
-// Arama
 let aramaZamani;
 if ($("q")) {
   $("q").oninput = e => {
@@ -1228,8 +1249,6 @@ if ($("q")) {
     aramaZamani = setTimeout(ciz, 150);
   };
 }
-
-// Mini takvim katla/aç
 if ($("miniCalToggle")) {
   $("miniCalToggle").onclick = () => {
     const mc = $("miniCal");
@@ -1238,8 +1257,6 @@ if ($("miniCalToggle")) {
     $("miniCalToggle").setAttribute("aria-expanded", String(collapsed));
   };
 }
-
-// Ayarlar
 if ($("setName")) $("setName").onchange = e => { if (e.target.value.trim()) { S.name = e.target.value.trim(); ciz(); } };
 if ($("reset")) $("reset").onclick = () => {
   if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
@@ -1248,8 +1265,6 @@ if ($("reset")) $("reset").onclick = () => {
     ciz();
   }
 };
-
-// Profil
 if ($("userBox")) $("userBox").onclick = () => acProfil();
 if ($("profileSave")) $("profileSave").onclick = () => {
   if (!S) return;
@@ -1401,7 +1416,6 @@ if ($("authForm")) {
   });
 }
 
-// ✅ DÜZELTİLDİ: data-logged-in ekleniyor
 function basla() {
   document.body.setAttribute("data-logged-in", "true");
   const h = db.users[db.aktif];
