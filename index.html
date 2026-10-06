@@ -57,6 +57,8 @@
     <symbol id="i-message" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
     <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
     <symbol id="i-award" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></symbol>
+    <symbol id="i-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></symbol>
     <symbol id="av-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
     <symbol id="av-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
     <symbol id="av-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
@@ -413,21 +415,100 @@
         </section>
       </div>
 
-      <!-- AKADEMİK / PROJELER -->
+      <!-- ============================================ -->
+      <!-- AKADEMİK / PROJELER (YENİ TASARIM)          -->
+      <!-- ============================================ -->
       <div class="view" id="v-ac">
-        <section class="card light" id="card-ac">
-          <div class="card-head">
-            <h2 id="acTitle"></h2>
-            <button type="button" class="icon-add" data-open="dlgCourse" aria-label="Ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+        <section class="ac-page">
+
+          <!-- 1. ÜST: Ortalama + Hızlı İstatistikler -->
+          <div class="ac-hero card light">
+            <div class="ac-hero-left">
+              <div class="ac-hero-label">Dönem Ortalaması</div>
+              <div class="ac-hero-val" id="acOrtalama">—</div>
+              <div class="ac-hero-sub" id="acOrtalamaSub">Henüz not girilmedi</div>
+            </div>
+            <div class="ac-hero-right">
+              <div class="ac-mini-stat">
+                <span class="ac-mini-num" id="acDersSayi">0</span>
+                <span class="ac-mini-lbl">Ders</span>
+              </div>
+              <div class="ac-mini-stat">
+                <span class="ac-mini-num ac-mini-uyari" id="acSınavSayi">0</span>
+                <span class="ac-mini-lbl">Sınav</span>
+              </div>
+              <div class="ac-mini-stat">
+                <span class="ac-mini-num ac-mini-bekleyen" id="acOdevSayi">0</span>
+                <span class="ac-mini-lbl">Ödev</span>
+              </div>
+            </div>
           </div>
-          <p class="gpa" id="gpa"></p>
-          <div class="bars" id="bars"></div>
-          <ul class="rows" id="courses"></ul>
-          <h3 class="sec-title">
-            <span>Yaklaşan Teslimler</span>
-            <button type="button" class="icon-add small" data-open="dlgDeadline" aria-label="Teslim ekle"><svg width="14" height="14"><use href="#i-plus"/></svg></button>
-          </h3>
-          <ul class="rows" id="deadlines"></ul>
+
+          <!-- 2. İKİ KOLON: Sınavlar + Ödevler -->
+          <div class="ac-iki-kolon">
+            <!-- Sınav Takvimi -->
+            <div class="card light ac-sinav-card">
+              <div class="card-head">
+                <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-clipboard"/></svg> Yaklaşan Sınavlar</h2>
+                <button type="button" class="icon-add" data-open="dlgSinav" aria-label="Sınav ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+              </div>
+              <ul class="sinav-list" id="sinavList"></ul>
+            </div>
+
+            <!-- Ödevler -->
+            <div class="card light ac-odev-card">
+              <div class="card-head">
+                <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-file-text"/></svg> Ödevler</h2>
+                <button type="button" class="icon-add" data-open="dlgOdev" aria-label="Ödev ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+              </div>
+              <ul class="odev-list" id="odevList"></ul>
+            </div>
+          </div>
+
+          <!-- 3. YKS TAKİP -->
+          <div class="card light ac-yks-card menu-ogrenci">
+            <div class="card-head">
+              <h2><svg width="18" height="18" style="display:inline;vertical-align:-3px;margin-right:6px"><use href="#i-graduation"/></svg> YKS Net Takip</h2>
+              <button type="button" class="btn-primary small-btn" data-open="dlgYks">
+                <svg width="14" height="14"><use href="#i-plus"/></svg> Deneme Ekle
+              </button>
+            </div>
+
+            <div class="yks-ozet">
+              <div class="yks-kart yks-tyt">
+                <div class="yks-kart-baslik">
+                  <svg width="14" height="14"><use href="#i-book-open"/></svg> TYT
+                </div>
+                <div class="yks-kart-net" id="yksTytNet">—</div>
+                <div class="yks-kart-tarih" id="yksTytTarih">Henüz deneme yok</div>
+              </div>
+              <div class="yks-kart yks-ayt">
+                <div class="yks-kart-baslik">
+                  <svg width="14" height="14"><use href="#i-target"/></svg> AYT
+                </div>
+                <div class="yks-kart-net" id="yksAytNet">—</div>
+                <div class="yks-kart-tarih" id="yksAytTarih">Henüz deneme yok</div>
+              </div>
+            </div>
+
+            <h3 class="perf-section-title" style="margin-top:var(--s4)">Gelişim Grafiği</h3>
+            <div class="yks-grafik" id="yksGrafik"></div>
+
+            <h3 class="perf-section-title" style="margin-top:var(--s4)">Son Denemeler</h3>
+            <ul class="yks-liste" id="yksListe"></ul>
+          </div>
+
+          <!-- 4. DERS NOTLARI (Mevcut courses) -->
+          <div class="card light">
+            <div class="card-head">
+              <h2 id="acTitle">Ders Notları</h2>
+              <button type="button" class="icon-add" data-open="dlgCourse" aria-label="Ders ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+            </div>
+            <ul class="rows" id="courses"></ul>
+            <div class="bars" id="bars" style="margin-top:var(--s4)"></div>
+            <p class="gpa" id="gpa"></p>
+          </div>
+
         </section>
       </div>
 
@@ -676,6 +757,84 @@
     </form>
   </dialog>
 
+  <!-- MODAL: Sınav Ekle / Düzenle -->
+  <dialog id="dlgSinav">
+    <div class="dlg-head"><h2 id="dlgSinavTitle">Sınav Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <form data-form="sinav" class="dialog-form">
+      <input type="hidden" name="id" value="">
+      <label class="fld">Sınav Adı<input name="ad" placeholder="Örn: Fizik Vize" required></label>
+      <div class="fld-row">
+        <label class="fld">Tür
+          <select name="tur">
+            <option value="Vize">Vize</option>
+            <option value="Final">Final</option>
+            <option value="Quiz">Quiz</option>
+            <option value="Deneme">Deneme</option>
+            <option value="Sözlü">Sözlü</option>
+          </select>
+        </label>
+        <label class="fld">Tarih<input type="date" name="tarih" required></label>
+      </div>
+      <div class="fld-row">
+        <label class="fld">Saat<input type="time" name="saat"></label>
+        <label class="fld">Yer<input name="yer" placeholder="Örn: A-101"></label>
+      </div>
+      <label class="fld">Notlar (opsiyonel)<textarea name="notlar" rows="2" placeholder="Konular, getirilecekler..."></textarea></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-danger" id="silSinav" hidden>🗑️ Sil</button>
+        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Ödev Ekle / Düzenle -->
+  <dialog id="dlgOdev">
+    <div class="dlg-head"><h2 id="dlgOdevTitle">Ödev Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <form data-form="odev" class="dialog-form">
+      <input type="hidden" name="id" value="">
+      <label class="fld">Ödev Adı<input name="ad" placeholder="Örn: Matematik Ödev 3" required></label>
+      <div class="fld-row">
+        <label class="fld">Ders<input name="ders" placeholder="Örn: Matematik"></label>
+        <label class="fld">Teslim Tarihi<input type="date" name="tarih" required></label>
+      </div>
+      <label class="fld">Açıklama (opsiyonel)<textarea name="aciklama" rows="2" placeholder="Detaylar..."></textarea></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-danger" id="silOdev" hidden>🗑️ Sil</button>
+        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: YKS Deneme Ekle -->
+  <dialog id="dlgYks">
+    <div class="dlg-head"><h2>YKS Denemesi Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <form data-form="yks" class="dialog-form">
+      <label class="fld">Deneme Adı<input name="ad" placeholder="Örn: 3D Türkiye Geneli 5" required></label>
+      <div class="fld-row">
+        <label class="fld">Tarih<input type="date" name="tarih" required></label>
+        <label class="fld">Alan
+          <select name="alan">
+            <option value="sayisal">Sayısal</option>
+            <option value="ea">Eşit Ağırlık</option>
+            <option value="sozel">Sözel</option>
+            <option value="dil">Dil</option>
+          </select>
+        </label>
+      </div>
+      <div class="fld-row">
+        <label class="fld">TYT Net<input type="number" name="tyt" min="0" max="120" step="0.25" placeholder="Örn: 85.5"></label>
+        <label class="fld">AYT Net<input type="number" name="ayt" min="0" max="80" step="0.25" placeholder="Örn: 65.0"></label>
+      </div>
+      <label class="fld">Notlar (opsiyonel)<textarea name="notlar" rows="2" placeholder="Zorlandığın konular..."></textarea></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- MODAL: İş Planı Öğesi Ekle -->
   <dialog id="dlgPlanItem">
     <div class="dlg-head"><h2>Yeni İş Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
@@ -780,7 +939,7 @@
     </form>
   </dialog>
 
-  <!-- MODAL: Ders / Proje -->
+  <!-- MODAL: Ders / Proje (Not) -->
   <dialog id="dlgCourse">
     <div class="dlg-head"><h2>Ders / Proje Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
     <form data-form="course" class="dialog-form">
