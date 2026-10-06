@@ -833,3 +833,19 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
 }
+/* ============ SİL BUTONU ============ */
+.btn-danger{
+  background:transparent;
+  color:#e04a3a;
+  padding:11px 22px;
+  border-radius:var(--r-md);
+  border:1px solid rgba(224,74,58,.3);
+  font-weight:600;
+  font-size:.9rem;
+  margin-right:auto;
+  transition:background var(--t-fast),color var(--t-fast);
+}
+.btn-danger:hover{
+  background:rgba(224,74,58,.1);
+  color:#c0341f;
+}
