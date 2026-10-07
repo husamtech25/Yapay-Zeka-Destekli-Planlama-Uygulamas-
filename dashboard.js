@@ -746,15 +746,20 @@ function yksGrafikCiz() {
     el.innerHTML = `<div class="yks-grafik-empty">Henüz deneme yok. + ile ekle.</div>`;
     return;
   }
-  const son = liste.slice(-8); // son 8 deneme
-  const maks = Math.max(120, ...son.map(d => Math.max(+d.tyt || 0, +d.ayt || 0)));
+  const son = liste.slice(-8);
+  const maks = 120; // TYT max 120 net
   el.innerHTML = son.map(d => {
-    const tytYuzde = (+d.tyt || 0) / maks * 100;
-    const aytYuzde = (+d.ayt || 0) / maks * 100;
+    const tyt = +d.tyt || 0;
+    const ayt = +d.ayt || 0;
+    const tytYuzde = Math.max(2, (tyt / maks) * 100);
+    const aytYuzde = Math.max(2, (ayt / maks) * 100);
     const [, m, gun] = d.tarih.split("-");
-    return `<div class="yks-bar-wrap" title="${esc(d.ad)}">
-      <div class="yks-bar-tyt" style="height:${tytYuzde}%"></div>
-      <div class="yks-bar-ayt" style="height:${aytYuzde}%"></div>
+    return `<div class="yks-bar-wrap" title="${esc(d.ad)} — TYT: ${tyt}, AYT: ${ayt}">
+      <span class="yks-bar-num">${tyt}${ayt ? ` / ${ayt}` : ""}</span>
+      <div class="yks-bar-inner-wrap">
+        <div class="yks-bar yks-bar-tyt" style="height:${tytYuzde}%"></div>
+        ${ayt ? `<div class="yks-bar yks-bar-ayt" style="height:${aytYuzde}%"></div>` : ""}
+      </div>
       <span class="yks-bar-label">${+gun}/${+m}</span>
     </div>`;
   }).join("");
