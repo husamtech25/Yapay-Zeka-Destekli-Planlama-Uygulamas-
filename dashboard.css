@@ -1,5 +1,5 @@
 /* ==============================================
-   PLANLA — Görsel Kimlik Sistemi v13 (Akademik)
+   PLANLA — Görsel Kimlik Sistemi v14 (YKS Grafik)
    ============================================== */
 :root{
   --navy-900:#0a2a35;
@@ -306,7 +306,6 @@ p{line-height:1.55}
 .mini-plan-item .mp-saat{font-size:.72rem;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .mini-plan-item .mp-baslik{flex:1;overflow-wrap:anywhere;color:var(--ink);font-weight:600}
 .mini-plan-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
-
 /* ============ AKADEMİK SAYFASI ============ */
 .ac-page{display:flex;flex-direction:column;gap:var(--s5);width:100%}
 
@@ -315,9 +314,14 @@ p{line-height:1.55}
   display:flex;justify-content:space-between;align-items:center;
   gap:var(--s5);flex-wrap:wrap;
   background:linear-gradient(135deg,var(--navy-800),var(--navy-700));
-  color:#fff;border:0;
+  color:#fff;
+  border-radius:var(--r-lg);
+  padding:var(--s5);
+  position:relative;
+  overflow:hidden;
+  transition:transform var(--t),box-shadow var(--t);
 }
-.ac-hero:hover{box-shadow:var(--shadow-lg)}
+.ac-hero:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
 .ac-hero-left{display:flex;flex-direction:column;gap:4px}
 .ac-hero-label{font-size:.78rem;font-weight:600;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.05em}
 .ac-hero-val{font-size:2.6rem;font-weight:800;letter-spacing:-.02em;color:#fff;line-height:1}
@@ -402,6 +406,7 @@ p{line-height:1.55}
 .odev-body .odev-meta{font-size:.72rem;color:var(--ink-3);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .odev-body .odev-meta span{display:inline-flex;align-items:center;gap:3px}
 .odev-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
+
 /* ============ YKS TAKİP ============ */
 .ac-yks-card{background:linear-gradient(135deg,#fff,#f7fbff)}
 .yks-ozet{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);margin-bottom:var(--s2)}
@@ -427,10 +432,10 @@ p{line-height:1.55}
 .yks-kart.yks-ayt .yks-kart-net{color:#4c2d8a}
 .yks-kart-tarih{font-size:.72rem;font-weight:500;color:var(--ink-3)}
 
-/* YKS Grafik */
+/* ✅ YKS GRAFİK (YENİ) */
 .yks-grafik{
-  display:flex;align-items:flex-end;gap:6px;
-  height:150px;padding:var(--s4) var(--s3) var(--s2);
+  display:flex;align-items:flex-end;gap:8px;
+  height:170px;padding:var(--s4) var(--s3) var(--s2);
   background:var(--surface-2);
   border-radius:var(--r-lg);
   border:1px solid var(--border-2);
@@ -438,26 +443,35 @@ p{line-height:1.55}
   overflow-x:auto;
 }
 .yks-bar-wrap{
-  flex:1;min-width:36px;
+  flex:1;min-width:52px;
   display:flex;flex-direction:column;
-  align-items:center;gap:3px;height:100%;
+  align-items:center;gap:4px;height:100%;
   justify-content:flex-end;
 }
-.yks-bar-tyt{
-  width:60%;max-width:22px;
-  background:linear-gradient(180deg,#3b82f6,#2563eb);
-  border-radius:4px 4px 0 0;
-  min-height:3px;
-  transition:height var(--t-slow);
+.yks-bar-num{
+  font-size:.65rem;font-weight:700;color:var(--ink-2);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
 }
-.yks-bar-ayt{
-  width:60%;max-width:22px;
-  background:linear-gradient(180deg,#a855f7,#7e22ce);
-  border-radius:4px 4px 0 0;
-  min-height:3px;
-  transition:height var(--t-slow);
+.yks-bar-inner-wrap{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  gap:4px;
 }
-.yks-bar-label{font-size:.62rem;color:var(--ink-3);font-weight:600;white-space:nowrap}
+.yks-bar{
+  width:22px;
+  border-radius:6px 6px 0 0;
+  transition:height var(--t-slow);
+  min-height:4px;
+}
+.yks-bar-tyt{background:linear-gradient(180deg,#3b82f6,#2563eb)}
+.yks-bar-ayt{background:linear-gradient(180deg,#a855f7,#7e22ce)}
+.yks-bar-label{
+  font-size:.62rem;color:var(--ink-3);font-weight:600;
+  white-space:nowrap;
+}
 .yks-grafik-empty{
   position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
@@ -710,7 +724,6 @@ p{line-height:1.55}
 .toplanti-del{color:var(--ink-3);padding:6px;border-radius:50%;flex-shrink:0}
 .toplanti-del:hover{color:var(--coral);background:var(--coral-soft)}
 .toplanti-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.85rem;font-style:italic}
-
 /* ============ TAKVİM ============ */
 .big-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .big-grid .dow{text-align:center;font-weight:600;font-size:.75rem;padding:4px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em}
@@ -1009,36 +1022,4 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
-}
-
-/* ============ YKS GRAFİK (YENİ) ============ */
-.yks-bar-wrap{
-  flex:1;min-width:44px;
-  display:flex;flex-direction:column;
-  align-items:center;gap:4px;height:100%;
-  justify-content:flex-end;
-}
-.yks-bar-num{
-  font-size:.65rem;font-weight:700;color:var(--ink-2);
-  font-variant-numeric:tabular-nums;
-}
-.yks-bar-inner-wrap{
-  width:100%;
-  height:100%;
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-  gap:4px;
-}
-.yks-bar{
-  width:24px;
-  border-radius:6px 6px 0 0;
-  transition:height var(--t-slow);
-  min-height:4px;
-}
-.yks-bar-tyt{background:linear-gradient(180deg,#3b82f6,#2563eb)}
-.yks-bar-ayt{background:linear-gradient(180deg,#a855f7,#7e22ce)}
-.yks-bar-label{
-  font-size:.62rem;color:var(--ink-3);font-weight:600;
-  white-space:nowrap;
 }
