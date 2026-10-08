@@ -1,7 +1,7 @@
-console.log("[Planla] v18 + akademik güncelleme");
+console.log("[Planla] v19 + YKS düzenleme");
 
 const MODLAR = {
-  student: { rol: "Üniversite Öğrencisi", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
+  student: { rol: "Öğrenci", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
     tur: ["Ders", "Etkinlik", "Ödev"], isim: "Ders adı", deger: "Not (0-100)", jobs: "Önerilen Stajlar", sub: "Bugün harika bir gün olacak!" },
   work: { rol: "Çalışan", ac: "Projeler", acSub: "Projeler  Teslimler", caSub: "Hedefler  Fırsatlar", acBaslik: "Projelerim",
     tur: ["Toplantı", "Etkinlik", "Görev"], isim: "Proje adı", deger: "İlerleme (%)", jobs: "Fırsatlar & Başvurular", sub: "Bugün harika bir gün olacak!" },
@@ -649,14 +649,13 @@ function miniDersGridCiz() {
 
 // ================= AKADEMİK (YENİ) =================
 
-// Sınav Renk Sınıfı
 function sinavRenkSinif(tarih) {
   const bugun = new Date();
   bugun.setHours(0,0,0,0);
   const hedef = new Date(tarih);
   hedef.setHours(0,0,0,0);
   const fark = Math.round((hedef - bugun) / (1000 * 60 * 60 * 24));
-  if (fark < 0) return "sinav-uzak"; // geçmiş
+  if (fark < 0) return "sinav-uzak";
   if (fark <= 3) return "sinav-acil";
   if (fark <= 7) return "sinav-yakin";
   return "sinav-uzak";
@@ -747,20 +746,22 @@ function yksGrafikCiz() {
     return;
   }
   const son = liste.slice(-8);
-  const maks = 120; // TYT max 120 net
+  const TYT_MAX = 120;
+  const AYT_MAX = 80;
   el.innerHTML = son.map(d => {
     const tyt = +d.tyt || 0;
     const ayt = +d.ayt || 0;
-    const tytYuzde = Math.max(2, (tyt / maks) * 100);
-    const aytYuzde = Math.max(2, (ayt / maks) * 100);
+    const tytYuzde = Math.max(4, (tyt / TYT_MAX) * 100);
+    const aytYuzde = Math.max(4, (ayt / AYT_MAX) * 100);
     const [, m, gun] = d.tarih.split("-");
-    return `<div class="yks-bar-wrap" title="${esc(d.ad)} — TYT: ${tyt}, AYT: ${ayt}">
+    const ayKisa = aylar[+m - 1].slice(0, 3);
+    return `<div class="yks-bar-wrap" data-act="yks-edit" data-id="${d.id}" title="${esc(d.ad)} — TYT: ${tyt} / AYT: ${ayt} (düzenlemek için tıkla)">
       <span class="yks-bar-num">${tyt}${ayt ? ` / ${ayt}` : ""}</span>
       <div class="yks-bar-inner-wrap">
-        <div class="yks-bar yks-bar-tyt" style="height:${tytYuzde}%"></div>
+        ${tyt ? `<div class="yks-bar yks-bar-tyt" style="height:${tytYuzde}%"></div>` : ""}
         ${ayt ? `<div class="yks-bar yks-bar-ayt" style="height:${aytYuzde}%"></div>` : ""}
       </div>
-      <span class="yks-bar-label">${+gun}/${+m}</span>
+      <span class="yks-bar-label">${ayKisa} ${+gun}</span>
     </div>`;
   }).join("");
 }
@@ -776,7 +777,7 @@ function yksListeCiz() {
   el.innerHTML = liste.slice(0, 6).map(d => {
     const [, m, gun] = d.tarih.split("-");
     const ayKisa = aylar[+m - 1].slice(0, 3);
-    return `<li class="yks-item" data-act="yks-del" data-id="${d.id}" title="Silmek için tıkla">
+    return `<li class="yks-item" data-act="yks-edit" data-id="${d.id}" title="Düzenlemek için tıkla">
       <div class="yks-item-tarih">
         <span class="yt-gun">${ayKisa}</span>
         <span class="yt-ay">${+gun}</span>
@@ -789,7 +790,7 @@ function yksListeCiz() {
           ${d.ayt ? `<span class="yks-net-badge ayt">AYT ${d.ayt}</span>` : ""}
         </div>
       </div>
-      <button type="button" class="yks-item-del" onclick="event.stopPropagation()" data-act="del" data-list="yksDenemeleri" data-id="${d.id}" aria-label="Sil">
+      <button type="button" class="yks-item-del" data-act="del" data-list="yksDenemeleri" data-id="${d.id}" aria-label="Sil">
         <svg width="14" height="14"><use href="#i-trash"/></svg>
       </button>
     </li>`;
@@ -810,7 +811,6 @@ function yksOzetCiz() {
 }
 
 function acOzetCiz() {
-  // Ders ortalaması
   const courses = S.courses || [];
   const ort = courses.length ? courses.reduce((t, c) => t + c.g, 0) / courses.length : 0;
   const ortEl = $("acOrtalama");
@@ -818,7 +818,6 @@ function acOzetCiz() {
   if (ortEl) ortEl.textContent = courses.length ? ort.toFixed(1) : "—";
   if (ortSubEl) ortSubEl.textContent = courses.length ? `${courses.length} ders üzerinden` : "Henüz not girilmedi";
 
-  // Mini istatistik
   if ($("acDersSayi")) $("acDersSayi").textContent = courses.length;
   const simdi = new Date();
   simdi.setHours(0,0,0,0);
@@ -1378,6 +1377,34 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // YKS Denemesi Düzenle
+  const yksItem = e.target.closest("[data-act='yks-edit']");
+  if (yksItem) {
+    e.preventDefault();
+    const d = bul("yksDenemeleri", yksItem.dataset.id);
+    if (!d) return;
+    const form = $("dlgYks").querySelector("form");
+    form.reset();
+    form.querySelector("[name=ad]").value = d.ad || "";
+    form.querySelector("[name=tarih]").value = d.tarih || "";
+    form.querySelector("[name=alan]").value = d.alan || "sayisal";
+    form.querySelector("[name=tyt]").value = d.tyt || "";
+    form.querySelector("[name=ayt]").value = d.ayt || "";
+    form.querySelector("[name=notlar]").value = d.notlar || "";
+    let idInput = form.querySelector("[name=id]");
+    if (!idInput) {
+      idInput = document.createElement("input");
+      idInput.type = "hidden";
+      idInput.name = "id";
+      form.appendChild(idInput);
+    }
+    idInput.value = d.id;
+    const dlgHead = $("dlgYks").querySelector(".dlg-head h2");
+    if (dlgHead) dlgHead.textContent = "YKS Denemesini Düzenle";
+    guvenliAc($("dlgYks"));
+    return;
+  }
+
   // Sınav Düzenle
   const sinavItem = e.target.closest("[data-act='sinav-edit']");
   if (sinavItem) {
@@ -1536,6 +1563,12 @@ document.addEventListener("click", e => {
         $("dlgOdevTitle").textContent = "Ödev Ekle";
         if ($("silOdev")) $("silOdev").hidden = true;
       }
+      if (opener.dataset.open === "dlgYks") {
+        const idInp = form.querySelector("[name=id]");
+        if (idInp) idInp.value = "";
+        const dlgHead = $("dlgYks").querySelector(".dlg-head h2");
+        if (dlgHead) dlgHead.textContent = "YKS Denemesi Ekle";
+      }
       if (opener.dataset.open === "dlgEvent") form.dataset.day = opener.dataset.day || "today";
       const selEl = form.querySelector("select[name=type]");
       if (selEl) selEl.innerHTML = M().tur.map(t => `<option>${t}</option>`).join("");
@@ -1574,7 +1607,7 @@ document.addEventListener("click", e => {
   const b = e.target.closest("[data-act]");
   if (!b) return;
   if (["done", "grade", "status", "skill", "task-toggle", "ders-edit", "sinav-edit", "odev-edit", "odev-toggle",
-       "task-start", "task-done", "task-undo", "hedef-plus", "hedef-minus", "yks-del"].includes(b.dataset.act)) return;
+       "task-start", "task-done", "task-undo", "hedef-plus", "hedef-minus", "yks-edit", "yks-del"].includes(b.dataset.act)) return;
   e.preventDefault();
   const { act, id, list } = b.dataset;
   if (act === "mini") {
@@ -1729,9 +1762,21 @@ document.addEventListener("submit", e => {
       else S.odevler.push(odev);
       break;
     }
-    case "yks":
-      S.yksDenemeleri.push({ id, ad: v.ad.trim(), tarih: v.tarih, alan: v.alan || "sayisal", tyt: parseFloat(v.tyt) || 0, ayt: parseFloat(v.ayt) || 0, notlar: (v.notlar||"").trim() });
+    case "yks": {
+      const deneme = {
+        id,
+        ad: v.ad.trim(),
+        tarih: v.tarih,
+        alan: v.alan || "sayisal",
+        tyt: parseFloat(v.tyt) || 0,
+        ayt: parseFloat(v.ayt) || 0,
+        notlar: (v.notlar || "").trim()
+      };
+      const idx = S.yksDenemeleri.findIndex(x => x.id === id);
+      if (idx >= 0) S.yksDenemeleri[idx] = deneme;
+      else S.yksDenemeleri.push(deneme);
       break;
+    }
     case "hedef":
       S.hedefler.push({ id, baslik: v.baslik.trim(), hedef: Math.max(1, +v.hedef || 1), birim: (v.birim || "kez").trim(), mevcut: 0, zaman: new Date().toISOString() });
       break;
