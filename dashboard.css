@@ -1,5 +1,5 @@
 /* ==============================================
-   PLANLA — Görsel Kimlik Sistemi v14 (YKS Grafik)
+   PLANLA — Görsel Kimlik Sistemi v15 (YKS Düzenleme)
    ============================================== */
 :root{
   --navy-900:#0a2a35;
@@ -432,10 +432,10 @@ p{line-height:1.55}
 .yks-kart.yks-ayt .yks-kart-net{color:#4c2d8a}
 .yks-kart-tarih{font-size:.72rem;font-weight:500;color:var(--ink-3)}
 
-/* ✅ YKS GRAFİK (YENİ) */
+/* YKS GRAFİK */
 .yks-grafik{
-  display:flex;align-items:flex-end;gap:8px;
-  height:170px;padding:var(--s4) var(--s3) var(--s2);
+  display:flex;align-items:flex-end;gap:14px;
+  height:190px;padding:var(--s4) var(--s3) var(--s2);
   background:var(--surface-2);
   border-radius:var(--r-lg);
   border:1px solid var(--border-2);
@@ -443,13 +443,18 @@ p{line-height:1.55}
   overflow-x:auto;
 }
 .yks-bar-wrap{
-  flex:1;min-width:52px;
+  flex:1;min-width:60px;
   display:flex;flex-direction:column;
-  align-items:center;gap:4px;height:100%;
+  align-items:center;gap:6px;height:100%;
   justify-content:flex-end;
+  cursor:pointer;
+  padding:4px;
+  border-radius:var(--r-sm);
+  transition:background var(--t-fast);
 }
+.yks-bar-wrap:hover{background:rgba(43,184,168,.08)}
 .yks-bar-num{
-  font-size:.65rem;font-weight:700;color:var(--ink-2);
+  font-size:.7rem;font-weight:800;color:var(--ink);
   font-variant-numeric:tabular-nums;white-space:nowrap;
 }
 .yks-bar-inner-wrap{
@@ -458,18 +463,18 @@ p{line-height:1.55}
   display:flex;
   align-items:flex-end;
   justify-content:center;
-  gap:4px;
+  gap:5px;
 }
 .yks-bar{
-  width:22px;
+  width:24px;
   border-radius:6px 6px 0 0;
   transition:height var(--t-slow);
   min-height:4px;
 }
-.yks-bar-tyt{background:linear-gradient(180deg,#3b82f6,#2563eb)}
-.yks-bar-ayt{background:linear-gradient(180deg,#a855f7,#7e22ce)}
+.yks-bar-tyt{background:linear-gradient(180deg,#60a5fa,#2563eb);box-shadow:0 2px 6px rgba(37,99,235,.25)}
+.yks-bar-ayt{background:linear-gradient(180deg,#c084fc,#7e22ce);box-shadow:0 2px 6px rgba(126,34,206,.25)}
 .yks-bar-label{
-  font-size:.62rem;color:var(--ink-3);font-weight:600;
+  font-size:.68rem;color:var(--ink-3);font-weight:700;
   white-space:nowrap;
 }
 .yks-grafik-empty{
