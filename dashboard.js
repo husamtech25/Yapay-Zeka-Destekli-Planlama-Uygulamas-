@@ -1,4 +1,4 @@
-console.log("[Planla] v19 + YKS düzenleme");
+console.log("[Planla] v20 + YKS silme düzeltmesi");
 
 const MODLAR = {
   student: { rol: "Öğrenci", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -1369,11 +1369,43 @@ document.addEventListener("click", e => {
     return;
   }
 
+  // YKS Sil (modal içinden)
+  if (e.target.closest("#silYks")) {
+    e.preventDefault();
+    const form = $("dlgYks").querySelector("form");
+    const id = form.querySelector("[name=id]").value;
+    if (!id) { $("dlgYks").close(); return; }
+    const d = bul("yksDenemeleri", id);
+    if (!d) { $("dlgYks").close(); return; }
+    if (confirm(`"${d.ad}" denemesini silmek istediğine emin misin?`)) {
+      sil("yksDenemeleri", id);
+      $("dlgYks").close();
+      ciz();
+      kaydet();
+    }
+    return;
+  }
+
   // Ödev Toggle
   if (e.target.closest("[data-act='odev-toggle']")) {
     const cb = e.target.closest("[data-act='odev-toggle']");
     const it = bul("odevler", cb.dataset.id);
     if (it) { it.done = cb.checked; odevlerCiz(); kaydet(); }
+    return;
+  }
+
+  // YKS Denemesi Sil (liste içindeki çöp kutusu) — EDIT'TEN ÖNCE!
+  const yksDel = e.target.closest("[data-act='del'][data-list='yksDenemeleri']");
+  if (yksDel) {
+    e.preventDefault();
+    e.stopPropagation();
+    const d = bul("yksDenemeleri", yksDel.dataset.id);
+    if (!d) return;
+    if (confirm(`"${d.ad}" denemesini silmek istediğine emin misin?`)) {
+      sil("yksDenemeleri", yksDel.dataset.id);
+      ciz();
+      kaydet();
+    }
     return;
   }
 
@@ -1401,6 +1433,8 @@ document.addEventListener("click", e => {
     idInput.value = d.id;
     const dlgHead = $("dlgYks").querySelector(".dlg-head h2");
     if (dlgHead) dlgHead.textContent = "YKS Denemesini Düzenle";
+    const silBtn = $("silYks");
+    if (silBtn) silBtn.hidden = false;
     guvenliAc($("dlgYks"));
     return;
   }
@@ -1568,6 +1602,8 @@ document.addEventListener("click", e => {
         if (idInp) idInp.value = "";
         const dlgHead = $("dlgYks").querySelector(".dlg-head h2");
         if (dlgHead) dlgHead.textContent = "YKS Denemesi Ekle";
+        const silBtn = $("silYks");
+        if (silBtn) silBtn.hidden = true;
       }
       if (opener.dataset.open === "dlgEvent") form.dataset.day = opener.dataset.day || "today";
       const selEl = form.querySelector("select[name=type]");
@@ -1607,7 +1643,7 @@ document.addEventListener("click", e => {
   const b = e.target.closest("[data-act]");
   if (!b) return;
   if (["done", "grade", "status", "skill", "task-toggle", "ders-edit", "sinav-edit", "odev-edit", "odev-toggle",
-       "task-start", "task-done", "task-undo", "hedef-plus", "hedef-minus", "yks-edit", "yks-del"].includes(b.dataset.act)) return;
+       "task-start", "task-done", "task-undo", "hedef-plus", "hedef-minus", "yks-edit"].includes(b.dataset.act)) return;
   e.preventDefault();
   const { act, id, list } = b.dataset;
   if (act === "mini") {
