@@ -807,10 +807,11 @@
     </form>
   </dialog>
 
-  <!-- MODAL: YKS Deneme Ekle -->
+  <!-- MODAL: YKS Deneme Ekle / Düzenle -->
   <dialog id="dlgYks">
     <div class="dlg-head"><h2>YKS Denemesi Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
     <form data-form="yks" class="dialog-form">
+      <input type="hidden" name="id" value="">
       <label class="fld">Deneme Adı<input name="ad" placeholder="Örn: 3D Türkiye Geneli 5" required></label>
       <div class="fld-row">
         <label class="fld">Tarih<input type="date" name="tarih" required></label>
@@ -829,6 +830,7 @@
       </div>
       <label class="fld">Notlar (opsiyonel)<textarea name="notlar" rows="2" placeholder="Zorlandığın konular..."></textarea></label>
       <div class="dialog-actions">
+        <button type="button" class="btn-danger" id="silYks" hidden>🗑️ Sil</button>
         <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
         <button type="submit" class="btn-primary">Kaydet</button>
       </div>
