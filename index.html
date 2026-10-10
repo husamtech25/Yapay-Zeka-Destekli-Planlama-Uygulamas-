@@ -90,12 +90,11 @@
     </div>
     <nav class="side-nav" aria-label="Ana menü">
       <a href="#" data-view="home" class="active"><svg width="18" height="18"><use href="#i-home"/></svg> Ana Sayfa</a>
-      <a href="#" data-view="ac"><svg width="18" height="18"><use href="#i-book"/></svg> <span id="navAc">Akademik</span></a>
+      <a href="#" data-view="ac"><svg width="18" height="18"><use href="#i-book"/></svg> Akademik</a>
       <a href="#" data-view="ca"><svg width="18" height="18"><use href="#i-briefcase"/></svg> Kariyer</a>
       <a href="#" data-view="cal"><svg width="18" height="18"><use href="#i-calendar"/></svg> Takvim</a>
       <a href="#" data-view="tasks"><svg width="18" height="18"><use href="#i-check-circle"/></svg> Görevler</a>
-      <a href="#" data-view="ders" class="menu-ogrenci"><svg width="18" height="18"><use href="#i-graduation"/></svg> Ders Programı</a>
-      <a href="#" data-view="plan" class="menu-is" hidden><svg width="18" height="18"><use href="#i-bar-chart"/></svg> İş Planı</a>
+      <a href="#" data-view="ders"><svg width="18" height="18"><use href="#i-graduation"/></svg> Ders Programı</a>
       <a href="#" data-logout><svg width="18" height="18"><use href="#i-logout"/></svg> Çıkış Yap</a>
     </nav>
 
@@ -161,29 +160,12 @@
             </div>
           </div>
 
-          <div class="card light mini-ders-card menu-ogrenci">
+          <div class="card light mini-ders-card">
             <div class="card-head">
               <h2>Haftalık Ders Programı</h2>
               <button type="button" class="chip light-chip" data-view="ders">Tümü <svg width="12" height="12"><use href="#i-arrow-right"/></svg></button>
             </div>
             <div class="mini-ders-grid" id="miniDersGrid"></div>
-          </div>
-
-          <div class="card light is-bugun-card menu-is" hidden>
-            <div class="card-head">
-              <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-zap"/></svg> Bugünün Özeti</h2>
-              <span class="chip light-chip" id="isBugunTarih"></span>
-            </div>
-            <div class="is-bugun-grid" id="isBugunGrid"></div>
-            <ul class="is-bugun-liste" id="isBugunListe"></ul>
-          </div>
-
-          <div class="card light mini-plan-card menu-is" hidden>
-            <div class="card-head">
-              <h2>Bu Haftanın Planı</h2>
-              <button type="button" class="chip light-chip" data-view="plan">Tümü <svg width="12" height="12"><use href="#i-arrow-right"/></svg></button>
-            </div>
-            <ul class="mini-plan-list" id="miniPlanList"></ul>
           </div>
         </section>
 
@@ -300,7 +282,7 @@
 
       </div>
 
-      <!-- DERS PROGRAMI (Öğrenci Modu) -->
+      <!-- DERS PROGRAMI -->
       <div class="view" id="v-ders">
         <section class="card light ders-page">
           <div class="ders-head">
@@ -336,78 +318,6 @@
         </section>
       </div>
 
-      <!-- İŞ PLANI (İş Modu) -->
-      <div class="view" id="v-plan">
-        <section class="card light plan-page">
-          <div class="plan-head">
-            <div>
-              <h1 class="plan-title">İş Planı</h1>
-              <p class="plan-sub">Haftalık planını, performansını ve toplantılarını yönet</p>
-            </div>
-          </div>
-
-          <div class="plan-tabs" role="tablist">
-            <button type="button" class="plan-tab on" data-plan-tab="haftalik">
-              <svg width="14" height="14"><use href="#i-list"/></svg> Haftalık Plan
-            </button>
-            <button type="button" class="plan-tab" data-plan-tab="performans">
-              <svg width="14" height="14"><use href="#i-bar-chart"/></svg> Performans
-            </button>
-            <button type="button" class="plan-tab" data-plan-tab="toplantilar">
-              <svg width="14" height="14"><use href="#i-users"/></svg> Toplantılar
-            </button>
-          </div>
-
-          <div class="plan-panel on" data-plan-panel="haftalik">
-            <div class="haftalik-plan-list" id="haftalikPlanList"></div>
-            <button type="button" class="plan-add-btn" data-open="dlgPlanItem">
-              <svg width="16" height="16"><use href="#i-plus"/></svg> Yeni İş Ekle
-            </button>
-          </div>
-
-          <div class="plan-panel" data-plan-panel="performans">
-            <div class="perf-cards">
-              <div class="perf-card">
-                <div class="perf-card-title">Bu Hafta</div>
-                <div class="perf-card-val" id="perfHaftaGorev">0</div>
-                <div class="perf-card-sub">Görev tamamlandı</div>
-              </div>
-              <div class="perf-card">
-                <div class="perf-card-title">Bu Hafta</div>
-                <div class="perf-card-val" id="perfHaftaSaat">0</div>
-                <div class="perf-card-sub">Saat çalışıldı</div>
-              </div>
-              <div class="perf-card">
-                <div class="perf-card-title">Bu Ay</div>
-                <div class="perf-card-val" id="perfAyGorev">0</div>
-                <div class="perf-card-sub">Görev tamamlandı</div>
-              </div>
-              <div class="perf-card">
-                <div class="perf-card-title">Aktif Projeler</div>
-                <div class="perf-card-val" id="perfProje">0</div>
-                <div class="perf-card-sub">Devam ediyor</div>
-              </div>
-            </div>
-
-            <h3 class="perf-section-title">Haftalık Görev Grafiği</h3>
-            <div class="perf-chart" id="perfChart"></div>
-          </div>
-
-          <div class="plan-panel" data-plan-panel="toplantilar">
-            <div class="toplanti-head">
-              <h3 class="perf-section-title">Yaklaşan Toplantılar</h3>
-              <button type="button" class="btn-primary small-btn" data-open="dlgToplanti">
-                <svg width="14" height="14"><use href="#i-plus"/></svg> Toplantı Ekle
-              </button>
-            </div>
-            <ul class="toplanti-list" id="toplantiYaklasan"></ul>
-
-            <h3 class="perf-section-title" style="margin-top:var(--s5)">Geçmiş Toplantılar</h3>
-            <ul class="toplanti-list gecmis" id="toplantiGecmis"></ul>
-          </div>
-        </section>
-      </div>
-
       <!-- BÜYÜK TAKVİM -->
       <div class="view" id="v-cal">
         <section class="card light bigcal">
@@ -430,7 +340,7 @@
         </section>
       </div>
 
-      <!-- AKADEMİK / PROJELER -->
+      <!-- AKADEMİK -->
       <div class="view" id="v-ac">
         <section class="ac-page">
 
@@ -474,7 +384,7 @@
             </div>
           </div>
 
-          <div class="card light ac-yks-card menu-ogrenci">
+          <div class="card light ac-yks-card">
             <div class="card-head">
               <h2><svg width="18" height="18" style="display:inline;vertical-align:-3px;margin-right:6px"><use href="#i-graduation"/></svg> YKS Net Takip</h2>
               <button type="button" class="btn-primary small-btn" data-open="dlgYks">
@@ -519,81 +429,51 @@
         </section>
       </div>
 
-      <!-- KARİYER (Öğrenci ve İş için farklı) -->
+      <!-- KARİYER (Öğrenci) -->
       <div class="view" id="v-ca">
         <section class="ca-page">
 
           <div class="ca-hero card">
             <div class="ca-hero-left">
-              <div class="ca-hero-label" id="caHeroLabel">Kariyer Yolculuğu</div>
+              <div class="ca-hero-label">Kariyer Yolculuğu</div>
               <div class="ca-hero-val" id="caHeroVal">0</div>
               <div class="ca-hero-sub" id="caHeroSub">Henüz kayıt yok</div>
             </div>
             <div class="ca-hero-right">
               <div class="ca-mini-stat">
                 <span class="ca-mini-num" id="caStat1">0</span>
-                <span class="ca-mini-lbl" id="caStat1Lbl">Staj</span>
+                <span class="ca-mini-lbl">Staj</span>
               </div>
               <div class="ca-mini-stat">
                 <span class="ca-mini-num ca-mini-uyari" id="caStat2">0</span>
-                <span class="ca-mini-lbl" id="caStat2Lbl">Mülakat</span>
+                <span class="ca-mini-lbl">Mülakat</span>
               </div>
               <div class="ca-mini-stat">
                 <span class="ca-mini-num ca-mini-bekleyen" id="caStat3">0</span>
-                <span class="ca-mini-lbl" id="caStat3Lbl">Kabul</span>
+                <span class="ca-mini-lbl">Kabul</span>
               </div>
               <div class="ca-mini-stat">
                 <span class="ca-mini-num ca-mini-yesil" id="caStat4">0</span>
-                <span class="ca-mini-lbl" id="caStat4Lbl">Beceri</span>
+                <span class="ca-mini-lbl">Beceri</span>
               </div>
             </div>
           </div>
 
-          <div class="ca-mod-ogrenci">
-            <div class="ca-iki-kolon">
-              <div class="card light ca-basvuru-card">
-                <div class="card-head">
-                  <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-briefcase"/></svg> Staj / İlk İş Başvuruları</h2>
-                  <button type="button" class="icon-add" data-open="dlgBasvuru" aria-label="Başvuru ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
-                </div>
-                <ul class="basvuru-list" id="basvuruList"></ul>
-              </div>
-
-              <div class="card light ca-kurs-card">
-                <div class="card-head">
-                  <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-award"/></svg> Kurslar & Sertifikalar</h2>
-                  <button type="button" class="icon-add" data-open="dlgKurs" aria-label="Kurs ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
-                </div>
-                <ul class="kurs-list" id="kursList"></ul>
-              </div>
-            </div>
-          </div>
-
-          <div class="ca-mod-is" hidden>
-            <div class="ca-iki-kolon">
-              <div class="card light ca-firsat-card">
-                <div class="card-head">
-                  <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-briefcase"/></svg> İş Fırsatları</h2>
-                  <button type="button" class="icon-add" data-open="dlgFirsat" aria-label="Fırsat ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
-                </div>
-                <ul class="firsat-list" id="firsatList"></ul>
-              </div>
-
-              <div class="card light ca-mulakat-card">
-                <div class="card-head">
-                  <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-users"/></svg> Mülakatlar</h2>
-                  <button type="button" class="icon-add" data-open="dlgMulakat" aria-label="Mülakat ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
-                </div>
-                <ul class="mulakat-list" id="mulakatList"></ul>
-              </div>
-            </div>
-
-            <div class="card light ca-network-card">
+          <div class="ca-iki-kolon">
+            <div class="card light ca-basvuru-card">
               <div class="card-head">
-                <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-handshake"/></svg> Network / Bağlantılar</h2>
-                <button type="button" class="icon-add" data-open="dlgNetwork" aria-label="Bağlantı ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+                <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-briefcase"/></svg> Staj / İlk İş Başvuruları</h2>
+                <button type="button" class="icon-add" data-open="dlgBasvuru" aria-label="Başvuru ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
               </div>
-              <ul class="network-list" id="networkList"></ul>
+              <ul class="basvuru-list" id="basvuruList"></ul>
+            </div>
+
+            <div class="card light ca-kurs-card">
+              <div class="card-head">
+                <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-award"/></svg> Kurslar & Sertifikalar</h2>
+                <button type="button" class="icon-add" data-open="dlgKurs" aria-label="Kurs ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
+              </div>
+              <ul class="kurs-list" id="kursList"></ul>
             </div>
           </div>
 
@@ -607,7 +487,7 @@
 
           <div class="card light ca-hedef-card">
             <div class="card-head">
-              <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-flag"/></svg> <span id="caHedefBaslik">Kariyer Hedeflerim</span></h2>
+              <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-flag"/></svg> Kariyer Hedeflerim</h2>
               <button type="button" class="icon-add" data-open="dlgKariyerHedef" aria-label="Hedef ekle"><svg width="16" height="16"><use href="#i-plus"/></svg></button>
             </div>
             <ul class="kariyer-hedef-list" id="kariyerHedefList"></ul>
@@ -679,13 +559,9 @@
       <svg width="22" height="22"><use href="#i-home"/></svg>
       <span>Ana Sayfa</span>
     </a>
-    <a href="#" class="mobile-nav-item menu-ogrenci" data-view="ders" data-mobil-nav>
+    <a href="#" class="mobile-nav-item" data-view="ders" data-mobil-nav>
       <svg width="22" height="22"><use href="#i-graduation"/></svg>
       <span>Ders</span>
-    </a>
-    <a href="#" class="mobile-nav-item menu-is" data-view="plan" data-mobil-nav hidden>
-      <svg width="22" height="22"><use href="#i-bar-chart"/></svg>
-      <span>Plan</span>
     </a>
     <a href="#" class="mobile-nav-item" data-view="tasks" data-mobil-nav>
       <svg width="22" height="22"><use href="#i-check-circle"/></svg>
@@ -924,7 +800,7 @@
     </form>
   </dialog>
 
-  <!-- MODAL: Staj/İş Başvurusu (Öğrenci) -->
+  <!-- MODAL: Staj/İş Başvurusu -->
   <dialog id="dlgBasvuru">
     <div class="dlg-head"><h2 id="dlgBasvuruTitle">Başvuru Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
     <form data-form="basvuru" class="dialog-form">
@@ -963,7 +839,7 @@
     </form>
   </dialog>
 
-  <!-- MODAL: Kurs/Sertifika (Öğrenci) -->
+  <!-- MODAL: Kurs/Sertifika -->
   <dialog id="dlgKurs">
     <div class="dlg-head"><h2 id="dlgKursTitle">Kurs Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
     <form data-form="kurs" class="dialog-form">
@@ -986,96 +862,6 @@
       <label class="fld">Notlar (opsiyonel)<textarea name="notlar" rows="2"></textarea></label>
       <div class="dialog-actions">
         <button type="button" class="btn-danger" id="silKurs" hidden>🗑️ Sil</button>
-        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
-        <button type="submit" class="btn-primary">Kaydet</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- MODAL: İş Fırsatı (İş Modu) -->
-  <dialog id="dlgFirsat">
-    <div class="dlg-head"><h2 id="dlgFirsatTitle">İş Fırsatı Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
-    <form data-form="firsat" class="dialog-form">
-      <input type="hidden" name="id" value="">
-      <label class="fld">Şirket<input name="sirket" placeholder="Örn: Google" required></label>
-      <label class="fld">Pozisyon<input name="pozisyon" placeholder="Örn: Senior Developer" required></label>
-      <div class="fld-row">
-        <label class="fld">Maaş Aralığı<input name="maas" placeholder="Örn: 80-100K"></label>
-        <label class="fld">Lokasyon<input name="lokasyon" placeholder="Örn: İstanbul / Remote"></label>
-      </div>
-      <div class="fld-row">
-        <label class="fld">Durum
-          <select name="durum">
-            <option value="kaydedildi">Kaydedildi</option>
-            <option value="basvuruldu">Başvuruldu</option>
-            <option value="mulakat">Mülakat</option>
-            <option value="teklif">Teklif</option>
-            <option value="red">Red</option>
-          </select>
-        </label>
-        <label class="fld">Kaynak
-          <select name="kaynak">
-            <option value="linkedin">LinkedIn</option>
-            <option value="kariyernet">Kariyer.net</option>
-            <option value="referans">Referans</option>
-            <option value="site">Şirket Sitesi</option>
-            <option value="diger">Diğer</option>
-          </select>
-        </label>
-      </div>
-      <label class="fld">Link (opsiyonel)<input name="link" placeholder="https://..."></label>
-      <label class="fld">Notlar<textarea name="notlar" rows="2"></textarea></label>
-      <div class="dialog-actions">
-        <button type="button" class="btn-danger" id="silFirsat" hidden>🗑️ Sil</button>
-        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
-        <button type="submit" class="btn-primary">Kaydet</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- MODAL: Mülakat (İş Modu) -->
-  <dialog id="dlgMulakat">
-    <div class="dlg-head"><h2 id="dlgMulakatTitle">Mülakat Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
-    <form data-form="mulakat" class="dialog-form">
-      <input type="hidden" name="id" value="">
-      <label class="fld">Şirket<input name="sirket" placeholder="Örn: Microsoft" required></label>
-      <label class="fld">Pozisyon<input name="pozisyon" placeholder="Örn: Backend Dev" required></label>
-      <div class="fld-row">
-        <label class="fld">Tarih<input type="date" name="tarih" required></label>
-        <label class="fld">Saat<input type="time" name="saat"></label>
-      </div>
-      <label class="fld">Tür
-        <select name="tur">
-          <option value="telefon">Telefon</option>
-          <option value="online">Online</option>
-          <option value="yuzyuze">Yüz Yüze</option>
-          <option value="teknik">Teknik</option>
-          <option value="ik">İK</option>
-        </select>
-      </label>
-      <label class="fld">Hazırlık Notu<textarea name="notlar" rows="3" placeholder="Şunları çalış: ..."></textarea></label>
-      <div class="dialog-actions">
-        <button type="button" class="btn-danger" id="silMulakat" hidden>🗑️ Sil</button>
-        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
-        <button type="submit" class="btn-primary">Kaydet</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- MODAL: Network (İş Modu) -->
-  <dialog id="dlgNetwork">
-    <div class="dlg-head"><h2 id="dlgNetworkTitle">Bağlantı Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
-    <form data-form="network" class="dialog-form">
-      <input type="hidden" name="id" value="">
-      <label class="fld">İsim<input name="isim" placeholder="Örn: Ahmet Yılmaz" required></label>
-      <div class="fld-row">
-        <label class="fld">Şirket<input name="sirket" placeholder="Örn: Google"></label>
-        <label class="fld">Rol<input name="rol" placeholder="Örn: Recruiter"></label>
-      </div>
-      <label class="fld">E-posta / LinkedIn<input name="iletisim" placeholder="ornek@mail.com veya linkedin.com/in/..."></label>
-      <label class="fld">Notlar<textarea name="notlar" rows="2"></textarea></label>
-      <div class="dialog-actions">
-        <button type="button" class="btn-danger" id="silNetwork" hidden>🗑️ Sil</button>
         <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
         <button type="submit" class="btn-primary">Kaydet</button>
       </div>
@@ -1121,60 +907,6 @@
     </form>
   </dialog>
 
-  <!-- MODAL: İş Planı Öğesi Ekle -->
-  <dialog id="dlgPlanItem">
-    <div class="dlg-head"><h2>Yeni İş Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
-    <form data-form="plan-item" class="dialog-form">
-      <label class="fld">Görev<input name="baslik" placeholder="Örn: Sprint toplantısı" required></label>
-      <div class="fld-row">
-        <label class="fld">Gün
-          <select name="gun">
-            <option value="1">Pazartesi</option>
-            <option value="2">Salı</option>
-            <option value="3">Çarşamba</option>
-            <option value="4">Perşembe</option>
-            <option value="5">Cuma</option>
-            <option value="6">Cumartesi</option>
-            <option value="0">Pazar</option>
-          </select>
-        </label>
-        <label class="fld">Saat<input type="time" name="saat" required></label>
-      </div>
-      <label class="fld">Kategori
-        <select name="kategori">
-          <option value="toplanti">Toplantı</option>
-          <option value="gorev">Görev</option>
-          <option value="odak">Odak Çalışma</option>
-          <option value="mola">Mola</option>
-          <option value="diger">Diğer</option>
-        </select>
-      </label>
-      <div class="dialog-actions">
-        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
-        <button type="submit" class="btn-primary">Ekle</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- MODAL: Toplantı Ekle -->
-  <dialog id="dlgToplanti">
-    <div class="dlg-head"><h2>Toplantı Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
-    <form data-form="toplanti" class="dialog-form">
-      <label class="fld">Toplantı Adı<input name="baslik" placeholder="Örn: Sprint Planning" required></label>
-      <div class="fld-row">
-        <label class="fld">Tarih<input type="date" name="tarih" required></label>
-        <label class="fld">Saat<input type="time" name="saat" required></label>
-      </div>
-      <label class="fld">Katılımcılar<input name="katilimcilar" placeholder="Ahmet, Ayşe, Mehmet"></label>
-      <label class="fld">Süre (dk)<input type="number" name="sure" min="5" value="30"></label>
-      <label class="fld">Notlar (opsiyonel)<textarea name="notlar" rows="2" placeholder="Görüşülecek konular..."></textarea></label>
-      <div class="dialog-actions">
-        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
-        <button type="submit" class="btn-primary">Ekle</button>
-      </div>
-    </form>
-  </dialog>
-
   <!-- MODAL: Hedef Ekle -->
   <dialog id="dlgHedef">
     <div class="dlg-head"><h2>Hedef Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
@@ -1211,13 +943,15 @@
     <form data-form="note" class="dialog-form">
       <label class="fld">Başlık<input name="title" placeholder="Örn: Alışveriş listesi" required></label>
       <label class="fld">İçerik<textarea name="text" placeholder="Notunu buraya yaz..." rows="4" required></textarea></label>
-      <label class="fld">Renk<select name="color">
-        <option value="yellow">Sarı</option>
-        <option value="teal">Turkuaz</option>
-        <option value="purple">Mor</option>
-        <option value="coral">Mercan</option>
-        <option value="green">Yeşil</option>
-      </select></label>
+      <label class="fld">Renk
+        <select name="color">
+          <option value="yellow">Sarı</option>
+          <option value="teal">Turkuaz</option>
+          <option value="purple">Mor</option>
+          <option value="coral">Mercan</option>
+          <option value="green">Yeşil</option>
+        </select>
+      </label>
       <div class="dialog-actions">
         <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
         <button type="submit" class="btn-primary">Ekle</button>
@@ -1225,7 +959,7 @@
     </form>
   </dialog>
 
-  <!-- MODAL: Ders / Proje (Not) -->
+  <!-- MODAL: Ders Notu -->
   <dialog id="dlgCourse">
     <div class="dlg-head"><h2>Ders / Proje Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
     <form data-form="course" class="dialog-form">
@@ -1251,18 +985,6 @@
     </form>
   </dialog>
 
-  <!-- MODAL: Başvuru (eski) -->
-  <dialog id="dlgJob">
-    <div class="dlg-head"><h2>Başvuru Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
-    <form data-form="job" class="dialog-form">
-      <label class="fld">Şirket - Pozisyon<input name="n" placeholder="Örn: TÜBİTAK - Stajyer" required></label>
-      <div class="dialog-actions">
-        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
-        <button type="submit" class="btn-primary">Ekle</button>
-      </div>
-    </form>
-  </dialog>
-
   <!-- GİRİŞ EKRANI -->
   <section id="auth" class="onboard">
     <div class="onboard-box">
@@ -1279,13 +1001,6 @@
       <form id="authForm">
         <input id="aUser" class="name-in" placeholder="Kullanıcı adı" autocomplete="username" aria-label="Kullanıcı adı" required>
         <input id="aPass" class="name-in" type="password" placeholder="Şifre (en az 4 karakter)" autocomplete="current-password" aria-label="Şifre" required>
-        <div id="regOnly" hidden>
-          <p class="lbl">Kullanım türü (bir kez seçilir)</p>
-          <div class="type-pick">
-            <label><input type="radio" name="tur" value="student" checked><span><b>Öğrenci</b><small>Dersler, notlar, staj</small></span></label>
-            <label><input type="radio" name="tur" value="work"><span><b>İş</b><small>Projeler, toplantılar</small></span></label>
-          </div>
-        </div>
         <p class="warn" id="authMsg" role="alert"></p>
         <button type="submit" class="close" id="authBtn">Giriş yap</button>
       </form>
