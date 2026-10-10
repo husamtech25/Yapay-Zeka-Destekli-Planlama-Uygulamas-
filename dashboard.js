@@ -1,4 +1,4 @@
-console.log("[Planla] v20 + YKS silme düzeltmesi");
+console.log("[Planla] v20 + YKS silme düzeltmesi + mod hatası düzeltmesi");
 
 const MODLAR = {
   student: { rol: "Öğrenci", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -106,8 +106,8 @@ let q = "";
 let sekme = "login";
 let aktifView = "home";
 let planSekme = "haftalik";
-const M = () => MODLAR[S.mode] || MODLAR.student;
-const eslesir = s => String(s).toLowerCase().includes(q);
+const M = () => (S && MODLAR[S.mode]) || MODLAR.student;
+const eslesir = s => !q || String(s).toLowerCase().includes(q);
 
 function bul(list, id) {
   if (!S) return null;
@@ -121,17 +121,18 @@ function bul(list, id) {
   return (S[list] || []).find(e => e.id === id);
 }
 function sil(list, id) {
+  if (!S) return;
   if (list === "events") {
     for (const d in S.events) S.events[d] = S.events[d].filter(e => e.id !== id);
   } else {
-    S[list] = S[list].filter(e => e.id !== id);
+    S[list] = (S[list] || []).filter(e => e.id !== id);
   }
 }
 const delBtn = (list, id) =>
   `<button type="button" class="x" data-act="del" data-list="${list}" data-id="${id}" aria-label="Sil"><svg width="14" height="14"><use href="#i-x"/></svg></button>`;
 const ad = (list, id, field, text) =>
   `<span data-rename data-list="${list}" data-id="${id}" data-field="${field}" title="Çift tıkla: düzenle">${esc(text)}</span>`;
-const gunEvents = k => (S.events[k] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
+const gunEvents = k => ((S && S.events[k]) || []).slice().sort((a, b) => a.time.localeCompare(b.time));
 
 // ============ MOBİL MENÜ ============
 function mobilMenuAc() {
@@ -159,13 +160,14 @@ function goView(v) {
 }
 
 function modUygula() {
+  if (!S) return;
   const m = M();
   document.body.dataset.mode = S.mode || "student";
-  $("userRole").textContent = m.rol;
-  $("navAc").textContent = m.ac;
-  $("acTitle").textContent = m.acBaslik;
-  $("jobsTitle").textContent = m.jobs;
-  $("helloSub").textContent = m.sub;
+  const ur = $("userRole"); if (ur) ur.textContent = m.rol;
+  const na = $("navAc"); if (na) na.textContent = m.ac;
+  const at = $("acTitle"); if (at) at.textContent = m.acBaslik;
+  const jt = $("jobsTitle"); if (jt) jt.textContent = m.jobs;
+  const hs = $("helloSub"); if (hs) hs.textContent = m.sub;
   document.querySelectorAll("select[name=type]").forEach(s => {
     s.innerHTML = m.tur.map(t => `<option>${t}</option>`).join("");
   });
@@ -193,13 +195,15 @@ function acProfil() {
   if (!S) return;
   const i = (typeof S.avatar === "number") ? S.avatar : 0;
   const pa = $("profileAvatar");
+  if (!pa) return;
   pa.innerHTML = avatarHTML(i);
   avatarRenkUygula(pa, i);
   pa.dataset.pending = i;
-  $("profileName").textContent = S.name;
-  $("profileRole").textContent = M().rol;
-  $("profileNameInput").value = S.name;
-  $("avatarGrid").innerHTML = AVATARLAR.map((a, idx) =>
+  const pn = $("profileName"); if (pn) pn.textContent = S.name;
+  const pr = $("profileRole"); if (pr) pr.textContent = M().rol;
+  const pni = $("profileNameInput"); if (pni) pni.value = S.name;
+  const ag = $("avatarGrid");
+  if (ag) ag.innerHTML = AVATARLAR.map((a, idx) =>
     `<button type="button" class="avatar-option ${a.renk} ${idx === i ? "cur" : ""}" data-avatar="${idx}" aria-label="Avatar ${idx + 1}">
       <svg width="24" height="24"><use href="#${a.ikon}"/></svg>
     </button>`
@@ -217,6 +221,7 @@ function karsilamaMetni() {
 }
 
 function bugunRozet() {
+  if (!S) return { emoji: "✨", baslik: "Güzel Bir Gün", desc: "Bugün güzel şeyler yapabilirsin.", stil: "rozet-standart" };
   const saat = new Date().getHours();
   const bugunGorev = (S.tasks || []).filter(t => {
     if (!t.done || !t.zaman) return false;
@@ -340,7 +345,7 @@ function bildirimRozetiGuncelle() {
 
 function panelAc() {
   const panel = $("notifPanel");
-  if (!panel) return;
+  if (!panel || !S) return;
   otomatikBildirimler();
   (S.notifications || []).forEach(n => n.okundu = true);
   bildirimCiz();
@@ -358,7 +363,7 @@ function panelKapat() {
 }
 
 function gunListesi(el, k) {
-  if (!el) return;
+  if (!el || !S) return;
   const l = gunEvents(k).filter(e => eslesir(e.t));
   el.innerHTML = l.length
     ? l.map(e =>
@@ -394,6 +399,7 @@ function kisayolCiz() {
     </button>`
   ).join("");
 }
+
 // ================= POMODORO =================
 let pomo = { mod: "focus", kalan: 25*60, toplam: 25*60, calisiyor: false, interval: null, tur: 0 };
 
@@ -431,6 +437,7 @@ function pomoStatsGuncelle() {
   if ($("pomoHafta")) $("pomoHafta").textContent = hafta;
 }
 function pomoKaydet(tamamlananMod) {
+  if (!S) return;
   if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
   if (!S.pomo.stats) S.pomo.stats = {};
   if (tamamlananMod === "focus") {
@@ -533,12 +540,12 @@ function pomoBindRender() {
   if (!btn) return;
   const label = $("pomoBindLabel");
   if (!label) return;
-  if (S.pomo && S.pomo.bind) {
+  if (S && S.pomo && S.pomo.bind) {
     const { tip, id } = S.pomo.bind;
-    let ad = "";
-    if (tip === "gorev") { const t = bul("tasks", id); ad = t ? t.t : ""; }
-    else if (tip === "ders") { const d = bul("dersler", id); ad = d ? d.ad : ""; }
-    label.textContent = ad || "Seçili";
+    let ad2 = "";
+    if (tip === "gorev") { const t = bul("tasks", id); ad2 = t ? t.t : ""; }
+    else if (tip === "ders") { const d = bul("dersler", id); ad2 = d ? d.ad : ""; }
+    label.textContent = ad2 || "Seçili";
     btn.classList.add("active");
   } else {
     label.textContent = "Görev/Ders seç";
@@ -547,7 +554,7 @@ function pomoBindRender() {
 }
 function pomoBindAc() {
   const list = $("pomoBindList");
-  if (!list) return;
+  if (!list || !S) return;
   const aktifTab = document.querySelector(".pomo-bind-tab.on");
   const tip = aktifTab ? aktifTab.dataset.bindTab : "gorev";
   if (tip === "gorev") {
@@ -565,12 +572,12 @@ function pomoBindAc() {
 
 // ================= DERS PROGRAMI =================
 function dersSirala(a, b) { return saatDk(a.bas) - saatDk(b.bas); }
-function bugunDersler() { return (S.dersler || []).filter(d => +d.gun === bugunGunNo).sort(dersSirala); }
+function bugunDersler() { return ((S && S.dersler) || []).filter(d => +d.gun === bugunGunNo).sort(dersSirala); }
 const SAATLER = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 function haftalikGridCiz() {
   const grid = $("haftalikGrid");
-  if (!grid) return;
+  if (!grid || !S) return;
   const empty = $("dersEmpty");
   const dersler = S.dersler || [];
   if ($("statDersSayi")) $("statDersSayi").textContent = dersler.length;
@@ -624,7 +631,7 @@ function haftalikGridCiz() {
 
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
-  if (!el) return;
+  if (!el || !S) return;
   const gunSirasi = [1, 2, 3, 4, 5];
   const miniSaatler = [9, 11, 13, 15, 17];
   el.style.gridTemplateColumns = "repeat(5, minmax(0, 1fr))";
@@ -647,8 +654,7 @@ function miniDersGridCiz() {
   el.innerHTML = html;
 }
 
-// ================= AKADEMİK (YENİ) =================
-
+// ================= AKADEMİK =================
 function sinavRenkSinif(tarih) {
   const bugun = new Date();
   bugun.setHours(0,0,0,0);
@@ -674,7 +680,7 @@ function sinavGeriSayim(tarih) {
 
 function sinavlarCiz() {
   const el = $("sinavList");
-  if (!el) return;
+  if (!el || !S) return;
   const simdi = new Date();
   simdi.setHours(0,0,0,0);
   const sinavlar = (S.sinavlar || [])
@@ -708,9 +714,7 @@ function sinavlarCiz() {
 
 function odevlerCiz() {
   const el = $("odevList");
-  if (!el) return;
-  const simdi = new Date();
-  simdi.setHours(0,0,0,0);
+  if (!el || !S) return;
   const odevler = (S.odevler || [])
     .slice()
     .sort((a, b) => {
@@ -739,7 +743,7 @@ function odevlerCiz() {
 
 function yksGrafikCiz() {
   const el = $("yksGrafik");
-  if (!el) return;
+  if (!el || !S) return;
   const liste = (S.yksDenemeleri || []).slice().sort((a, b) => a.tarih.localeCompare(b.tarih));
   if (!liste.length) {
     el.innerHTML = `<div class="yks-grafik-empty">Henüz deneme yok. + ile ekle.</div>`;
@@ -768,7 +772,7 @@ function yksGrafikCiz() {
 
 function yksListeCiz() {
   const el = $("yksListe");
-  if (!el) return;
+  if (!el || !S) return;
   const liste = (S.yksDenemeleri || []).slice().sort((a, b) => b.tarih.localeCompare(a.tarih));
   if (!liste.length) {
     el.innerHTML = `<li class="yks-liste-empty">Henüz deneme eklenmedi.</li>`;
@@ -798,6 +802,7 @@ function yksListeCiz() {
 }
 
 function yksOzetCiz() {
+  if (!S) return;
   const liste = (S.yksDenemeleri || []).slice().sort((a, b) => b.tarih.localeCompare(a.tarih));
   const son = liste[0];
   const tytEl = $("yksTytNet");
@@ -811,6 +816,7 @@ function yksOzetCiz() {
 }
 
 function acOzetCiz() {
+  if (!S) return;
   const courses = S.courses || [];
   const ort = courses.length ? courses.reduce((t, c) => t + c.g, 0) / courses.length : 0;
   const ortEl = $("acOrtalama");
@@ -828,6 +834,7 @@ function acOzetCiz() {
     $("acOdevSayi").textContent = (S.odevler || []).filter(o => !o.done).length;
   }
 }
+
 // ================= İŞ PLANI =================
 function planKategoriEtiket(k) {
   return k === "toplanti" ? "Toplantı" : k === "gorev" ? "Görev" : k === "odak" ? "Odak" : k === "mola" ? "Mola" : "Diğer";
@@ -836,7 +843,7 @@ function planItemSirala(a, b) { return (+a.gun) - (+b.gun) || saatDk(a.saat) - s
 
 function planHaftalikCiz() {
   const el = $("haftalikPlanList");
-  if (!el) return;
+  if (!el || !S) return;
   const items = (S.planItems || []).slice().sort(planItemSirala);
   if (!items.length) {
     el.innerHTML = `<p class="plan-empty">Henüz plan yok. Aşağıdaki "Yeni İş Ekle" butonuna bas.</p>`;
@@ -873,6 +880,7 @@ function planHaftalikCiz() {
 }
 
 function planPerformansCiz() {
+  if (!S) return;
   const bugunDt = new Date();
   const gunNo = bugunDt.getDay();
   const pazartesiFark = (gunNo === 0 ? -6 : 1 - gunNo);
@@ -916,7 +924,7 @@ function planPerformansCiz() {
 function planToplantilarCiz() {
   const yakEl = $("toplantiYaklasan");
   const gecEl = $("toplantiGecmis");
-  if (!yakEl || !gecEl) return;
+  if (!yakEl || !gecEl || !S) return;
   const now2 = new Date();
   const toplantilar = S.toplantilar || [];
   const yaklasan = []; const gecmis = [];
@@ -963,7 +971,7 @@ function planSekmeDegistir(s) {
 
 function miniPlanCiz() {
   const el = $("miniPlanList");
-  if (!el) return;
+  if (!el || !S) return;
   const items = (S.planItems || []).slice().sort(planItemSirala).slice(0, 5);
   if (!items.length) {
     el.innerHTML = `<li class="mini-plan-empty">Bu hafta plan yok.</li>`;
@@ -1031,7 +1039,7 @@ function gorevlerCiz() {
 
 function kanbanCiz() {
   const todoEl = $("kanbanTodo"); const doingEl = $("kanbanDoing"); const doneEl = $("kanbanDone");
-  if (!todoEl) return;
+  if (!todoEl || !S) return;
   const tum = S.tasks || [];
   const todo = tum.filter(t => !t.done && !t.doing);
   const doing = tum.filter(t => !t.done && t.doing);
@@ -1067,7 +1075,7 @@ function kanbanCiz() {
 
 function hedeflerCiz() {
   const el = $("hedefList");
-  if (!el) return;
+  if (!el || !S) return;
   const liste = S.hedefler || [];
   if (!liste.length) {
     el.innerHTML = `<li class="hedef-empty">Henüz hedef yok. + butonuyla ekle.</li>`;
@@ -1094,7 +1102,7 @@ function hedeflerCiz() {
 
 function ozetCiz() {
   const el = $("welcomeSummary");
-  if (!el) return;
+  if (!el || !S) return;
   const bugunEtkinlik = (S.events[todayKey] || []).length;
   const bekleyenGorev = (S.tasks || []).filter(t => !t.done).length;
   const bugunDers = bugunDersler().length;
@@ -1688,7 +1696,7 @@ if ($("miniCalToggle")) {
     $("miniCalToggle").setAttribute("aria-expanded", String(collapsed));
   };
 }
-if ($("setName")) $("setName").onchange = e => { if (e.target.value.trim()) { S.name = e.target.value.trim(); ciz(); } };
+if ($("setName")) $("setName").onchange = e => { if (e.target.value.trim() && S) { S.name = e.target.value.trim(); ciz(); } };
 if ($("reset")) $("reset").onclick = () => {
   if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
     db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
