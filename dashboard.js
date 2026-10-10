@@ -1,4 +1,4 @@
-console.log("[Planla] v20 + YKS silme düzeltmesi + mod hatası düzeltmesi");
+console.log("[Planla] v21 + iş modu bugünün özeti");
 
 const MODLAR = {
   student: { rol: "Öğrenci", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -987,6 +987,101 @@ function miniPlanCiz() {
   }).join("");
 }
 
+// ============ İŞ MODU: BUGÜNÜN ÖZETİ ============
+function isBugunCiz() {
+  const grid = $("isBugunGrid");
+  const liste = $("isBugunListe");
+  const tarihEl = $("isBugunTarih");
+  if (!grid || !liste || !S) return;
+
+  if (tarihEl) {
+    const d = new Date();
+    tarihEl.textContent = `${GUNLER[d.getDay()]}, ${d.getDate()} ${aylar[d.getMonth()]}`;
+  }
+
+  const bugunToplantilar = (S.toplantilar || [])
+    .filter(t => t.tarih === todayKey)
+    .sort((a, b) => (a.saat || "").localeCompare(b.saat || ""));
+
+  const bugunPlan = (S.planItems || [])
+    .filter(p => +p.gun === bugunGunNo)
+    .sort((a, b) => saatDk(a.saat) - saatDk(b.saat));
+
+  const simdi = new Date(); simdi.setHours(0,0,0,0);
+  const yaklasanTeslim = (S.deadlines || [])
+    .filter(d => {
+      const hedef = new Date(d.d); hedef.setHours(0,0,0,0);
+      const fark = Math.round((hedef - simdi) / (1000*60*60*24));
+      return fark >= 0 && fark <= 3;
+    })
+    .sort((a, b) => a.d.localeCompare(b.d));
+
+  const bekleyenGorev = (S.tasks || []).filter(t => !t.done).length;
+
+  grid.innerHTML = `
+    <div class="is-bugun-stat">
+      <span class="is-bugun-stat-num">${bugunToplantilar.length}</span>
+      <span class="is-bugun-stat-lbl">Toplantı</span>
+    </div>
+    <div class="is-bugun-stat">
+      <span class="is-bugun-stat-num bekleyen">${bekleyenGorev}</span>
+      <span class="is-bugun-stat-lbl">Görev</span>
+    </div>
+    <div class="is-bugun-stat">
+      <span class="is-bugun-stat-num ${yaklasanTeslim.length ? 'uyari' : ''}">${yaklasanTeslim.length}</span>
+      <span class="is-bugun-stat-lbl">Teslim</span>
+    </div>
+  `;
+
+  const items = [];
+
+  bugunToplantilar.forEach(t => {
+    items.push({
+      tip: "toplanti",
+      saat: t.saat || "--:--",
+      baslik: t.baslik,
+      tur: "Toplantı",
+      _sort: saatDk(t.saat || "00:00"),
+    });
+  });
+
+  bugunPlan.forEach(p => {
+    items.push({
+      tip: p.kategori === "toplanti" ? "toplanti" : "gorev",
+      saat: p.saat,
+      baslik: p.baslik,
+      tur: planKategoriEtiket(p.kategori),
+      _sort: saatDk(p.saat),
+    });
+  });
+
+  yaklasanTeslim.forEach(d => {
+    const hedef = new Date(d.d); hedef.setHours(0,0,0,0);
+    const fark = Math.round((hedef - simdi) / (1000*60*60*24));
+    items.push({
+      tip: "teslim",
+      saat: fark === 0 ? "Bugün" : `${fark}g`,
+      baslik: d.t,
+      tur: "Teslim",
+      _sort: fark === 0 ? -1 : 10000 + fark,
+    });
+  });
+
+  items.sort((a, b) => a._sort - b._sort);
+
+  if (!items.length) {
+    liste.innerHTML = `<li class="is-bugun-empty">Bugün için planlanmış bir şey yok 😌</li>`;
+  } else {
+    liste.innerHTML = items.slice(0, 6).map(it => `
+      <li class="${it.tip}">
+        <span class="ib-saat">${esc(it.saat)}</span>
+        <span class="ib-baslik">${esc(it.baslik)}</span>
+        <span class="ib-tur">${esc(it.tur)}</span>
+      </li>
+    `).join("");
+  }
+}
+
 // ================= GÖREVLER =================
 function gorevOncelik(p) { return ONCELIK[p] ? p : "mid"; }
 
@@ -1215,6 +1310,7 @@ function ciz() {
   kisayolCiz();
   miniDersGridCiz();
   miniPlanCiz();
+  isBugunCiz();
   pomoRender();
   gorevlerCiz();
   haftalikGridCiz();
