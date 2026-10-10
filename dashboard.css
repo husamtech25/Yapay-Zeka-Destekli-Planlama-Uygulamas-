@@ -288,6 +288,54 @@ p{line-height:1.55}
 .mini-ders-grid .mdg-ders.pink{background:linear-gradient(135deg,#ec4899,#db2777)}
 .mini-ders-grid .mdg-ders.teal{background:linear-gradient(135deg,#14b8a6,#0d9488)}
 
+/* ============ İŞ MODU: BUGÜNÜN ÖZETİ ============ */
+.is-bugun-card{display:flex;flex-direction:column;background:linear-gradient(135deg,var(--surface),#fff8f0)}
+.is-bugun-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3);
+  margin-bottom:var(--s4);
+}
+.is-bugun-stat{
+  background:var(--surface);border:1px solid var(--border-2);
+  border-radius:var(--r-md);padding:10px 8px;text-align:center;
+  box-shadow:var(--shadow-sm);
+}
+.is-bugun-stat-num{
+  display:block;font-size:1.4rem;font-weight:800;line-height:1;
+  color:var(--teal);margin-bottom:2px;font-variant-numeric:tabular-nums;
+}
+.is-bugun-stat-num.uyari{color:var(--coral)}
+.is-bugun-stat-num.bekleyen{color:var(--yellow)}
+.is-bugun-stat-lbl{
+  display:block;font-size:.65rem;font-weight:700;color:var(--ink-3);
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.is-bugun-liste{
+  list-style:none;display:flex;flex-direction:column;gap:6px;
+  flex:1;overflow-y:auto;max-height:180px;
+}
+.is-bugun-liste li{
+  display:flex;align-items:center;gap:var(--s2);
+  padding:8px 10px;border-radius:var(--r-md);
+  background:var(--surface-2);border-left:3px solid var(--teal);
+  font-size:.8rem;
+}
+.is-bugun-liste li.toplanti{border-left-color:var(--coral)}
+.is-bugun-liste li.teslim{border-left-color:var(--yellow)}
+.is-bugun-liste li.gorev{border-left-color:var(--purple)}
+.is-bugun-liste .ib-saat{
+  font-size:.7rem;font-weight:700;color:var(--ink-2);
+  font-variant-numeric:tabular-nums;min-width:40px;
+}
+.is-bugun-liste .ib-baslik{flex:1;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.is-bugun-liste .ib-tur{
+  font-size:.62rem;font-weight:700;color:var(--ink-3);
+  text-transform:uppercase;letter-spacing:.03em;
+}
+.is-bugun-empty{
+  text-align:center;padding:20px 8px;color:var(--ink-3);
+  font-size:.82rem;font-style:italic;
+}
+
 /* ============ MİNİ PLAN ============ */
 .mini-plan-card{display:flex;flex-direction:column}
 .mini-plan-list{list-style:none;display:flex;flex-direction:column;gap:6px;flex:1}
@@ -1127,6 +1175,8 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
   .dialog-actions .btn-primary,.dialog-actions .btn-ghost,.dialog-actions .btn-danger{width:100%;justify-content:center;margin-right:0}
   .notif-panel{top:72px;right:10px;left:10px;width:auto;max-height:70vh}
   .avatar-grid{grid-template-columns:repeat(4,1fr)}
+  .is-bugun-grid{grid-template-columns:1fr 1fr 1fr;gap:var(--s2)}
+  .is-bugun-stat-num{font-size:1.1rem}
   .mobile-nav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;height:var(--mobile-nav-h);background:var(--surface);border-top:1px solid var(--border);z-index:70;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -2px 12px rgba(10,42,53,.06)}
   .mobile-nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 2px;color:var(--ink-3);font-size:.62rem;font-weight:600;transition:color var(--t-fast);position:relative}
   .mobile-nav-item svg{width:22px;height:22px}
