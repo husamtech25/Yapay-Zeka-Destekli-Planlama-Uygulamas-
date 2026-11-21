@@ -980,7 +980,10 @@ dialog::backdrop{background:rgba(10,42,53,.55);backdrop-filter:blur(4px)}
 .fld input,.fld select,.fld textarea{padding:11px 13px;border-radius:var(--r-md);border:1px solid var(--border);font:inherit;font-size:.92rem;background:var(--surface);color:var(--ink);font-family:var(--font)}
 .fld textarea{resize:vertical;min-height:60px;line-height:1.5}
 .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 4px rgba(43,184,168,.12)}
-.fld-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+/* minmax(0,1fr): yan yana alanlar içeriklerinin doğal genişliği yüzünden pencereden taşmasın */
+.fld-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3)}
+.fld{min-width:0}
+.fld input:not([type=checkbox]):not([type=radio]),.fld select,.fld textarea{min-width:0;width:100%}
 .dialog-actions{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s2);flex-wrap:wrap}
 .btn-primary{background:var(--navy-800);color:#fff;padding:11px 22px;border-radius:var(--r-md);font-weight:600;font-size:.9rem;display:inline-flex;align-items:center;gap:8px}
 .btn-ghost{background:transparent;color:var(--ink-2);padding:11px 22px;border-radius:var(--r-md);border:1px solid var(--border);font-weight:600;font-size:.9rem}
