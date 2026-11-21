@@ -370,8 +370,10 @@ function sil(list, id) {
   // Silinen projeye bağlı görev, sprint işi ve toplantılardaki bağlantıyı temizle
   if (list === "projeler") {
     ["tasks", "sprintIsleri", "toplantilar"].forEach(l => (S[l] || []).forEach(x => { if (x.proje === id) x.proje = ""; }));
-    if (S.pomo && S.pomo.bind && S.pomo.bind.id === id) S.pomo.bind = null;
   }
+  // Silinen kayda bağlı pomodoro seçimi ve bildirimler de kalkmasın diye temizle
+  if (S.pomo && S.pomo.bind && S.pomo.bind.id === id) S.pomo.bind = null;
+  if (Array.isArray(S.notifications)) S.notifications = S.notifications.filter(n => !String(n.uid || "").includes("::" + id + "::"));
 }
 const delBtn = (list, id) =>
   `<button type="button" class="x" data-act="del" data-list="${list}" data-id="${id}" aria-label="Sil"><svg width="14" height="14"><use href="#i-x"/></svg></button>`;
@@ -832,7 +834,14 @@ function pomoBindRender() {
     if (tip === "gorev") { const t = bul("tasks", id); ad2 = t ? t.t : ""; }
     else if (tip === "ders") { const d = bul("dersler", id); ad2 = d ? d.ad : ""; }
     else if (tip === "proje") ad2 = projeAdi(id);
-    label.textContent = ad2 || "Seçili";
+    if (!ad2) {
+      // Bağlı kayıt silinmiş (ör. başka cihazdan): seçimi bırak, "Seçili" yazısı asılı kalmasın
+      S.pomo.bind = null;
+      label.textContent = "Görev/Ders seç";
+      btn.classList.remove("active");
+      return;
+    }
+    label.textContent = ad2;
     btn.classList.add("active");
   } else {
     label.textContent = "Görev/Ders seç";
@@ -920,7 +929,8 @@ function haftalikGridCiz() {
       html += `<div class="hg-hucre" style="grid-row:${row};grid-column:${col}"></div>`;
     });
   });
-  dersler.forEach(d => {
+  // Arama yapılıyorsa sadece eşleşen dersler çizilir (istatistikler tüm dersleri sayar)
+  dersler.filter(d => eslesir(d.ad) || eslesir(d.kod)).forEach(d => {
     const basSaat = +d.bas.split(":")[0];
     const bitSaat = +d.bit.split(":")[0];
     const bitDk = +d.bit.split(":")[1] || 0;
@@ -954,11 +964,18 @@ function miniDersGridCiz() {
     const bugun = g === bugunGunNo;
     html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
   });
-  miniSaatler.forEach(saat => {
+  // Her satır iki saatlik bir dilimi temsil eder (09-11, 11-13, ...); dilimin dışında kalan
+  // erken/geç dersler ilk/son satıra yerleşir. Eskiden sadece tam 9/11/13/15/17'de
+  // başlayan dersler görünüyordu.
+  const dilim = d => Math.min(miniSaatler.length - 1, Math.max(0, Math.floor((saatDk(d.bas) / 60 - 9) / 2)));
+  miniSaatler.forEach((saat, satir) => {
     gunSirasi.forEach(gunNo => {
-      const ders = (S.dersler || []).find(d => +d.gun === gunNo && +d.bas.split(":")[0] === saat);
+      const hucre = (S.dersler || []).filter(d => +d.gun === gunNo && dilim(d) === satir).sort(dersSirala);
+      const ders = hucre[0];
       if (ders) {
-        html += `<div class="mdg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" title="${esc(ders.ad)}">${esc(ders.ad.slice(0, 8))}</div>`;
+        const ek = hucre.length > 1 ? ` +${hucre.length - 1}` : "";
+        const baslik = hucre.map(d => `${d.ad} (${d.bas})`).join(", ");
+        html += `<div class="mdg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" title="${esc(baslik)}">${esc(ders.ad.slice(0, 8))}${ek}</div>`;
       } else {
         html += `<div class="mdg-cell"></div>`;
       }
@@ -987,17 +1004,20 @@ function sinavGeriSayim(tarih) {
 function sinavlarCiz() {
   const el = $("sinavList");
   if (!el || !S) return;
-  const sinavlar = (S.sinavlar || [])
-    .filter(s => s.tarih >= todayKey)
-    .sort((a, b) => a.tarih.localeCompare(b.tarih));
+  const tum = (S.sinavlar || []).filter(s => eslesir(s.ad));
+  // Yaklaşanlar önce; ardından son 3 geçmiş sınav soluk gösterilir ki düzenlenip silinebilsin
+  // (eskiden tarihi geçen sınav listeden kayboluyor, bir daha erişilemiyordu)
+  const yaklasan = tum.filter(s => s.tarih >= todayKey).sort((a, b) => a.tarih.localeCompare(b.tarih)).slice(0, 6);
+  const gecmis = tum.filter(s => s.tarih < todayKey).sort((a, b) => b.tarih.localeCompare(a.tarih)).slice(0, 3);
+  const sinavlar = [...yaklasan, ...gecmis];
   if (!sinavlar.length) {
-    el.innerHTML = `<li class="sinav-empty">Yaklaşan sınav yok. + butonuyla ekle.</li>`;
+    el.innerHTML = `<li class="sinav-empty">${q && (S.sinavlar || []).length ? "Aramaya uyan sınav yok." : "Yaklaşan sınav yok. + butonuyla ekle."}</li>`;
     return;
   }
-  el.innerHTML = sinavlar.slice(0, 6).map(s => {
+  el.innerHTML = sinavlar.map(s => {
     const [, m, d] = s.tarih.split("-");
     const ayKisa = aylar[+m - 1].slice(0, 3);
-    const renkSinif = sinavRenkSinif(s.tarih);
+    const renkSinif = s.tarih < todayKey ? "sinav-gecmis" : sinavRenkSinif(s.tarih);
     return `<li class="sinav-item ${renkSinif}" data-act="sinav-edit" data-id="${s.id}">
       <div class="sinav-tarih">
         <span class="st-gun">${ayKisa}</span>
@@ -1020,17 +1040,18 @@ function odevlerCiz() {
   const el = $("odevList");
   if (!el || !S) return;
   const odevler = (S.odevler || [])
-    .slice()
+    .filter(o => eslesir(o.ad) || eslesir(o.ders))
     .sort((a, b) => {
       if (a.done !== b.done) return a.done ? 1 : -1;
       return a.tarih.localeCompare(b.tarih);
     });
   if (!odevler.length) {
-    el.innerHTML = `<li class="odev-empty">Henüz ödev yok. + butonuyla ekle.</li>`;
+    el.innerHTML = `<li class="odev-empty">${q && (S.odevler || []).length ? "Aramaya uyan ödev yok." : "Henüz ödev yok. + butonuyla ekle."}</li>`;
     return;
   }
   el.innerHTML = odevler.slice(0, 8).map(o => {
-    const renkSinif = o.done ? "" : sinavRenkSinif(o.tarih);
+    // Teslim tarihi geçmiş, bitmemiş ödev acil (kırmızı) görünsün
+    const renkSinif = o.done ? "" : o.tarih < todayKey ? "sinav-acil" : sinavRenkSinif(o.tarih);
     return `<li class="odev-item ${o.done ? "odev-done" : renkSinif}" data-act="odev-edit" data-id="${o.id}">
       <input type="checkbox" class="odev-check" data-act="odev-toggle" data-id="${o.id}" ${o.done ? "checked" : ""} onclick="event.stopPropagation()">
       <div class="odev-body">
@@ -1108,15 +1129,18 @@ function yksListeCiz() {
 function yksOzetCiz() {
   if (!S) return;
   const liste = (S.yksDenemeleri || []).slice().sort((a, b) => b.tarih.localeCompare(a.tarih));
-  const son = liste[0];
+  // TYT ve AYT kartları ayrı ayrı, o netin girildiği en son denemeyi gösterir
+  // (eskiden son denemede AYT yoksa önceki AYT'ler varken "Henüz deneme yok" yazıyordu)
+  const sonTyt = liste.find(d => +d.tyt > 0);
+  const sonAyt = liste.find(d => +d.ayt > 0);
   const tytEl = $("yksTytNet");
   const aytEl = $("yksAytNet");
   const tytTarihEl = $("yksTytTarih");
   const aytTarihEl = $("yksAytTarih");
-  if (tytEl) tytEl.textContent = son && son.tyt ? son.tyt + " net" : "—";
-  if (aytEl) aytEl.textContent = son && son.ayt ? son.ayt + " net" : "—";
-  if (tytTarihEl) tytTarihEl.textContent = son && son.tyt ? gunEtiket(son.tarih) : "Henüz deneme yok";
-  if (aytTarihEl) aytTarihEl.textContent = son && son.ayt ? gunEtiket(son.tarih) : "Henüz deneme yok";
+  if (tytEl) tytEl.textContent = sonTyt ? sonTyt.tyt + " net" : "—";
+  if (aytEl) aytEl.textContent = sonAyt ? sonAyt.ayt + " net" : "—";
+  if (tytTarihEl) tytTarihEl.textContent = sonTyt ? gunEtiket(sonTyt.tarih) : "Henüz deneme yok";
+  if (aytTarihEl) aytTarihEl.textContent = sonAyt ? gunEtiket(sonAyt.tarih) : "Henüz deneme yok";
 }
 
 function acOzetCiz() {
@@ -1844,9 +1868,10 @@ function kanbanCiz() {
   const todoEl = $("kanbanTodo"); const doingEl = $("kanbanDoing"); const doneEl = $("kanbanDone");
   if (!todoEl || !S) return;
   const tum = S.tasks || [];
-  const todo = tum.filter(t => !t.done && !t.doing);
-  const doing = tum.filter(t => !t.done && t.doing);
-  const done = tum.filter(t => t.done);
+  const bulunan = tum.filter(t => eslesir(t.t));
+  const todo = bulunan.filter(t => !t.done && !t.doing);
+  const doing = bulunan.filter(t => !t.done && t.doing);
+  const done = bulunan.filter(t => t.done);
   if ($("kanbanTodoCount")) $("kanbanTodoCount").textContent = todo.length;
   if ($("kanbanDoingCount")) $("kanbanDoingCount").textContent = doing.length;
   if ($("kanbanDoneCount")) $("kanbanDoneCount").textContent = done.length;
@@ -1926,6 +1951,9 @@ function ozetCiz() {
 // ================= Çizim =================
 function ciz() {
   if (!S) return;
+  // Bildirimleri her çizimde güncelle (yinelenenleri bildirimEkle zaten eliyor);
+  // eskiden sadece girişte ve zil açılınca üretildiği için rozet geç güncelleniyordu
+  otomatikBildirimler();
 
   const k = karsilamaMetni();
   const ilkAd = S.name.split(" ")[0];
@@ -2289,7 +2317,7 @@ document.addEventListener("click", e => {
   if (e.target.closest("[data-act='odev-toggle']")) {
     const cb = e.target.closest("[data-act='odev-toggle']");
     const it = bul("odevler", cb.dataset.id);
-    if (it) { it.done = cb.checked; odevlerCiz(); kaydet(); }
+    if (it) { it.done = cb.checked; odevlerCiz(); acOzetCiz(); kaydet(); }
     return;
   }
 
@@ -2602,7 +2630,7 @@ if ($("miniCalToggle")) {
     $("miniCalToggle").setAttribute("aria-expanded", String(collapsed));
   };
 }
-if ($("setName")) $("setName").onchange = e => { if (e.target.value.trim() && S) { S.name = e.target.value.trim(); ciz(); } };
+if ($("setName")) $("setName").onchange = e => { const ad = e.target.value.trim().slice(0, 30); if (ad && S) { S.name = ad; ciz(); } };
 if ($("reset")) $("reset").onclick = () => {
   if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
     db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
@@ -2682,7 +2710,7 @@ document.addEventListener("change", e => {
   else if (act === "done" || act === "task-toggle") { const it = bul("tasks", id); if (it) gorevTamamla(it, e.target.checked); }
   else if (act === "odev-toggle") {
     const it = bul("odevler", id);
-    if (it) { it.done = e.target.checked; odevlerCiz(); kaydet(); return; }
+    if (it) { it.done = e.target.checked; odevlerCiz(); acOzetCiz(); kaydet(); return; }
   }
   else return;
   ciz();
@@ -2716,6 +2744,10 @@ document.addEventListener("submit", e => {
   e.preventDefault();
   if (!e.target.dataset || !e.target.dataset.form || !S) return;
   const f = e.target;
+  // "required" alanlar sadece boşluktan oluşuyorsa kabul etme (tarayıcı boşluğu geçerli sayıyor)
+  const bosAlan = [...f.querySelectorAll("input[required], textarea[required]")]
+    .find(el => !["date", "time", "number"].includes(el.type) && !el.value.trim());
+  if (bosAlan) { bosAlan.value = ""; f.reportValidity(); bosAlan.focus(); return; }
   const v = Object.fromEntries(new FormData(f));
   const id = v.id || uid();
 
@@ -2736,6 +2768,7 @@ document.addEventListener("submit", e => {
     case "note": S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" }); break;
     case "link": S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() }); break;
     case "ders": {
+      if (saatDk(v.bit) <= saatDk(v.bas)) { alert("Dersin bitiş saati başlangıç saatinden sonra olmalı."); return; }
       const ders = { id, ad: v.ad.trim(), kod: (v.kod||"").trim(), hoca: (v.hoca||"").trim(), sinif: (v.sinif||"").trim(), gun: v.gun, renk: v.renk || "blue", bas: v.bas, bit: v.bit, notlar: (v.notlar||"").trim() };
       const idx = S.dersler.findIndex(d => d.id === id);
       if (idx >= 0) S.dersler[idx] = ders;
@@ -2808,6 +2841,7 @@ document.addEventListener("submit", e => {
       });
       break;
     case "proje": {
+      if (v.bas && v.bitis && v.bitis < v.bas) { alert("Projenin teslim tarihi başlangıç tarihinden önce olamaz."); return; }
       const eski = bul("projeler", id);
       kayitGuncelle("projeler", {
         id, ad: v.ad.trim(), ekip: (v.ekip || "").trim(),

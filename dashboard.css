@@ -1367,6 +1367,9 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
 .tk-ekle{margin-top:auto;padding:4px;border-radius:8px;border:1px dashed var(--border);color:var(--ink-3);font-weight:700;opacity:0;transition:opacity var(--t-fast)}
 .tk-gun:hover .tk-ekle,.tk-ekle:focus-visible{opacity:1}
 .toplanti-item[data-act]{cursor:pointer}
+/* Geçmiş sınavlar soluk; uzun kullanıcı adı üst çubuğu itmesin */
+.sinav-item.sinav-gecmis{opacity:.55}
+.profile-info strong{display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .toplanti-item[data-act]:hover{background:var(--border-2)}
 
 @media(max-width:1200px){
