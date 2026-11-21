@@ -147,7 +147,7 @@ p{line-height:1.55}
 .bell i{
   position:absolute;top:6px;right:6px;
   background:var(--coral);color:#fff;
-  font:700 .62rem var(--font);font-style:normal;
+  font:700 .62rem var(--font);font-style:normal;line-height:1.3;
   border-radius:var(--r-full);padding:2px 6px;min-width:18px;text-align:center;
   box-shadow:0 0 0 2px var(--surface);
 }
@@ -333,7 +333,7 @@ p{line-height:1.55}
 }
 .is-bugun-empty{
   text-align:center;padding:20px 8px;color:var(--ink-3);
-  font-size:.82rem;font-style:italic;
+  font-size:.82rem;
 }
 
 /* ============ MİNİ PLAN ============ */
@@ -352,7 +352,7 @@ p{line-height:1.55}
 .mini-plan-item .mp-gun{font-size:.7rem;font-weight:700;color:var(--ink-3);min-width:30px}
 .mini-plan-item .mp-saat{font-size:.72rem;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .mini-plan-item .mp-baslik{flex:1;overflow-wrap:anywhere;color:var(--ink);font-weight:600}
-.mini-plan-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
+.mini-plan-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem}
 
 /* ============ AKADEMİK SAYFASI ============ */
 .ac-page{display:flex;flex-direction:column;gap:var(--s5);width:100%}
@@ -421,7 +421,7 @@ p{line-height:1.55}
 .sinav-item.sinav-acil .sinav-geri{background:var(--coral);color:#fff}
 .sinav-item.sinav-yakin .sinav-geri{background:var(--yellow);color:#3a2c05}
 .sinav-item.sinav-uzak .sinav-geri{background:var(--green);color:#fff}
-.sinav-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
+.sinav-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem}
 
 /* Ödev Listesi */
 .odev-list{list-style:none;display:flex;flex-direction:column;gap:var(--s2)}
@@ -444,7 +444,7 @@ p{line-height:1.55}
 .odev-body .odev-ad{font-weight:700;font-size:.88rem;color:var(--ink);margin-bottom:3px;overflow-wrap:anywhere}
 .odev-body .odev-meta{font-size:.72rem;color:var(--ink-3);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .odev-body .odev-meta span{display:inline-flex;align-items:center;gap:3px}
-.odev-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
+.odev-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem}
 
 /* ============ YKS TAKİP ============ */
 .ac-yks-card{background:linear-gradient(135deg,#fff,#f7fbff)}
@@ -486,7 +486,7 @@ p{line-height:1.55}
 .yks-bar-tyt{background:linear-gradient(180deg,#60a5fa,#2563eb);box-shadow:0 2px 6px rgba(37,99,235,.25)}
 .yks-bar-ayt{background:linear-gradient(180deg,#c084fc,#7e22ce);box-shadow:0 2px 6px rgba(126,34,206,.25)}
 .yks-bar-label{font-size:.68rem;color:var(--ink-3);font-weight:700;white-space:nowrap}
-.yks-grafik-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:.82rem;font-style:italic}
+.yks-grafik-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:.82rem}
 
 .yks-liste{list-style:none;display:flex;flex-direction:column;gap:var(--s2)}
 .yks-item{display:flex;align-items:center;gap:var(--s3);padding:10px 14px;border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--border-2);cursor:pointer;transition:background var(--t-fast),transform var(--t-fast)}
@@ -503,7 +503,7 @@ p{line-height:1.55}
 .yks-net-badge.ayt{background:#d5c7f7;color:#4c2d8a}
 .yks-item-del{color:var(--ink-3);padding:6px;border-radius:50%;flex-shrink:0;transition:all var(--t-fast)}
 .yks-item-del:hover{color:var(--coral);background:var(--coral-soft)}
-.yks-liste-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
+.yks-liste-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem}
 
 /* ============ KARİYER SAYFASI ============ */
 .ca-page{display:flex;flex-direction:column;gap:var(--s5);width:100%}
@@ -532,7 +532,7 @@ p{line-height:1.55}
 
 .ca-iki-kolon{display:grid;grid-template-columns:1fr 1fr;gap:var(--s5);margin-bottom:var(--s5)}
 
-.ca-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic;list-style:none}
+.ca-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;list-style:none}
 
 /* Başvuru Listesi */
 .basvuru-list{list-style:none;display:flex;flex-direction:column;gap:var(--s2)}
@@ -713,7 +713,7 @@ p{line-height:1.55}
 .ki-btn.undo{background:rgba(124,150,162,.15);color:var(--ink-3)}
 .ki-btn.x-btn{background:transparent;color:var(--ink-3);padding:3px 4px}
 .ki-btn.x-btn:hover{color:var(--coral)}
-.kanban-empty{color:var(--ink-3);font-size:.75rem;font-style:italic;text-align:center;padding:14px 4px;opacity:.6}
+.kanban-empty{color:var(--ink-3);font-size:.75rem;text-align:center;padding:14px 4px;opacity:.6}
 .kanban-add{display:flex;gap:var(--s2);background:var(--surface-2);padding:var(--s3);border-radius:var(--r-lg);border:1px solid var(--border-2);flex-wrap:wrap}
 .kanban-add input{flex:1;min-width:180px;padding:10px 14px;border-radius:var(--r-md);border:1px solid var(--border);font:inherit;font-size:.9rem;background:var(--surface);color:var(--ink)}
 .kanban-add select{padding:10px 12px;border-radius:var(--r-md);border:1px solid var(--border);font:inherit;font-size:.85rem;background:var(--surface);color:var(--ink)}
@@ -773,7 +773,7 @@ p{line-height:1.55}
 .pomo-bind-item:hover{background:var(--surface);border-color:var(--coral)}
 .pomo-bind-item .pbi-dot{width:8px;height:8px;border-radius:50%;background:var(--coral);flex-shrink:0}
 .pomo-bind-item.ders .pbi-dot{background:var(--teal)}
-.pomo-bind-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
+.pomo-bind-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem}
 
 /* ============ HAFTALIK HEDEFLER ============ */
 .hedefler-card{display:flex;flex-direction:column}
@@ -788,7 +788,7 @@ p{line-height:1.55}
 .hedef-btn{padding:3px 10px;border-radius:6px;font-size:.68rem;font-weight:700;background:rgba(43,184,168,.15);color:var(--teal-dark)}
 .hedef-btn.minus{background:rgba(255,107,91,.15);color:#a02c1f}
 .hedef-btn.del{background:transparent;color:var(--ink-3);padding:3px 6px}
-.hedef-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
+.hedef-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem}
 
 /* ============ LİSTELER ============ */
 .rows{list-style:none;display:grid;gap:6px}
@@ -799,7 +799,7 @@ p{line-height:1.55}
 .x{background:none;color:var(--ink-3);font-size:1rem;padding:2px 6px;border-radius:6px;display:grid;place-items:center}
 .x:hover{color:var(--coral);background:var(--coral-soft)}
 .done-t{text-decoration:line-through;opacity:.5}
-.empty{color:var(--ink-3);font-size:.85rem;padding:14px 8px;text-align:center;font-style:italic}
+.empty{color:var(--ink-3);font-size:.85rem;padding:14px 8px;text-align:center}
 .badge{background:var(--yellow);color:#3b2f06;border-radius:6px;padding:4px 12px;font-weight:700;font-size:.72rem;align-self:center}
 
 /* ============ DERS PROGRAMI ============ */
@@ -834,7 +834,7 @@ p{line-height:1.55}
 .hg-ders.orange{background:linear-gradient(135deg,#f97316,#ea580c)}
 .hg-ders.pink{background:linear-gradient(135deg,#ec4899,#db2777)}
 .hg-ders.teal{background:linear-gradient(135deg,#14b8a6,#0d9488)}
-.ders-empty{text-align:center;padding:40px 20px;color:var(--ink-3);font-size:.9rem;font-style:italic}
+.ders-empty{text-align:center;padding:40px 20px;color:var(--ink-3);font-size:.9rem}
 
 /* ============ İŞ PLANI ============ */
 .plan-page{padding:var(--s6) var(--s6) var(--s8);width:100%}
@@ -866,7 +866,7 @@ p{line-height:1.55}
 .plan-item .pi-kategori{font-size:.68rem;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em}
 .plan-item .pi-del{color:var(--ink-3);padding:4px;border-radius:50%;flex-shrink:0}
 .plan-item .pi-del:hover{color:var(--coral);background:var(--coral-soft)}
-.plan-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem;font-style:italic}
+.plan-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.82rem}
 .plan-add-btn{display:inline-flex;align-items:center;gap:8px;background:var(--teal);color:#fff;padding:11px 22px;border-radius:var(--r-md);font-weight:600;font-size:.9rem;margin-top:var(--s3)}
 .plan-add-btn:hover{background:var(--teal-dark);transform:translateY(-1px)}
 .perf-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s3);margin-bottom:var(--s5)}
@@ -894,7 +894,7 @@ p{line-height:1.55}
 .toplanti-body .tb-meta span{display:inline-flex;align-items:center;gap:3px}
 .toplanti-del{color:var(--ink-3);padding:6px;border-radius:50%;flex-shrink:0}
 .toplanti-del:hover{color:var(--coral);background:var(--coral-soft)}
-.toplanti-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.85rem;font-style:italic}
+.toplanti-empty{text-align:center;padding:24px 8px;color:var(--ink-3);font-size:.85rem}
 
 /* ============ TAKVİM ============ */
 .big-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -914,6 +914,9 @@ p{line-height:1.55}
 #timeline,#dayList{list-style:none;display:grid;gap:var(--s2)}
 #timeline li,#dayList li{display:grid;grid-template-columns:46px 1fr;align-items:center;gap:var(--s2)}
 #timeline li>span:first-child,#dayList li>span:first-child{font-size:.75rem;font-weight:700;color:rgba(255,255,255,.75);text-align:right;font-variant-numeric:tabular-nums}
+/* Boş durum mesajı 46px'lik saat sütununa sıkışmasın, tüm satırı kullansın */
+#timeline li.empty,#dayList li.empty{display:block;grid-column:1/-1;padding:28px 12px;line-height:1.5}
+.card.dark .empty{color:rgba(255,255,255,.72);background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.16);border-radius:var(--r-md)}
 .ev{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px;border-radius:var(--r-md);padding:10px 14px;font-weight:600;font-size:.875rem}
 .ev.course{background:var(--green);color:#fff}
 .ev.event{background:var(--purple);color:#fff}
@@ -925,7 +928,7 @@ p{line-height:1.55}
 .gpa{font-weight:700;font-size:1rem;margin-bottom:var(--s2);color:var(--ink-2)}
 .bars{display:flex;align-items:flex-end;gap:var(--s2);height:120px;margin:var(--s2) 0 var(--s4);padding-bottom:2px;border-bottom:1px solid var(--border)}
 .bars span{flex:1;min-width:6px;border-radius:6px 6px 2px 2px}
-.bars-empty{color:var(--ink-3);font-size:.85rem;padding:20px 0;text-align:center;width:100%;font-style:italic}
+.bars-empty{color:var(--ink-3);font-size:.85rem;padding:20px 0;text-align:center;width:100%}
 
 /* ============ ESKİ JOBS/SKILLS (uyumluluk için) ============ */
 .jobs,.skills{list-style:none;display:grid;gap:6px}
@@ -961,7 +964,7 @@ p{line-height:1.55}
 .task-pri-badge.pri-low{background:#c8f5eb;color:#0d4a2e}
 .task-item .task-del{color:var(--ink-3);padding:6px;border-radius:50%;flex-shrink:0}
 .task-item .task-del:hover{color:var(--coral);background:var(--coral-soft)}
-.tasks-empty{text-align:center;padding:40px 20px;color:var(--ink-3);font-size:.9rem;font-style:italic}
+.tasks-empty{text-align:center;padding:40px 20px;color:var(--ink-3);font-size:.9rem}
 
 /* ============ MODALLAR ============ */
 dialog{margin:auto;border:0;border-radius:var(--r-xl);padding:var(--s6);width:min(440px,94vw);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto}
@@ -986,7 +989,7 @@ dialog::backdrop{background:rgba(10,42,53,.55);backdrop-filter:blur(4px)}
 .notif-head{display:flex;justify-content:space-between;align-items:center;padding:var(--s4) var(--s4) var(--s3);border-bottom:1px solid var(--border-2)}
 .notif-head h3{font-size:.95rem;font-weight:700}
 .notif-list{flex:1;overflow-y:auto;padding:var(--s2) var(--s3);max-height:60vh}
-.notif-list:empty::before{content:"Henüz bildirim yok";display:block;text-align:center;padding:32px 8px;color:var(--ink-3);font-size:.85rem;font-style:italic}
+.notif-list:empty::before{content:"Henüz bildirim yok";display:block;text-align:center;padding:32px 8px;color:var(--ink-3);font-size:.85rem}
 .notif-item{display:flex;align-items:flex-start;gap:var(--s3);padding:10px 12px;border-radius:var(--r-md);margin-bottom:4px}
 .notif-item.unread{background:rgba(43,184,168,.08)}
 .notif-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:6px}
