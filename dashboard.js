@@ -404,7 +404,8 @@ function bildirimCiz() {
 function bildirimRozetiGuncelle() {
   const sayi = okunmamisSayisi();
   const bell = $("bell");
-  if (bell) bell.textContent = sayi;
+  // Okunmamış yoksa rozeti gizle; çok sayıda bildirimde "9+" göster
+  if (bell) { bell.textContent = sayi > 9 ? "9+" : sayi; bell.hidden = sayi === 0; }
   const bellBtn = $("bellBtn");
   if (bellBtn) bellBtn.classList.toggle("has-new", sayi > 0);
 }
