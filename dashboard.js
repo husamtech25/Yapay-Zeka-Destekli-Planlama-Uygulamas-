@@ -1,4 +1,4 @@
-console.log("[Planla] v21 + iş modu bugünün özeti");
+console.log("[AYVEX] v22 marka + giriş ekranı");
 
 const MODLAR = {
   student: { rol: "Öğrenci", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -232,8 +232,6 @@ function modUygula() {
   // Moda özel öğeler CSS ile gizleniyor (body[data-mode] + .menu-ogrenci / .menu-is)
   const qEl = $("q");
   if (qEl) qEl.placeholder = S.mode === "work" ? "Ara... (görev, proje, toplantı)" : "Ara... (etkinlik, ders, görev)";
-  const logo = document.querySelector(".sidebar .logo-mark use");
-  if (logo) logo.setAttribute("href", S.mode === "work" ? "#i-briefcase" : "#i-graduation");
 }
 
 function avatarUygula() {
@@ -532,7 +530,7 @@ function pomoTick() {
     const oran = pomo.toplam > 0 ? (pomo.kalan / pomo.toplam) : 1;
     ring.style.strokeDashoffset = cevresiHesapla(POMO_CEVRE, oran);
   }
-  document.title = pomo.calisiyor ? `${sure} · ${pomoModEtiket(pomo.mod)} — Planla` : SAYFA_BASLIGI;
+  document.title = pomo.calisiyor ? `${sure} · ${pomoModEtiket(pomo.mod)} — AYVEX` : SAYFA_BASLIGI;
 }
 function pomoRender() {
   const card = $("pomodoroCard"); const timeEl = $("pomoTime");
@@ -1826,7 +1824,13 @@ document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
   if (tab) { sekme = tab.dataset.tab; $("authMsg").textContent = ""; return authCiz(); }
   const acc = e.target.closest("[data-acc]");
-  if (acc) { sekme = "login"; $("aUser").value = db.users[acc.dataset.acc].ad; authCiz(); return $("aPass").focus(); }
+  if (acc) {
+    const h = db.users[acc.dataset.acc];
+    sekme = "login"; $("aUser").value = h.ad; girisModu(h.tur); authCiz();
+    return $("aPass").focus();
+  }
+  const obTur = e.target.closest("[data-ob-tur]");
+  if (obTur) { e.preventDefault(); girisModu(obTur.dataset.obTur); return; }
 
   if (e.target.closest("[data-logout]")) { e.preventDefault(); return cikis(); }
   if (e.target.closest("[data-delacc]")) {
@@ -2375,6 +2379,7 @@ if ($("profileSave")) $("profileSave").onclick = () => {
 };
 
 document.addEventListener("change", e => {
+  if (e.target.matches && e.target.matches("#authForm input[name=tur]")) { girisModu(e.target.value); return; }
   const act = e.target.dataset ? e.target.dataset.act : null;
   const id = e.target.dataset ? e.target.dataset.id : null;
   if (!act) return;
@@ -2560,8 +2565,25 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ================= Giriş / çıkış =================
+// Giriş ekranının rengini ve tanıtım içeriğini moda göre ayarlar (kayıt formundaki seçimle senkron)
+function girisModu(tur) {
+  if (!MODLAR[tur]) tur = "student";
+  const auth = $("auth");
+  if (auth) auth.dataset.tur = tur;
+  document.querySelectorAll("[data-ob-tur]").forEach(b => {
+    b.classList.toggle("on", b.dataset.obTur === tur);
+    b.setAttribute("aria-pressed", String(b.dataset.obTur === tur));
+  });
+  const radio = document.querySelector(`#authForm input[name=tur][value="${tur}"]`);
+  if (radio) radio.checked = true;
+}
+
 function authCiz() {
   document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("cur", b.dataset.tab === sekme));
+  if ($("authBaslik")) $("authBaslik").textContent = sekme === "reg" ? "AYVEX'e katıl" : "Tekrar hoş geldin";
+  if ($("authAlt")) $("authAlt").textContent = sekme === "reg"
+    ? "Hesabını oluştur, sana uygun modu seç."
+    : "Hesabına giriş yap ve kaldığın yerden devam et.";
   if ($("regOnly")) $("regOnly").hidden = sekme !== "reg";
   if ($("authBtn")) $("authBtn").textContent = sekme === "reg" ? "Hesap oluştur" : "Giriş yap";
   if ($("aPass")) $("aPass").autocomplete = sekme === "reg" ? "new-password" : "current-password";
@@ -2631,7 +2653,23 @@ function cikis() {
   location.reload();
 }
 
+// Favicon: logo dosyasındaki işareti (A + takvim) kare olarak kırpıp sekme simgesi yap
+(function faviconUret() {
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const c = document.createElement("canvas");
+      c.width = c.height = 64;
+      c.getContext("2d").drawImage(img, 512, 165, 500, 500, 0, 0, 64, 64);
+      const link = $("favicon");
+      if (link) { link.type = "image/png"; link.href = c.toDataURL("image/png"); }
+    } catch (e) {}
+  };
+  img.src = "assets/ayvex-logo.webp";
+})();
+
 try {
+  girisModu("student");
   authCiz();
   if (db.aktif && db.users[db.aktif]) {
     basla();
