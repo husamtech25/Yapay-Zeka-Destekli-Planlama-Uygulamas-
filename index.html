@@ -1305,6 +1305,12 @@
         <span>Google ile devam et</span>
       </button>
       <p class="google-not">Verilerin tüm cihazlarında eşitlenir ve sadece sen erişebilirsin.</p>
+      <p class="warn" id="authMsgUst" role="alert"></p>
+
+      <!-- Yerel giriş kapalıyken: bilgilendirme + eski yerel hesapların yedeğini indirme -->
+      <div class="yerel-bilgi" id="yerelBilgi" hidden></div>
+
+      <div id="yerelGiris">
       <div class="ayrac"><span>veya bu cihazda yerel hesapla</span></div>
 
       <div class="tabs">
@@ -1322,7 +1328,8 @@
         <button type="submit" class="close" id="authBtn">Giriş yap</button>
       </form>
       <div id="accList"></div>
-      <p class="note">Yerel hesaplar sadece bu tarayıcıda saklanır. Google ile girişte verilerin Firebase'de (Frankfurt) saklanır ve hesabından erişilir.</p>
+      </div>
+      <p class="note">Google ile girişte verilerin Firebase'de (Frankfurt) saklanır ve sadece hesabından erişilebilir.</p>
     </div>
     </div>
   </section>
