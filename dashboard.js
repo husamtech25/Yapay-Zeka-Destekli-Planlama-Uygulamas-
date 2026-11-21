@@ -109,7 +109,39 @@ function veriOnar(v, tur, ad) {
   if (!MODLAR[v.mode]) v.mode = MODLAR[tur] ? tur : "student";
   if (typeof v.name !== "string" || !v.name) v.name = ad || "Öğrenci";
   if (!v.events || typeof v.events !== "object" || Array.isArray(v.events)) v.events = {};
-  DIZI.forEach(k => { if (!Array.isArray(v[k])) v[k] = []; });
+  // Dizileri ve içlerindeki kayıtları onar: bozuk bir yedek (ör. tasks:[null] ya da tarihi
+  // eksik sınav) çizimi çökertip hesabı kalıcı olarak bozuyordu.
+  DIZI.forEach(k => {
+    v[k] = Array.isArray(v[k]) ? v[k].filter(x => x && typeof x === "object" && !Array.isArray(x)) : [];
+    if (k !== "notifications") v[k].forEach(x => { if (typeof x.id !== "string" || !x.id) x.id = uid(); });
+  });
+  const tarihMi = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const saatMi = s => typeof s === "string" && /^\d{1,2}:\d{2}$/.test(s);
+  const metin = (x, alan) => { if (typeof x[alan] !== "string") x[alan] = x[alan] == null ? "" : String(x[alan]); };
+  ["sinavlar", "odevler", "yksDenemeleri", "toplantilar"].forEach(k => { v[k] = v[k].filter(x => tarihMi(x.tarih)); });
+  v.deadlines = v.deadlines.filter(x => tarihMi(x.d));
+  v.dersler = v.dersler.filter(x => saatMi(x.bas) && saatMi(x.bit));
+  // Ekranda gösterilen metin alanları eksikse "undefined" yazmasın
+  const METIN_ALANLARI = {
+    tasks: ["t"], courses: ["n"], deadlines: ["t"], jobs: ["n"], skills: ["n"], dersler: ["ad"],
+    hedefler: ["baslik"], planItems: ["baslik"], toplantilar: ["baslik"], sinavlar: ["ad"], odevler: ["ad"],
+    yksDenemeleri: ["ad"], basvurular: ["sirket", "pozisyon"], kurslar: ["ad"], kariyerHedefler: ["baslik"],
+    projeler: ["ad"], sprintIsleri: ["baslik"],
+  };
+  Object.entries(METIN_ALANLARI).forEach(([k, alanlar]) => v[k].forEach(x => alanlar.forEach(a => metin(x, a))));
+  v.sinavlar.forEach(s => { if (!s.tur) s.tur = "Vize"; });
+  v.projeler.forEach(p => { if (p.bitis && !tarihMi(p.bitis)) p.bitis = ""; });
+  v.planItems.forEach(p => { if (!saatMi(p.saat)) p.saat = "09:00"; });
+  Object.keys(v.events).forEach(gun => {
+    if (!tarihMi(gun) || !Array.isArray(v.events[gun])) { delete v.events[gun]; return; }
+    v.events[gun] = v.events[gun].filter(e => e && typeof e === "object");
+    v.events[gun].forEach(e => {
+      metin(e, "t");
+      if (!saatMi(e.time)) e.time = "00:00";
+      if (typeof e.type !== "string" || !e.type) e.type = "Etkinlik";
+      if (typeof e.id !== "string") e.id = uid();
+    });
+  });
   if (typeof v.avatar !== "number") v.avatar = 0;
   if (!v.taskFilter) v.taskFilter = "all";
   if (!v.pomo || typeof v.pomo !== "object") v.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
@@ -312,7 +344,10 @@ let sekme = "login";
 let aktifView = "home";
 let planSekme = "haftalik";
 const M = () => (S && MODLAR[S.mode]) || MODLAR.student;
-const eslesir = s => !q || String(s).toLowerCase().includes(q);
+// Türkçe büyük/küçük harf duyarsız arama: "İstanbul"/"istanbul", "ISPARTA"/"ısparta" eşleşsin.
+// Hem "ı" hem "i" aynı harf sayılır, böylece "Istanbul" yazan da bulur.
+const aramaNorm = s => String(s ?? "").toLocaleLowerCase("tr").replace(/ı/g, "i");
+const eslesir = s => !q || aramaNorm(s).includes(q);
 
 function bul(list, id) {
   if (!S) return null;
@@ -629,6 +664,15 @@ function kisayolCiz() {
 let pomo = { mod: "focus", kalan: 25*60, toplam: 25*60, calisiyor: false, interval: null, tur: 0 };
 
 function pomoAyarlari() { return (S && S.pomo) ? S.pomo : POMO_DEFAULTS; }
+function pomoAyarFormDoldur() {
+  const form = $("pomodoroAyarDlg") && $("pomodoroAyarDlg").querySelector("form");
+  if (!form) return;
+  const a = pomoAyarlari();
+  ["focus", "short", "long", "cycle", "sound", "auto"].forEach(k => {
+    const el = form.querySelector(`[name=${k}]`);
+    if (el && a[k] != null) el.value = a[k];
+  });
+}
 function pomoSure(mod) {
   const a = pomoAyarlari();
   if (mod === "focus") return (+a.focus || 25) * 60;
@@ -829,7 +873,19 @@ function pomoBindAc() {
 // ================= DERS PROGRAMI =================
 function dersSirala(a, b) { return saatDk(a.bas) - saatDk(b.bas); }
 function bugunDersler() { return ((S && S.dersler) || []).filter(d => +d.gun === bugunGunNo).sort(dersSirala); }
-const SAATLER = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+// Tablo varsayılan olarak 08:00-20:00 arasını gösterir; daha erken/geç başlayan ya da biten
+// ders varsa aralık genişletilir (eskiden bu dersler tabloda hiç görünmüyordu).
+function dersSaatleri(dersler) {
+  let ilk = 8, son = 20;
+  dersler.forEach(d => {
+    const b = Math.floor(saatDk(d.bas) / 60);
+    const e = Math.ceil(saatDk(d.bit) / 60) - 1;
+    if (b >= 0 && b < ilk) ilk = b;
+    if (e > son) son = Math.min(23, e);
+    if (b > son) son = Math.min(23, b);
+  });
+  return Array.from({ length: son - ilk + 1 }, (_, i) => ilk + i);
+}
 
 function haftalikGridCiz() {
   const grid = $("haftalikGrid");
@@ -847,13 +903,14 @@ function haftalikGridCiz() {
   }
   if (empty) empty.hidden = true;
   const gunSirasi = [1, 2, 3, 4, 5, 6, 0];
+  const SAATLER = dersSaatleri(dersler);
   grid.style.gridTemplateRows = `40px repeat(${SAATLER.length}, 60px)`;
   let html = "";
   html += `<div class="hg-bos" style="grid-row:1;grid-column:1"></div>`;
   gunSirasi.forEach((g, idx) => {
     const bugun = g === bugunGunNo;
     const col = idx + 2;
-    html += `<div class="hg-gun-head ${bugun ? "bugun" : ""}" style="grid-row:1;grid-column:${col}">${GUNLER[g].slice(0, 3)}</div>`;
+    html += `<div class="hg-gun-head ${bugun ? "bugun" : ""}" style="grid-row:1;grid-column:${col}">${GUNLER_KISA[g]}</div>`;
   });
   SAATLER.forEach((saat, satirIdx) => {
     const row = satirIdx + 2;
@@ -870,7 +927,7 @@ function haftalikGridCiz() {
     const basIdx = SAATLER.indexOf(basSaat);
     if (basIdx < 0) return;
     const bitSaatEtkin = bitDk > 0 ? bitSaat + 1 : bitSaat;
-    const sure = Math.max(1, bitSaatEtkin - basSaat);
+    const sure = Math.min(SAATLER.length - basIdx, Math.max(1, bitSaatEtkin - basSaat));
     const row = basIdx + 2;
     const col = gunSirasi.indexOf(+d.gun) + 2;
     html += `<div class="hg-ders ${d.renk || "teal"}"
@@ -1450,8 +1507,11 @@ function projelerCiz() {
 
 // ================= İŞ MODU: SPRINT =================
 const sprintKalanGun = () => S && S.sprint ? gunFarki(S.sprint.bit) : NaN;
+// Bitmiş sprintlerin tamamlanan işleri silinmez, "arsiv" alanıyla saklanır: panoda görünmezler
+// ama projelerin ilerleme hesabında kalırlar (eskiden silindikleri için ilerleme düşüyordu).
+const aktifSprintIsleri = () => S.sprintIsleri.filter(s => !s.arsiv);
 function sprintPuanlari() {
-  const isler = S.sprintIsleri;
+  const isler = aktifSprintIsleri();
   const puan = s => +s.puan || 1;
   const toplam = isler.reduce((t, s) => t + puan(s), 0);
   const biten = isler.filter(s => s.durum === "done").reduce((t, s) => t + puan(s), 0);
@@ -1478,7 +1538,7 @@ function sprintCiz() {
     </div>`;
 
   const kolonlar = { todo: [], doing: [], done: [] };
-  S.sprintIsleri.filter(s => eslesir(s.baslik)).forEach(s => (kolonlar[s.durum] || kolonlar.todo).push(s));
+  aktifSprintIsleri().filter(s => eslesir(s.baslik)).forEach(s => (kolonlar[s.durum] || kolonlar.todo).push(s));
   const item = s => {
     const pa = projeAdi(s.proje);
     const btn = (to, label, cls) => `<button type="button" class="ki-btn ${cls}" data-act="sprint-move" data-to="${to}" data-id="${s.id}">${label}</button>`;
@@ -1509,7 +1569,7 @@ function sprintMiniCiz() {
   if (!el || !S) return;
   const p = sprintPuanlari();
   const kalan = sprintKalanGun();
-  const devam = S.sprintIsleri.filter(s => s.durum === "doing");
+  const devam = aktifSprintIsleri().filter(s => s.durum === "doing");
   el.innerHTML = `
     <div class="sprint-mini-ust"><b>${esc(S.sprint.ad)}</b><span>${kalan < 0 ? "Süresi doldu" : kalan === 0 ? "Bugün bitiyor" : kalan + " gün kaldı"}</span></div>
     <div class="kurs-bar"><span style="width:${p.yuzde}%"></span></div>
@@ -1536,11 +1596,11 @@ function velocityCiz() {
 function sprintBitir() {
   const sp = S.sprint;
   const p = sprintPuanlari();
-  const bitmeyen = S.sprintIsleri.filter(s => s.durum !== "done").length;
+  const bitmeyen = aktifSprintIsleri().filter(s => s.durum !== "done").length;
   if (!confirm(`"${sp.ad}" bitirilsin mi?\n\nTamamlanan: ${p.biten}/${p.toplam} puan\n${bitmeyen} bitmemiş iş yeni sprinte taşınacak.`)) return;
   S.sprintGecmis.push({ ad: sp.ad, bas: sp.bas, bit: sp.bit, biten: p.biten, toplam: p.toplam });
   if (S.sprintGecmis.length > 20) S.sprintGecmis.splice(0, S.sprintGecmis.length - 20);
-  S.sprintIsleri = S.sprintIsleri.filter(s => s.durum !== "done");
+  S.sprintIsleri.forEach(s => { if (!s.arsiv && s.durum === "done") s.arsiv = sp.ad; });
   const sure = Math.max(1, Math.round((tarihOku(sp.bit) - tarihOku(sp.bas)) / GUN_MS) + 1);
   // Erken bitirildiyse yeni sprint bugün başlar; son gününde bitirildiyse yarın;
   // süresi geçtikten sonra bitirildiyse yine bugün (arada sprintsiz boşluk kalmasın).
@@ -1605,7 +1665,7 @@ function oncelikCiz() {
   S.tasks.filter(t => !t.done && t.p === "high").forEach(t => {
     items.push({ skor: t.doing ? 3 : 3.5, tip: "yuksek", etiket: "Yüksek", baslik: t.t, alt: (t.doing ? "Devam ediyor" : "Bekliyor") + (projeAdi(t.proje) ? " · " + projeAdi(t.proje) : ""), view: "tasks" });
   });
-  S.sprintIsleri.filter(s => s.durum === "doing").forEach(s => {
+  aktifSprintIsleri().filter(s => s.durum === "doing").forEach(s => {
     items.push({ skor: 4, tip: "sprint", etiket: "Sprint", baslik: s.baslik, alt: `${+s.puan || 1} puan · devam ediyor`, view: "sprint" });
   });
   items.sort((a, b) => a.skor - b.skor);
@@ -1640,7 +1700,12 @@ function isBugunCiz() {
     .filter(p => +p.gun === bugunGunNo)
     .sort((a, b) => saatDk(a.saat) - saatDk(b.saat));
 
-  const yaklasanTeslim = (S.deadlines || [])
+  // Teslimler: eski "deadlines" kayıtları + 3 gün içinde teslimi olan açık projeler
+  // (eskiden sadece arayüzden eklenemeyen deadlines sayıldığı için sayaç hep 0'dı)
+  const yaklasanTeslim = [
+    ...(S.deadlines || []),
+    ...(S.projeler || []).filter(p => p.durum !== "tamam" && p.bitis).map(p => ({ t: p.ad, d: p.bitis })),
+  ]
     .filter(d => { const fark = gunFarki(d.d); return fark >= 0 && fark <= 3; })
     .sort((a, b) => a.d.localeCompare(b.d));
 
@@ -1736,13 +1801,16 @@ function gorevlerCiz() {
   if ($("statPending")) $("statPending").textContent = bekleyen;
   if ($("statDone")) $("statDone").textContent = tamamlanan;
   const filtre = S.taskFilter || "all";
+  // Kayıtlı filtreyi düğmelere de yansıt (yenilemeden sonra "Tümü" seçili görünüyordu)
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("on", b.dataset.filter === filtre));
   let gosterilecek = tum.slice().filter(t => !q || eslesir(t.t));
   if (filtre === "pending") gosterilecek = gosterilecek.filter(t => !t.done);
   else if (filtre === "done") gosterilecek = gosterilecek.filter(t => t.done);
   const priSirala = { high: 0, mid: 1, low: 2 };
   gosterilecek.sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
-    return (priSirala[gorevOncelik(a.p)] || 1) - (priSirala[gorevOncelik(b.p)] || 1);
+    // "?? 1" kullanılmalı: "|| 1" yüksek önceliğin 0 değerini 1'e çevirip sıralamayı bozuyordu
+    return (priSirala[gorevOncelik(a.p)] ?? 1) - (priSirala[gorevOncelik(b.p)] ?? 1);
   });
   if (!gosterilecek.length) {
     liste.innerHTML = "";
@@ -2455,15 +2523,7 @@ document.addEventListener("click", e => {
       const selEl = form.querySelector("select[name=type]");
       if (selEl) selEl.innerHTML = M().tur.map(t => `<option>${t}</option>`).join("");
     }
-    if (opener.dataset.open === "pomodoroAyarDlg") {
-      const a = pomoAyarlari();
-      form.querySelector("[name=focus]").value = a.focus;
-      form.querySelector("[name=short]").value = a.short;
-      form.querySelector("[name=long]").value = a.long;
-      form.querySelector("[name=cycle]").value = a.cycle;
-      form.querySelector("[name=sound]").value = a.sound;
-      form.querySelector("[name=auto]").value = a.auto;
-    }
+    if (opener.dataset.open === "pomodoroAyarDlg") pomoAyarFormDoldur();
     guvenliAc(dlg);
     return;
   }
@@ -2471,6 +2531,9 @@ document.addEventListener("click", e => {
   const dlgBtn = e.target.closest("[data-dlg]");
   if (dlgBtn) {
     e.preventDefault();
+    // Pomodoro ayar düğmesi data-dlg kullanıyor; kayıtlı ayarları forma burada doldur
+    // (eskiden sadece data-open dalında dolduruluyordu, form hep varsayılanları gösteriyordu)
+    if (dlgBtn.dataset.dlg === "pomodoroAyarDlg") pomoAyarFormDoldur();
     if (dlgBtn.dataset.dlg === "settingsDlg" && S) {
       $("setName").value = S.name;
       const h = db.users[db.aktif];
@@ -2526,7 +2589,7 @@ if ($("closeSettings")) $("closeSettings").onclick = () => $("settingsDlg").clos
 let aramaZamani;
 if ($("q")) {
   $("q").oninput = e => {
-    q = e.target.value.toLowerCase();
+    q = aramaNorm(e.target.value.trim());
     clearTimeout(aramaZamani);
     aramaZamani = setTimeout(ciz, 150);
   };
@@ -2576,12 +2639,23 @@ if ($("yedekDosya")) $("yedekDosya").onchange = async e => {
   const modUyari = v.mode !== S.mode ? `\n\nDikkat: yedek ${v.mode === "work" ? "Çalışan" : "Öğrenci"} modunda; hesabın bu moda geçecek.` : "";
   if (!confirm(`Yedek tarihi: ${tarih}\n\nMevcut tüm verilerin bu yedektekilerle değiştirilecek.${modUyari}\n\nDevam edilsin mi?`)) return;
   const h = db.users[db.aktif];
-  h.data = v; h.tur = v.mode;
-  S = v;
+  const eski = h.data, eskiTur = h.tur;
   $("settingsDlg").close();
-  modUygula();
-  goView("home");
-  ciz();
+  try {
+    h.data = v; h.tur = v.mode;
+    S = v;
+    modUygula();
+    goView("home");
+    ciz();
+  } catch (err) {
+    // Beklenmedik bozuk veri: eski hale dön, bozuk veriyi kaydetme
+    console.error("[AYVEX] yedek uygulanamadı:", err);
+    clearTimeout(kaydetZamani); clearTimeout(bulutZamani); bulutZamani = null;
+    h.data = eski; h.tur = eskiTur; S = eski;
+    modUygula(); goView("home"); ciz();
+    alert("Yedek dosyasındaki veri bozuk olduğu için yüklenemedi. Mevcut verilerin değişmedi.");
+    return;
+  }
   dbYaz();
   alert("Yedek geri yüklendi.");
 };
