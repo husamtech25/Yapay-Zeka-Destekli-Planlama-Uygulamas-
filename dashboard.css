@@ -1046,6 +1046,55 @@ body[data-mode="work"]{
 .onboard[hidden]{display:none}
 .onboard-box{width:min(480px,100%);background:var(--surface);border-radius:var(--r-xl);padding:var(--s8);box-shadow:var(--shadow-lg);border:1px solid var(--border-2)}
 .onboard-box .logo{margin-bottom:var(--s5)}
+
+/* ============ AYVEX MARKA ============ */
+/* Logo dosyası (1536×1024) beyaz zeminli; görünen kısmı CSS ile kırpılıyor ve
+   multiply karışımıyla beyaz alanlar zeminin rengine karışıyor. */
+.brand-logo{background:url("assets/ayvex-logo.webp") no-repeat;mix-blend-mode:multiply}
+.brand-logo-full{aspect-ratio:935/485;background-size:164.28% auto;background-position:49.92% 48.24%}
+.sidebar-logo{width:132px}
+.sidebar .logo{min-height:0}
+
+/* ============ GİRİŞ EKRANI (tanıtım paneli + moda göre renk) ============ */
+#auth{
+  --ob-accent:#1f9d55; --ob-accent-dark:#0f5136; --ob-tint:#e7f6ec; --ob-tint-2:#d3eedc;
+  --ob-ink:#0b1d26;
+  background:radial-gradient(circle at 15% 20%,var(--ob-tint-2),transparent 55%),radial-gradient(circle at 85% 85%,var(--ob-tint),transparent 50%),var(--bg);
+  transition:background-color var(--t-slow);
+}
+#auth[data-tur="work"]{--ob-accent:#d97706; --ob-accent-dark:#92400e; --ob-tint:#fdf1e1; --ob-tint-2:#fbe3c2}
+.onboard-shell{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);width:min(980px,100%);background:var(--surface);border-radius:var(--r-xl);box-shadow:var(--shadow-lg);border:1px solid var(--border-2);overflow:hidden}
+.onboard-brand{background:var(--ob-tint);padding:var(--s8);display:flex;flex-direction:column;gap:var(--s5);transition:background-color var(--t-slow);position:relative}
+.onboard-brand .brand-logo{width:min(220px,70%)}
+.onboard .onboard-box{width:auto;border:0;border-radius:0;box-shadow:none;padding:var(--s8);display:flex;flex-direction:column;justify-content:center}
+.onboard-box h1{color:var(--ob-ink)}
+.ob-mod-secim{display:inline-flex;align-self:flex-start;background:rgba(255,255,255,.7);border:1px solid rgba(11,29,38,.08);border-radius:var(--r-full);padding:3px}
+.ob-mod-secim button{padding:7px 16px;border-radius:var(--r-full);font-size:.82rem;font-weight:600;color:var(--ink-2);transition:background-color var(--t-fast),color var(--t-fast)}
+.ob-mod-secim button.on{background:var(--ob-accent);color:#fff}
+.ob-icerik{display:none;flex-direction:column;gap:var(--s4);animation:fadeUp .35s var(--t-slow)}
+#auth[data-tur="student"] .ob-student,#auth[data-tur="work"] .ob-work{display:flex}
+.ob-slogan{font-size:1.45rem;line-height:1.25;letter-spacing:-.02em;color:var(--ob-ink);font-weight:800}
+.ob-ozellik{list-style:none;display:flex;flex-direction:column;gap:var(--s3)}
+.ob-ozellik li{display:flex;gap:var(--s3);align-items:flex-start}
+.ob-ozellik b{display:block;font-size:.9rem;color:var(--ob-ink)}
+.ob-ozellik small{opacity:1;color:var(--ink-2);font-size:.78rem}
+.ob-ikon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#fff;color:var(--ob-accent);flex-shrink:0;box-shadow:var(--shadow-sm);transition:color var(--t-slow)}
+#auth .tabs button.cur{color:var(--ob-ink)}
+#regOnly[hidden]{display:none}
+#auth .type-pick input:checked + span{border-color:var(--ob-accent);background:var(--ob-tint)}
+#auth .type-pick input:focus-visible + span{outline:3px solid var(--ob-accent);outline-offset:2px}
+#auth .name-in:focus{border-color:var(--ob-accent);box-shadow:0 0 0 4px var(--ob-tint-2)}
+#auth .close{background:var(--ob-ink);transition:background-color var(--t-fast)}
+#auth .close:hover{background:var(--ob-accent-dark)}
+#auth .note{font-size:.75rem;color:var(--ink-3);margin-top:var(--s3)}
+@media(max-width:860px){
+  .onboard-shell{grid-template-columns:1fr}
+  .onboard-brand{padding:var(--s5) var(--s5) var(--s4);gap:var(--s3)}
+  .onboard-brand .brand-logo{width:150px}
+  .ob-slogan{font-size:1.05rem}
+  .ob-ozellik{display:none}
+  .onboard .onboard-box{padding:var(--s5)}
+}
 .onboard-box h1{font-size:1.6rem;margin-bottom:4px}
 .onboard-box .sub{color:var(--ink-3);font-size:.9rem;margin-bottom:var(--s5)}
 .lbl{display:block;margin-top:var(--s3);font-weight:600;font-size:.85rem;color:var(--ink-2)}
@@ -1079,7 +1128,9 @@ body[data-mode="work"] .ca-mod-ogrenci{display:none !important}
 
 /* ============ GİRİŞ YAPILMAMIŞSA SIDEBAR/TOPBAR GİZLE ============ */
 body:not([data-logged-in="true"]) .sidebar,
-body:not([data-logged-in="true"]) .topbar{display:none !important}
+body:not([data-logged-in="true"]) .topbar,
+body:not([data-logged-in="true"]) .mobile-nav{display:none !important}
+body:not([data-logged-in="true"]){padding-bottom:0}
 body:not([data-logged-in="true"]) .content{padding-top:var(--s5)}
 body:not([data-logged-in="true"]){grid-template-columns:1fr}
 
