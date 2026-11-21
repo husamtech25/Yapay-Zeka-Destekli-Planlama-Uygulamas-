@@ -1364,8 +1364,15 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
 .tk-toplanti:hover{background:var(--purple-soft)}
 .tk-saat{font-size:.66rem;font-weight:800;color:var(--purple);font-variant-numeric:tabular-nums}
 .tk-baslik{font-size:.76rem;font-weight:600;color:var(--ink);overflow-wrap:anywhere;line-height:1.25}
-.tk-ekle{margin-top:auto;padding:4px;border-radius:8px;border:1px dashed var(--border);color:var(--ink-3);font-weight:700;opacity:0;transition:opacity var(--t-fast)}
+/* "+" düğmesi her zaman görünür (soluk); üzerine gelince belirginleşir. Eskiden sadece
+   fareyle üzerine gelince görünüyordu, varlığı fark edilmiyordu. */
+.tk-ekle{margin-top:auto;padding:4px;border-radius:8px;border:1px dashed var(--border);color:var(--ink-3);font-weight:700;opacity:.45;transition:opacity var(--t-fast)}
 .tk-gun:hover .tk-ekle,.tk-ekle:focus-visible{opacity:1}
+/* Projeler boş durumu ızgaranın tamamını kaplasın (tek hücreye sıkışıyordu) */
+.proje-grid>.plan-empty{grid-column:1/-1}
+/* Ders yokken tablo çerçevesini gizle (içi boş ince bir kutu görünüyordu) */
+.haftalik-grid-wrap[hidden]{display:none}
+.hedef-gecen{font-size:.7rem;color:var(--ink-3);margin:-2px 0 6px}
 .toplanti-item[data-act]{cursor:pointer}
 .plan-item[data-act]{cursor:pointer}
 .plan-item[data-act]:hover{background:var(--surface-2)}
