@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// AYVEX Firestore güvenlik kuralları
+// Her kullanıcı yalnızca kendi belgesine (users/{uid}) erişebilir.
+// Bu dosya Firebase konsolundaki Firestore > Rules sekmesine yapıştırılarak yayınlanır.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      function sahibi() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+      function gecerliBelge() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['veri', 'ad', 'tur', 'surum', 'guncelleme'])
+          && d.veri is string && d.veri.size() < 900000
+          && d.ad is string && d.ad.size() <= 80
+          && d.tur in ['student', 'work']
+          && d.surum is int
+          && d.guncelleme == request.time;
+      }
+
+      allow read, delete: if sahibi();
+      allow create, update: if sahibi() && gecerliBelge();
+    }
+
+    // Diğer her şey kapalı
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

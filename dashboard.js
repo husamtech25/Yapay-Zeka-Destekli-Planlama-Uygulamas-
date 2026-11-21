@@ -1,4 +1,4 @@
-console.log("[AYVEX] v22 marka + giriş ekranı");
+console.log("[AYVEX] v23 bulut senkronizasyonu + yedekleme");
 
 const MODLAR = {
   student: { rol: "Öğrenci", ac: "Akademik", acSub: "Dersler  Sınavlar", caSub: "Stajlar  İşler", acBaslik: "Akademik Genel Bakış",
@@ -133,8 +133,159 @@ function kaydet() {
   if (!S) return;
   clearTimeout(kaydetZamani);
   kaydetZamani = setTimeout(dbYaz, 150);
+  bulutKaydetPlanla();
 }
-addEventListener("pagehide", () => { if (S) dbYaz(); });
+addEventListener("pagehide", () => { if (S) { dbYaz(); bulutKaydetHemen(); } });
+
+// ================= BULUT (Google hesabı) =================
+// Google ile giriş yapan hesaplar db.users içinde "g:<uid>" anahtarıyla tutulur;
+// localStorage'daki kopya önbellektir, asıl kayıt Firestore'dadır (bulut.js).
+const BULUT_ONEK = "g:";
+const bulutHesabiMi = id => typeof id === "string" && id.startsWith(BULUT_ONEK);
+const bulutUid = id => id.slice(BULUT_ONEK.length);
+const bulutHazir = () => !!window.AYVEX_BULUT;
+let bulutZamani = null;
+let sonBulutVerisi = null;
+
+function bulutKaydetPlanla() {
+  if (!S || !bulutHesabiMi(db.aktif)) return;
+  clearTimeout(bulutZamani);
+  bulutZamani = setTimeout(bulutKaydetHemen, 1500);
+  bulutDurumCiz();
+}
+function bulutKaydetHemen() {
+  clearTimeout(bulutZamani);
+  bulutZamani = null;
+  if (!S || !bulutHesabiMi(db.aktif) || !bulutHazir()) return;
+  const veri = JSON.stringify(S);
+  if (veri === sonBulutVerisi) return; // değişiklik yok
+  sonBulutVerisi = veri;
+  const h = db.users[db.aktif];
+  window.AYVEX_BULUT.kaydet(bulutUid(db.aktif), { veri, ad: S.name, tur: S.mode });
+  if (h) h.guncel = Date.now();
+  bulutDurumCiz();
+}
+
+let bulutDurumu = {};
+function bulutDurumCiz() {
+  const el = $("bulutDurum");
+  if (!el) return;
+  const bulutta = bulutHesabiMi(db.aktif);
+  el.hidden = !bulutta;
+  if (!bulutta) return;
+  const d = bulutDurumu;
+  el.className = "bulut-durum" + (d.hata ? " hata" : d.bekleyen || bulutZamani ? " bekliyor" : " tamam");
+  el.textContent = d.hata ? `⚠️ ${d.hata}`
+    : d.cevrimdisi ? "📴 Çevrimdışı: değişiklikler bağlantı gelince gönderilecek"
+    : d.bekleyen || bulutZamani ? "⏳ Buluta kaydediliyor…"
+    : "☁️ Tüm değişiklikler buluta kaydedildi";
+}
+
+// Uzak veriyi (başka cihazdan gelen) mevcut hesaba uygula
+function uzakVeriyiUygula(veriMetni) {
+  if (!bulutHesabiMi(db.aktif)) return;
+  let v;
+  try { v = JSON.parse(veriMetni); } catch (e) { return; }
+  const h = db.users[db.aktif];
+  v = veriOnar(v, h.tur, h.ad);
+  if (!gecerli(v)) return;
+  // Bu cihazda henüz gönderilmemiş bir değişiklik varsa onu ezmeyelim; bizim yazmamız kazanır
+  if (bulutZamani) return;
+  sonBulutVerisi = veriMetni;
+  h.data = v; h.tur = v.mode;
+  S = v;
+  modUygula();
+  goView(aktifView);
+  ciz();
+}
+
+// Google girişinden sonra hesabı aç (gerekirse yerel veriyi aktarma seçeneği sun)
+async function googleOturumAc(sonuc) {
+  if (!sonuc || !sonuc.kullanici) return;
+  const { kullanici, uzak } = sonuc;
+  const id = BULUT_ONEK + kullanici.uid;
+  const msg = t => { if ($("authMsg")) $("authMsg").textContent = t; };
+
+  let veri;
+  if (uzak && typeof uzak.veri === "string") {
+    try { veri = JSON.parse(uzak.veri); } catch (e) { veri = null; }
+    veri = veriOnar(veri, uzak.tur, uzak.ad || kullanici.ad);
+    if (!gecerli(veri)) { msg("Buluttaki veri okunamadı. Yedekten geri yükleyebilirsin."); veri = yeniVeri(uzak.tur || "student", kullanici.ad); }
+    sonBulutVerisi = uzak.veri;
+  } else {
+    // İlk giriş: bu cihazdaki yerel hesaplardan biri aktarılabilir ya da sıfırdan başlanır
+    const secim = await aktarmaSec(kullanici);
+    if (!secim) { await window.AYVEX_BULUT.cikisYap(); msg("Google girişi iptal edildi."); return; }
+    if (secim.yerelId) {
+      veri = veriOnar(JSON.parse(JSON.stringify(db.users[secim.yerelId].data)), db.users[secim.yerelId].tur, db.users[secim.yerelId].ad);
+    } else {
+      veri = yeniVeri(secim.tur, kullanici.ad || "Kullanıcı");
+    }
+    sonBulutVerisi = null; // ilk kayıt hemen gönderilsin
+  }
+  db.users[id] = { ad: kullanici.ad || veri.name, email: kullanici.email, tur: veri.mode, bulut: true, data: veri };
+  db.aktif = id;
+  dbYaz();
+  msg("");
+  basla();
+  bulutKaydetHemen();
+  window.AYVEX_BULUT.dinle(kullanici.uid);
+}
+
+// İlk Google girişinde: yerel hesaplardan birini aktar ya da mod seçip yeni başla
+function aktarmaSec(kullanici) {
+  return new Promise(coz => {
+    const dlg = $("dlgAktar");
+    const yereller = Object.keys(db.users).filter(k => !bulutHesabiMi(k));
+    $("aktarAciklama").textContent = yereller.length
+      ? `${kullanici.email} hesabıyla ilk kez giriş yapıyorsun. Bu cihazdaki yerel hesabını buluta aktarabilir ya da sıfırdan başlayabilirsin. Yerel hesabın silinmez.`
+      : `${kullanici.email} hesabıyla ilk kez giriş yapıyorsun. Hangi modda başlamak istersin?`;
+    $("aktarListe").innerHTML =
+      yereller.map(k => `<button type="button" class="aktar-btn" data-aktar-yerel="${esc(k)}">
+          <b>${esc(db.users[k].ad)}</b><small>${db.users[k].tur === "work" ? "Çalışan" : "Öğrenci"} · yerel hesabı aktar</small></button>`).join("") +
+      `<button type="button" class="aktar-btn yeni" data-aktar-yeni="student"><b>Öğrenci olarak yeni başla</b><small>Dersler, sınavlar, kariyer</small></button>
+       <button type="button" class="aktar-btn yeni" data-aktar-yeni="work"><b>Çalışan olarak yeni başla</b><small>Projeler, sprint, toplantılar</small></button>`;
+    const bitir = deger => {
+      dlg.removeEventListener("click", tikla);
+      dlg.removeEventListener("cancel", iptal);
+      if (dlg.open) dlg.close();
+      coz(deger);
+    };
+    const tikla = e => {
+      const y = e.target.closest("[data-aktar-yerel]");
+      const n = e.target.closest("[data-aktar-yeni]");
+      if (y) bitir({ yerelId: y.dataset.aktarYerel });
+      else if (n) bitir({ tur: n.dataset.aktarYeni });
+      else if (e.target.closest("[data-aktar-iptal]")) bitir(null);
+    };
+    const iptal = e => { e.preventDefault(); bitir(null); };
+    dlg.addEventListener("click", tikla);
+    dlg.addEventListener("cancel", iptal);
+    guvenliAc(dlg);
+  });
+}
+
+// bulut.js'in çağırdığı geri çağrılar
+window.AYVEX = {
+  authDegisti(kullanici) {
+    if (bulutHesabiMi(db.aktif)) {
+      if (kullanici && BULUT_ONEK + kullanici.uid === db.aktif) {
+        window.AYVEX_BULUT.dinle(kullanici.uid);
+        bulutKaydetPlanla();
+      } else if (!kullanici) {
+        // Oturum sona ermiş (ör. başka yerden çıkış yapıldı): önbellekteki hesabı kapat
+        cikis("Google oturumun sona erdi. Lütfen tekrar giriş yap.");
+      }
+    } else if (kullanici && !S && db.users[BULUT_ONEK + kullanici.uid]) {
+      // Daha önce bu cihazda kullanılmış bir Google hesabı açık: otomatik devam et
+      window.AYVEX_BULUT.kullaniciVerisi({ uid: kullanici.uid, displayName: kullanici.ad, email: kullanici.email })
+        .then(googleOturumAc).catch(() => {});
+    }
+  },
+  googleGirisSonucu: sonuc => googleOturumAc(sonuc),
+  uzakVeriGeldi: uzakVeriyiUygula,
+  bulutDurum(d) { bulutDurumu = d || {}; bulutDurumCiz(); },
+};
 
 async function hashle(sifre, tuz) {
   const metin = tuz + ":" + sifre;
@@ -1833,9 +1984,26 @@ document.addEventListener("click", e => {
   const obTur = e.target.closest("[data-ob-tur]");
   if (obTur) { e.preventDefault(); girisModu(obTur.dataset.obTur); return; }
 
-  if (e.target.closest("[data-logout]")) { e.preventDefault(); return cikis(); }
+  const gBtn = e.target.closest("#googleGiris");
+  if (gBtn) {
+    e.preventDefault();
+    const msg = t => ($("authMsg").textContent = t);
+    if (!bulutHazir()) { msg("Bulut bağlantısı yüklenemedi. İnternet bağlantını kontrol edip sayfayı yenile."); return; }
+    gBtn.disabled = true; msg("");
+    window.AYVEX_BULUT.girisYap()
+      .then(googleOturumAc)
+      .catch(err => msg("Google ile giriş yapılamadı: " + (err && err.message ? err.message : err)))
+      .finally(() => { gBtn.disabled = false; });
+    return;
+  }
+
+  if (e.target.closest("[data-logout]")) { e.preventDefault(); cikis(); return; }
   if (e.target.closest("[data-delacc]")) {
-    if (confirm("Hesabın ve tüm verilerin kalıcı olarak silinecek. Devam edilsin mi?")) { delete db.users[db.aktif]; return cikis(); }
+    if (bulutHesabiMi(db.aktif)) {
+      if (confirm("Buluttaki tüm verilerin kalıcı olarak silinecek ve bu işlem geri alınamaz.\n\nİstersen önce Ayarlar > \"Verilerimi indir\" ile yedek al. Devam edilsin mi?")) bulutHesabiSil();
+      return;
+    }
+    if (confirm("Hesabın ve tüm verilerin kalıcı olarak silinecek. Devam edilsin mi?")) { delete db.users[db.aktif]; cikis(); }
     return;
   }
 
@@ -2298,7 +2466,12 @@ document.addEventListener("click", e => {
     e.preventDefault();
     if (dlgBtn.dataset.dlg === "settingsDlg" && S) {
       $("setName").value = S.name;
-      $("setAcc").textContent = `${db.users[db.aktif].ad} · ${S.mode === "work" ? "İş" : "Öğrenci"}`;
+      const h = db.users[db.aktif];
+      const modAdi = S.mode === "work" ? "Çalışan" : "Öğrenci";
+      $("setAcc").textContent = bulutHesabiMi(db.aktif)
+        ? `Google hesabı · ${h.email || h.ad} · ${modAdi}`
+        : `Yerel hesap (sadece bu tarayıcı) · ${h.ad} · ${modAdi}`;
+      bulutDurumCiz();
     }
     return guvenliAc($(dlgBtn.dataset.dlg));
   }
@@ -2367,6 +2540,45 @@ if ($("reset")) $("reset").onclick = () => {
     ciz();
   }
 };
+// ================= YEDEKLE / GERİ YÜKLE =================
+// Tüm hesap verisini bir JSON dosyası olarak indirir; aynı dosyadan geri yüklenebilir.
+// Bulut hesabında geri yükleme, normal kayıt akışıyla buluta da gönderilir.
+if ($("yedekIndir")) $("yedekIndir").onclick = () => {
+  if (!S) return;
+  const icerik = { uygulama: "AYVEX", surum: 1, tarih: new Date().toISOString(), hesap: { ad: S.name, tur: S.mode }, veri: S };
+  const blob = new Blob([JSON.stringify(icerik, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `ayvex-yedek-${todayKey}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+if ($("yedekYukle")) $("yedekYukle").onclick = () => { if ($("yedekDosya")) { $("yedekDosya").value = ""; $("yedekDosya").click(); } };
+if ($("yedekDosya")) $("yedekDosya").onchange = async e => {
+  const dosya = e.target.files && e.target.files[0];
+  if (!dosya || !S) return;
+  if (dosya.size > 5 * 1024 * 1024) { alert("Dosya çok büyük; bu bir AYVEX yedeği değil gibi görünüyor."); return; }
+  let icerik;
+  try { icerik = JSON.parse(await dosya.text()); } catch (err) { alert("Dosya okunamadı: geçerli bir yedek dosyası değil."); return; }
+  if (!icerik || icerik.uygulama !== "AYVEX" || !icerik.veri) { alert("Bu dosya bir AYVEX yedeği değil."); return; }
+  const v = veriOnar(icerik.veri, S.mode, S.name);
+  if (!gecerli(v)) { alert("Yedek dosyasındaki veri bozuk ya da eksik."); return; }
+  const tarih = icerik.tarih ? new Date(icerik.tarih).toLocaleString("tr-TR") : "bilinmiyor";
+  const modUyari = v.mode !== S.mode ? `\n\nDikkat: yedek ${v.mode === "work" ? "Çalışan" : "Öğrenci"} modunda; hesabın bu moda geçecek.` : "";
+  if (!confirm(`Yedek tarihi: ${tarih}\n\nMevcut tüm verilerin bu yedektekilerle değiştirilecek.${modUyari}\n\nDevam edilsin mi?`)) return;
+  const h = db.users[db.aktif];
+  h.data = v; h.tur = v.mode;
+  S = v;
+  $("settingsDlg").close();
+  modUygula();
+  goView("home");
+  ciz();
+  dbYaz();
+  alert("Yedek geri yüklendi.");
+};
+
 if ($("userBox")) $("userBox").onclick = () => acProfil();
 if ($("profileSave")) $("profileSave").onclick = () => {
   if (!S) return;
@@ -2588,7 +2800,8 @@ function authCiz() {
   if ($("regOnly")) $("regOnly").hidden = sekme !== "reg";
   if ($("authBtn")) $("authBtn").textContent = sekme === "reg" ? "Hesap oluştur" : "Giriş yap";
   if ($("aPass")) $("aPass").autocomplete = sekme === "reg" ? "new-password" : "current-password";
-  const ids = Object.keys(db.users);
+  // Bulut hesaplarının önbellek kopyaları listede gösterilmez; onlar Google ile açılır
+  const ids = Object.keys(db.users).filter(id => !bulutHesabiMi(id));
   if ($("accList")) {
     $("accList").innerHTML = ids.length
       ? `<p class="lbl">Bu cihazdaki hesaplar</p><div class="acc">` +
@@ -2604,6 +2817,7 @@ if ($("authForm")) {
     const sifre = $("aPass").value;
     const msg = t => ($("authMsg").textContent = t);
     if (!ad || sifre.length < 4) return msg("Kullanıcı adını yaz, şifre en az 4 karakter olsun.");
+    if (ad.includes(":")) return msg("Kullanıcı adında \":\" karakteri kullanılamaz.");
     if (sekme === "reg") {
       if (db.users[id]) return msg("Bu kullanıcı adı zaten var.");
       const turEl = document.querySelector("#authForm input[name=tur]:checked");
@@ -2646,12 +2860,46 @@ function basla() {
   bildirimRozetiGuncelle();
 }
 
-function cikis() {
+async function cikis(mesaj) {
+  const bulutId = bulutHesabiMi(db.aktif) ? db.aktif : null;
+  if (bulutId && S) {
+    // Önce bekleyen değişiklikleri buluta gönder; oturum kapandıktan sonra gönderilemezler
+    dbYaz();
+    bulutKaydetHemen();
+    if (bulutHazir() && !mesaj) {
+      const gitti = await window.AYVEX_BULUT.bekleyenleriGonder();
+      if (!gitti && !confirm("Bazı değişiklikler henüz buluta gönderilemedi (internet bağlantısı olmayabilir).\n\nYine de çıkılsın mı? Gönderilmemiş değişiklikler kaybolabilir.")) return;
+    }
+  }
   document.body.removeAttribute("data-logged-in");
   clearTimeout(kaydetZamani);
-  db.aktif = null; dbYaz(); S = null;
+  clearTimeout(bulutZamani);
   if (pomo.interval) clearInterval(pomo.interval);
+  S = null;
+  if (bulutId) {
+    // Bulut hesabının bu cihazdaki kopyasını sil (veriler bulutta duruyor)
+    delete db.users[bulutId];
+    try { if (bulutHazir()) await window.AYVEX_BULUT.cikisYap(); } catch (e) {}
+  }
+  db.aktif = null; dbYaz();
+  if (mesaj) { try { sessionStorage.setItem("ayvex-giris-mesaji", mesaj); } catch (e) {} }
   location.reload();
+}
+
+async function bulutHesabiSil() {
+  const id = db.aktif;
+  if (!bulutHazir()) { alert("Bulut bağlantısı yok. İnternet bağlantını kontrol edip tekrar dene."); return; }
+  try {
+    clearTimeout(bulutZamani); bulutZamani = null;
+    S = null;
+    await window.AYVEX_BULUT.verimiSil(bulutUid(id));
+    delete db.users[id];
+    db.aktif = null; dbYaz();
+    location.reload();
+  } catch (e) {
+    alert("Bulut verilerin silinemedi: " + (e.message || e));
+    location.reload();
+  }
 }
 
 // Favicon: logo dosyasındaki işareti (A + takvim) kare olarak kırpıp sekme simgesi yap
@@ -2672,13 +2920,17 @@ function cikis() {
 try {
   girisModu("student");
   authCiz();
+  try {
+    const m = sessionStorage.getItem("ayvex-giris-mesaji");
+    if (m && $("authMsg")) { $("authMsg").textContent = m; sessionStorage.removeItem("ayvex-giris-mesaji"); }
+  } catch (e) {}
   if (db.aktif && db.users[db.aktif]) {
     basla();
   } else {
     if ($("auth")) $("auth").hidden = false;
     document.body.removeAttribute("data-logged-in");
   }
-  console.log("[Planla] başlatıldı");
+  console.log("[AYVEX] başlatıldı");
 } catch (err) {
-  console.error("[Planla] başlatma hatası:", err);
+  console.error("[AYVEX] başlatma hatası:", err);
 }
