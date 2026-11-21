@@ -233,6 +233,7 @@ function uzakVeriyiUygula(veriMetni) {
   sonBulutVerisi = veriMetni;
   h.data = v; h.tur = v.mode;
   S = v;
+  pomoAyarlaraGoreSifirla();
   modUygula();
   goView(aktifView);
   ciz();
@@ -383,10 +384,32 @@ const SILME_ADI = {
 };
 let geriAlZamani = null;
 let geriAlVerisi = null;
-function geriAlGoster(mesaj, onceki, kayit) {
+// Silinecek kaydın ve bağlantılarının kopyası. "Geri al" sadece bunu geri koyar; böylece
+// silmeden sonra yapılan diğer değişiklikler kaybolmaz (eskiden tüm veri geri sarılıyordu).
+function silmeYedegi(list, id) {
+  const kopya = x => JSON.parse(JSON.stringify(x));
+  const yedek = { list, id, pomoBind: S.pomo && S.pomo.bind && S.pomo.bind.id === id ? kopya(S.pomo.bind) : null };
+  if (list === "events") {
+    for (const gun in S.events) {
+      const i = S.events[gun].findIndex(e => e.id === id);
+      if (i >= 0) return { ...yedek, gun, index: i, kayit: kopya(S.events[gun][i]) };
+    }
+    return null;
+  }
+  const i = (S[list] || []).findIndex(e => e.id === id);
+  if (i < 0) return null;
+  yedek.index = i;
+  yedek.kayit = kopya(S[list][i]);
+  if (list === "projeler") {
+    yedek.baglar = {};
+    ["tasks", "sprintIsleri", "toplantilar"].forEach(l => { yedek.baglar[l] = (S[l] || []).filter(x => x.proje === id).map(x => x.id); });
+  }
+  return yedek;
+}
+function geriAlGoster(mesaj, yedek, kayit) {
   const t = $("toast");
-  if (!t) return;
-  geriAlVerisi = { onceki, hesap: db.aktif };
+  if (!t || !yedek) return;
+  geriAlVerisi = { yedek, hesap: db.aktif };
   const ad = kayit && (kayit.t || kayit.baslik || kayit.ad || kayit.n);
   $("toastMetin").textContent = ad ? `${mesaj}: ${String(ad).slice(0, 40)}` : mesaj;
   t.hidden = false;
@@ -402,9 +425,19 @@ function geriAl() {
   const g = geriAlVerisi;
   geriAlKapat();
   if (!g || !S || g.hesap !== db.aktif) return;
-  const v = JSON.parse(g.onceki);
-  db.users[db.aktif].data = v;
-  S = v;
+  const y = g.yedek;
+  const yerine = (dizi, kayit, index) => {
+    if (dizi.some(x => x.id === kayit.id)) return; // zaten geri gelmiş
+    dizi.splice(Math.min(index, dizi.length), 0, kayit);
+  };
+  if (y.list === "events") {
+    yerine(S.events[y.gun] = S.events[y.gun] || [], y.kayit, y.index);
+  } else {
+    yerine(S[y.list] = S[y.list] || [], y.kayit, y.index);
+    // Silinen projeye bağlı kayıtların bağlantısını geri kur (o arada silinmemişlerse)
+    if (y.baglar) Object.entries(y.baglar).forEach(([l, idler]) => (S[l] || []).forEach(x => { if (idler.includes(x.id) && !x.proje) x.proje = y.id; }));
+  }
+  if (y.pomoBind && S.pomo && !S.pomo.bind) S.pomo.bind = y.pomoBind;
   ciz();
 }
 document.addEventListener("click", e => { if (e.target.closest("#toastGeriAl")) { e.preventDefault(); geriAl(); } });
@@ -716,6 +749,13 @@ function kisayolCiz() {
 let pomo = { mod: "focus", kalan: 25*60, toplam: 25*60, calisiyor: false, interval: null, tur: 0 };
 
 function pomoAyarlari() { return (S && S.pomo) ? S.pomo : POMO_DEFAULTS; }
+// Veri dışarıdan değiştiğinde (yedekten geri yükleme, başka cihazdan senkron) çalışmayan
+// pomodoro sayacını yeni ayarlardaki süreye getir (eskiden eski süreyle devam ediyordu)
+function pomoAyarlaraGoreSifirla() {
+  if (pomo.calisiyor) return;
+  pomo.toplam = pomoSure(pomo.mod);
+  pomo.kalan = pomo.toplam;
+}
 function pomoAyarFormDoldur() {
   const form = $("pomodoroAyarDlg") && $("pomodoroAyarDlg").querySelector("form");
   if (!form) return;
@@ -950,7 +990,8 @@ function haftalikGridCiz() {
   const dersler = S.dersler || [];
   if ($("statDersSayi")) $("statDersSayi").textContent = dersler.length;
   if ($("statDersBugun")) $("statDersBugun").textContent = bugunDersler().length;
-  if ($("statDersHafta")) $("statDersHafta").textContent = dersler.filter(d => +d.gun >= 1 && +d.gun <= 5).length;
+  // "Bu hafta": haftanın 7 günündeki tüm ders saatleri (eskiden hafta sonu sayılmıyordu)
+  if ($("statDersHafta")) $("statDersHafta").textContent = dersler.filter(d => +d.gun >= 0 && +d.gun <= 6).length;
   const cerceve = grid.closest(".haftalik-grid-wrap");
   if (!dersler.length) {
     grid.innerHTML = "";
@@ -1005,9 +1046,13 @@ function haftalikGridCiz() {
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
   if (!el || !S) return;
-  const gunSirasi = [1, 2, 3, 4, 5];
+  // Hafta içi her zaman; Cumartesi/Pazar sadece o güne ders varsa gösterilir.
+  // Arama yapılıyorsa sadece eşleşen dersler yerleştirilir.
+  const tumDersler = S.dersler || [];
+  const gunSirasi = [1, 2, 3, 4, 5, 6, 0].filter(g => g >= 1 && g <= 5 || tumDersler.some(d => +d.gun === g));
+  const gorunen = tumDersler.filter(d => eslesir(d.ad) || eslesir(d.kod));
   const miniSaatler = [9, 11, 13, 15, 17];
-  el.style.gridTemplateColumns = "repeat(5, minmax(0, 1fr))";
+  el.style.gridTemplateColumns = `repeat(${gunSirasi.length}, minmax(0, 1fr))`;
   el.style.gridAutoRows = "32px";
   let html = "";
   gunSirasi.forEach(g => {
@@ -1020,7 +1065,7 @@ function miniDersGridCiz() {
   const dilim = d => Math.min(miniSaatler.length - 1, Math.max(0, Math.floor((saatDk(d.bas) / 60 - 9) / 2)));
   miniSaatler.forEach((saat, satir) => {
     gunSirasi.forEach(gunNo => {
-      const hucre = (S.dersler || []).filter(d => +d.gun === gunNo && dilim(d) === satir).sort(dersSirala);
+      const hucre = gorunen.filter(d => +d.gun === gunNo && dilim(d) === satir).sort(dersSirala);
       const ders = hucre[0];
       if (ders) {
         const ek = hucre.length > 1 ? ` +${hucre.length - 1}` : "";
@@ -1145,6 +1190,7 @@ function yksGrafikCiz() {
   }).join("");
 }
 
+const YKS_ALAN = { sayisal: "Sayısal", ea: "Eşit Ağırlık", sozel: "Sözel", dil: "Dil" };
 function yksListeCiz() {
   const el = $("yksListe");
   if (!el || !S) return;
@@ -1163,7 +1209,7 @@ function yksListeCiz() {
       </div>
       <div class="yks-item-body">
         <div class="yks-item-ad">${esc(d.ad)}</div>
-        <div class="yks-item-meta">${esc(d.alan || "")}</div>
+        <div class="yks-item-meta">${esc(YKS_ALAN[d.alan] || d.alan || "")}</div>
         <div class="yks-item-nets">
           ${d.tyt ? `<span class="yks-net-badge tyt">TYT ${d.tyt}</span>` : ""}
           ${d.ayt ? `<span class="yks-net-badge ayt">AYT ${d.ayt}</span>` : ""}
@@ -1984,9 +2030,16 @@ function hedeflerCiz() {
   // "Haftalık" hedefler her Pazartesi sıfırlanır; geçen haftanın sonucu ayrıca gösterilir.
   // Hafta bilgisi olmayan eski hedefler bu haftaya atanır (ilerlemeleri silinmez).
   const buHafta = haftaBasiKey();
+  const gecenHafta = (() => { const d = tarihOku(buHafta); d.setDate(d.getDate() - 7); return tarihKey(d); })();
   liste.forEach(h => {
     if (!h.hafta) h.hafta = buHafta;
-    else if (h.hafta !== buHafta) { h.gecen = h.mevcut; h.mevcut = 0; h.hafta = buHafta; }
+    else if (h.hafta !== buHafta) {
+      // Hedef en son geçen hafta kullanıldıysa o sonucu sakla; daha eskiyse geçen hafta 0'dır
+      // (eskiden haftalarca dokunulmamış hedefte 5 hafta önceki sonuç "geçen hafta" görünüyordu)
+      h.gecen = h.hafta === gecenHafta ? h.mevcut : 0;
+      h.mevcut = 0;
+      h.hafta = buHafta;
+    }
   });
   el.innerHTML = liste.map(h => {
     const yuzde = Math.min(100, Math.round((h.mevcut / h.hedef) * 100));
@@ -2676,11 +2729,10 @@ document.addEventListener("click", e => {
   }
   if (act === "big") sel = b.dataset.date;
   if (act === "del") {
-    // Silmeden önce verinin anlık görüntüsünü al; "Geri al" ile aynen geri yüklenir
-    const onceki = JSON.stringify(S);
-    const kayit = list === "events" ? bul("events", id) : bul(list, id);
+    // Silmeden önce kaydın kopyasını al; "Geri al" sadece bu kaydı geri koyar
+    const yedek = silmeYedegi(list, id);
     sil(list, id);
-    geriAlGoster(SILME_ADI[list] ? `${SILME_ADI[list]} silindi` : "Silindi", onceki, kayit);
+    geriAlGoster(SILME_ADI[list] ? `${SILME_ADI[list]} silindi` : "Silindi", yedek, yedek && yedek.kayit);
   }
   if (act === "apply") { const j = bul("jobs", id); if (j) j.st = "Beklemede"; }
   ciz();
@@ -2760,6 +2812,7 @@ if ($("yedekDosya")) $("yedekDosya").onchange = async e => {
   try {
     h.data = v; h.tur = v.mode;
     S = v;
+    pomoAyarlaraGoreSifirla();
     modUygula();
     goView("home");
     ciz();
