@@ -1001,6 +1001,10 @@
       <form id="authForm">
         <input id="aUser" class="name-in" placeholder="Kullanıcı adı" autocomplete="username" aria-label="Kullanıcı adı" required>
         <input id="aPass" class="name-in" type="password" placeholder="Şifre (en az 4 karakter)" autocomplete="current-password" aria-label="Şifre" required>
+        <div id="regOnly" class="type-pick" role="radiogroup" aria-label="Hesap türü" hidden>
+          <label><input type="radio" name="tur" value="student" checked><span><b>Öğrenci</b><small>Dersler, sınavlar, staj</small></span></label>
+          <label><input type="radio" name="tur" value="work"><span><b>Çalışan</b><small>Projeler, toplantılar</small></span></label>
+        </div>
         <p class="warn" id="authMsg" role="alert"></p>
         <button type="submit" class="close" id="authBtn">Giriş yap</button>
       </form>

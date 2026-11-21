@@ -20,7 +20,20 @@ const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const uid = () => Math.random().toString(36).slice(2, 9);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const gunEtiket = k => { const [y, m, d] = k.split("-"); return `${+d} ${aylar[+m - 1]} ${y}`; };
-const saatDk = s => { const [h, m] = (s || "00:00").split(":"); return +h * 60 + +m; };
+const saatDk = s => { const [h, m] = (s || "00:00").split(":"); return (+h || 0) * 60 + (+m || 0); };
+// "YYYY-MM-DD" metnini YEREL gece yarısı olarak okur. (new Date("2026-01-05") UTC olarak okunur
+// ve bazı saat dilimlerinde bir gün kaymaya yol açar.)
+const tarihOku = s => {
+  const [y, m, d] = String(s || "").split("-").map(Number);
+  return (y && m && d) ? new Date(y, m - 1, d) : new Date(NaN);
+};
+const GUN_MS = 864e5;
+// Bugünden hedef tarihe kaç gün kaldığı (negatif = geçmiş). Geçersiz tarihte NaN döner.
+const gunFarki = s => {
+  const b = new Date(); b.setHours(0, 0, 0, 0);
+  return Math.round((tarihOku(s) - b) / GUN_MS);
+};
+const tarihKey = dt => key(dt.getFullYear(), dt.getMonth(), dt.getDate());
 
 const now = new Date();
 const todayKey = key(now.getFullYear(), now.getMonth(), now.getDate());
@@ -65,12 +78,30 @@ function yeniVeri(mod, name) {
     sinavlar: [],
     odevler: [],
     yksDenemeleri: [],
+    basvurular: [],
+    kurslar: [],
+    kariyerHedefler: [],
     pomo: { ...POMO_DEFAULTS, stats: {}, bind: null },
   };
 }
 const DB_KEY = "planla-v3";
-const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler", "planItems", "toplantilar", "sinavlar", "odevler", "yksDenemeleri"];
+const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler", "planItems", "toplantilar", "sinavlar", "odevler", "yksDenemeleri", "basvurular", "kurslar", "kariyerHedefler"];
 const gecerli = v => v && MODLAR[v.mode] && typeof v.name === "string" && v.events && typeof v.events === "object" && DIZI.every(k => Array.isArray(v[k]));
+// Eski sürümlerden kalan veride eksik alanları tamamlar. Doğrulamadan ÖNCE çalışmalı;
+// aksi halde yeni eklenen bir dizi alanı yüzünden eski kullanıcının tüm verisi silinir.
+function veriOnar(v, tur, ad) {
+  if (!v || typeof v !== "object") return null;
+  if (!MODLAR[v.mode]) v.mode = MODLAR[tur] ? tur : "student";
+  if (typeof v.name !== "string" || !v.name) v.name = ad || "Öğrenci";
+  if (!v.events || typeof v.events !== "object" || Array.isArray(v.events)) v.events = {};
+  DIZI.forEach(k => { if (!Array.isArray(v[k])) v[k] = []; });
+  if (typeof v.avatar !== "number") v.avatar = 0;
+  if (!v.taskFilter) v.taskFilter = "all";
+  if (!v.pomo || typeof v.pomo !== "object") v.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
+  if (!v.pomo.stats || typeof v.pomo.stats !== "object") v.pomo.stats = {};
+  v.tasks.forEach(t => { if (typeof t.doing !== "boolean") t.doing = false; });
+  return v;
+}
 function dbOku() {
   try {
     const v = JSON.parse(localStorage.getItem(DB_KEY));
@@ -150,6 +181,8 @@ function mobilMenuKapat() {
 
 // ============ GÖRÜNÜM ============
 function goView(v) {
+  // Var olmayan bir sayfaya gidilirse tüm görünümler gizlenip ekran boş kalıyordu.
+  if (!$("v-" + v)) v = "home";
   aktifView = v;
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("on", el.id === "v-" + v));
   document.querySelectorAll(".side-nav [data-view]").forEach(a => a.classList.toggle("active", a.dataset.view === v));
@@ -223,11 +256,7 @@ function karsilamaMetni() {
 function bugunRozet() {
   if (!S) return { emoji: "✨", baslik: "Güzel Bir Gün", desc: "Bugün güzel şeyler yapabilirsin.", stil: "rozet-standart" };
   const saat = new Date().getHours();
-  const bugunGorev = (S.tasks || []).filter(t => {
-    if (!t.done || !t.zaman) return false;
-    const z = new Date(t.zaman);
-    return z.toDateString() === new Date().toDateString();
-  }).length;
+  const bugunGorev = (S.tasks || []).filter(t => t.done && gorevBitisGunu(t) === todayKey).length;
   const bugunPomo = (S.pomo && S.pomo.stats && S.pomo.stats[todayKey]) ? S.pomo.stats[todayKey].sayi : 0;
   const bugunDers = bugunDersler().length;
   const bugunPlan = (S.planItems || []).filter(p => +p.gun === bugunGunNo).length;
@@ -284,10 +313,8 @@ function otomatikBildirimler() {
       bildirimEkle(gun === todayKey ? "warn" : "info", `${zamanMetni}: ${ev.t}`, `${ev.time} · ${ev.type}`, "ev::" + ev.id + "::" + gun);
     });
   });
-  const bugun = new Date();
   (S.deadlines || []).forEach(d => {
-    const hedef = new Date(d.d);
-    const fark = Math.ceil((hedef - bugun) / (1000 * 60 * 60 * 24));
+    const fark = gunFarki(d.d);
     if (fark >= 0 && fark <= 3) {
       bildirimEkle(fark === 0 ? "warn" : "info", `Teslim: ${d.t}`, fark === 0 ? "Bugün teslim!" : `${fark} gün kaldı (${gunEtiket(d.d)})`, "dl::" + d.id + "::" + fark);
     }
@@ -386,7 +413,7 @@ function kisayolCiz() {
     ];
   } else {
     items = [
-      { view: "plan",  ikon: "#i-bar-chart",    label: "İş Planı" },
+      { view: "ca",    ikon: "#i-target",       label: "Hedefler" },
       { view: "cal",   ikon: "#i-calendar",     label: "Takvim" },
       { view: "tasks", ikon: "#i-check-circle", label: "Görevler" },
       { view: "ac",    ikon: "#i-briefcase",    label: "Projeler" },
@@ -451,20 +478,30 @@ function pomoKaydet(tamamlananMod) {
   kaydet();
 }
 function cevresiHesapla(cevre, oran) { return cevre * (1 - oran); }
+const SAYFA_BASLIGI = document.title;
+const POMO_CEVRE = 2 * Math.PI * 88;
+// Saniyede bir çalışan hafif güncelleme: sadece süre, halka ve sekme başlığı.
+// (Eskiden her saniye tüm kart, düğmeler ve istatistikler yeniden çiziliyordu.)
+function pomoTick() {
+  const timeEl = $("pomoTime");
+  const sure = `${pad(Math.floor(pomo.kalan / 60))}:${pad(pomo.kalan % 60)}`;
+  if (timeEl) timeEl.textContent = sure;
+  const ring = $("pomoRingFg");
+  if (ring) {
+    const oran = pomo.toplam > 0 ? (pomo.kalan / pomo.toplam) : 1;
+    ring.style.strokeDashoffset = cevresiHesapla(POMO_CEVRE, oran);
+  }
+  document.title = pomo.calisiyor ? `${sure} · ${pomoModEtiket(pomo.mod)} — Planla` : SAYFA_BASLIGI;
+}
 function pomoRender() {
   const card = $("pomodoroCard"); const timeEl = $("pomoTime");
   const labelEl = $("pomoModeLabel"); const ring = $("pomoRingFg");
   if (!card || !timeEl) return;
   card.classList.remove("mode-focus", "mode-short", "mode-long");
   card.classList.add("mode-" + pomo.mod);
-  timeEl.textContent = `${pad(Math.floor(pomo.kalan / 60))}:${pad(pomo.kalan % 60)}`;
   if (labelEl) labelEl.textContent = pomoModEtiket(pomo.mod);
-  if (ring) {
-    const cevre = 2 * Math.PI * 88;
-    ring.style.strokeDasharray = cevre;
-    const oran = pomo.toplam > 0 ? (pomo.kalan / pomo.toplam) : 1;
-    ring.style.strokeDashoffset = cevresiHesapla(cevre, oran);
-  }
+  if (ring) ring.style.strokeDasharray = POMO_CEVRE;
+  pomoTick();
   const startBtn = $("pomoStart");
   if (startBtn) {
     startBtn.innerHTML = pomo.calisiyor
@@ -485,12 +522,15 @@ function pomoModDegistir(mod) {
 function pomoBaslat() {
   if (pomo.calisiyor) return;
   pomo.calisiyor = true;
+  // Bitiş anını sakla; kalan süre her tikte saatten hesaplanır. Tarayıcı arka plandaki
+  // sekmelerde setInterval'i yavaşlattığı için eski "her saniye -1" yöntemi geri kalıyordu.
+  pomo.bitis = Date.now() + pomo.kalan * 1000;
   pomoRender();
   pomo.interval = setInterval(() => {
-    pomo.kalan -= 1;
-    if (pomo.kalan <= 0) { pomoBitti(); return; }
-    pomoRender();
-  }, 1000);
+    pomo.kalan = Math.max(0, Math.round((pomo.bitis - Date.now()) / 1000));
+    if (pomo.kalan <= 0) { pomoBitti(true); return; }
+    pomoTick();
+  }, 250);
 }
 function pomoDurdur() {
   pomo.calisiyor = false;
@@ -499,9 +539,12 @@ function pomoDurdur() {
   pomoRender();
 }
 function pomoSifirla() { pomoDurdur(); pomo.kalan = pomo.toplam; pomoRender(); }
+let sesCtx = null; // Tek bir AudioContext kullan; her seferinde yenisini açmak kaynak sızdırıyordu
 function pomoSesCal() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!sesCtx) sesCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = sesCtx;
+    if (ctx.state === "suspended") ctx.resume();
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.connect(g); g.connect(ctx.destination);
     o.type = "sine"; o.frequency.value = 880;
@@ -518,13 +561,14 @@ function pomoSesCal() {
     }, 250);
   } catch (e) {}
 }
-function pomoBitti() {
+// tamamlandi=false ise kullanıcı "Atla"ya basmıştır: tur istatistiğe sayılmaz, ses çalmaz.
+function pomoBitti(tamamlandi) {
   if (pomo.interval) clearInterval(pomo.interval);
   pomo.interval = null;
   pomo.calisiyor = false;
-  if (pomoAyarlari().sound === "on") pomoSesCal();
-  if (pomo.mod === "focus") pomoKaydet("focus");
   const a = pomoAyarlari();
+  if (tamamlandi && a.sound === "on") pomoSesCal();
+  if (tamamlandi && pomo.mod === "focus") pomoKaydet("focus");
   if (pomo.mod === "focus") {
     const turSayi = +a.cycle || 4;
     if (pomo.tur > 0 && pomo.tur % turSayi === 0) pomoModDegistir("long");
@@ -532,8 +576,8 @@ function pomoBitti() {
   } else {
     pomoModDegistir("focus");
   }
-  if (a.auto === "on") setTimeout(() => pomoBaslat(), 600);
-  document.title = "Planla — Yapay Zeka Destekli Planlama";
+  if (tamamlandi && a.auto === "on") setTimeout(() => pomoBaslat(), 600);
+  document.title = SAYFA_BASLIGI;
 }
 function pomoBindRender() {
   const btn = document.querySelector(".pomo-bind-btn");
@@ -656,22 +700,15 @@ function miniDersGridCiz() {
 
 // ================= AKADEMİK =================
 function sinavRenkSinif(tarih) {
-  const bugun = new Date();
-  bugun.setHours(0,0,0,0);
-  const hedef = new Date(tarih);
-  hedef.setHours(0,0,0,0);
-  const fark = Math.round((hedef - bugun) / (1000 * 60 * 60 * 24));
-  if (fark < 0) return "sinav-uzak";
+  const fark = gunFarki(tarih);
+  if (!(fark >= 0)) return "sinav-uzak";
   if (fark <= 3) return "sinav-acil";
   if (fark <= 7) return "sinav-yakin";
   return "sinav-uzak";
 }
 function sinavGeriSayim(tarih) {
-  const bugun = new Date();
-  bugun.setHours(0,0,0,0);
-  const hedef = new Date(tarih);
-  hedef.setHours(0,0,0,0);
-  const fark = Math.round((hedef - bugun) / (1000 * 60 * 60 * 24));
+  const fark = gunFarki(tarih);
+  if (isNaN(fark)) return "";
   if (fark < 0) return "Geçti";
   if (fark === 0) return "Bugün!";
   if (fark === 1) return "Yarın";
@@ -681,10 +718,8 @@ function sinavGeriSayim(tarih) {
 function sinavlarCiz() {
   const el = $("sinavList");
   if (!el || !S) return;
-  const simdi = new Date();
-  simdi.setHours(0,0,0,0);
   const sinavlar = (S.sinavlar || [])
-    .filter(s => new Date(s.tarih) >= simdi)
+    .filter(s => s.tarih >= todayKey)
     .sort((a, b) => a.tarih.localeCompare(b.tarih));
   if (!sinavlar.length) {
     el.innerHTML = `<li class="sinav-empty">Yaklaşan sınav yok. + butonuyla ekle.</li>`;
@@ -825,14 +860,124 @@ function acOzetCiz() {
   if (ortSubEl) ortSubEl.textContent = courses.length ? `${courses.length} ders üzerinden` : "Henüz not girilmedi";
 
   if ($("acDersSayi")) $("acDersSayi").textContent = courses.length;
-  const simdi = new Date();
-  simdi.setHours(0,0,0,0);
   if ($("acSınavSayi")) {
-    $("acSınavSayi").textContent = (S.sinavlar || []).filter(s => new Date(s.tarih) >= simdi).length;
+    $("acSınavSayi").textContent = (S.sinavlar || []).filter(s => s.tarih >= todayKey).length;
   }
   if ($("acOdevSayi")) {
     $("acOdevSayi").textContent = (S.odevler || []).filter(o => !o.done).length;
   }
+}
+
+// ================= KARİYER =================
+const BASVURU_TUR = { staj: "Staj", ilkis: "İlk İş", parttime: "Yarı Zamanlı", gonullu: "Gönüllü" };
+const BASVURU_DURUM = { beklemede: "Beklemede", mulakat: "Mülakat", kabul: "Kabul", red: "Red" };
+const KURS_PLATFORM = { udemy: "Udemy", coursera: "Coursera", btk: "BTK Akademi", youtube: "YouTube", okul: "Okul", diger: "Diğer" };
+const KH_KATEGORI = { beceri: "Beceri", basvuru: "Başvuru", network: "Network", egitim: "Eğitim", diger: "Diğer" };
+// Kullanıcının girdiği linki yalnızca http(s) ise kabul et ("javascript:" gibi şemaları engeller).
+const guvenliLink = u => {
+  const s = String(u || "").trim();
+  if (!s) return "";
+  const tam = /^https?:\/\//i.test(s) ? s : "https://" + s;
+  try { const x = new URL(tam); return /^https?:$/.test(x.protocol) ? x.href : ""; } catch (e) { return ""; }
+};
+
+function kariyerCiz() {
+  if (!S) return;
+  const bv = S.basvurular, kr = S.kurslar, kh = S.kariyerHedefler;
+
+  const sayi = d => bv.filter(b => b.durum === d).length;
+  if ($("caStat1")) $("caStat1").textContent = bv.filter(b => b.tur === "staj").length;
+  if ($("caStat2")) $("caStat2").textContent = sayi("mulakat");
+  if ($("caStat3")) $("caStat3").textContent = sayi("kabul");
+  if ($("caStat4")) $("caStat4").textContent = S.skills.length;
+  if ($("caHeroVal")) $("caHeroVal").textContent = bv.length;
+  if ($("caHeroSub")) {
+    const tamamKurs = kr.filter(k => +k.yuzde >= 100).length;
+    $("caHeroSub").textContent = bv.length || kr.length
+      ? `${bv.length} başvuru · ${sayi("beklemede")} beklemede · ${tamamKurs}/${kr.length} kurs tamamlandı`
+      : "Henüz kayıt yok";
+  }
+
+  const bl = $("basvuruList");
+  if (bl) {
+    const liste = bv.slice().sort((a, b) => (b.tarih || "").localeCompare(a.tarih || ""));
+    bl.innerHTML = liste.length ? liste.map(b => {
+      const durum = BASVURU_DURUM[b.durum] ? b.durum : "beklemede";
+      const kalan = b.sontarih ? gunFarki(b.sontarih) : NaN;
+      return `<li class="basvuru-item durum-${durum}" data-act="basvuru-edit" data-id="${b.id}" title="Düzenlemek için tıkla">
+        <div class="basvuru-body">
+          <div class="basvuru-sirket">${esc(b.sirket)}</div>
+          <div class="basvuru-pozisyon">${esc(b.pozisyon)}</div>
+          <div class="basvuru-meta">
+            <span class="basvuru-tur">${BASVURU_TUR[b.tur] || "Diğer"}</span>
+            ${b.tarih ? `<span><svg width="11" height="11"><use href="#i-calendar"/></svg> ${gunEtiket(b.tarih)}</span>` : ""}
+            ${kalan >= 0 && durum === "beklemede" ? `<span><svg width="11" height="11"><use href="#i-clock"/></svg> Son: ${kalan === 0 ? "bugün" : kalan + " gün"}</span>` : ""}
+          </div>
+        </div>
+        <span class="basvuru-durum durum-${durum}">${BASVURU_DURUM[durum]}</span>
+      </li>`;
+    }).join("") : `<li class="ca-empty">Henüz başvuru yok. + butonuyla ekle.</li>`;
+  }
+
+  const kl = $("kursList");
+  if (kl) {
+    kl.innerHTML = kr.length ? kr.map(k => {
+      const y = Math.min(100, Math.max(0, +k.yuzde || 0));
+      const link = guvenliLink(k.link);
+      return `<li class="kurs-item" data-act="kurs-edit" data-id="${k.id}" title="Düzenlemek için tıkla">
+        <div class="kurs-head"><span class="kurs-ad">${esc(k.ad)}</span><span class="kurs-yuzde">%${y}</span></div>
+        <div class="kurs-bar"><span style="width:${y}%"></span></div>
+        <div class="kurs-meta">
+          <span class="kurs-platform">${KURS_PLATFORM[k.platform] || "Diğer"}</span>
+          ${link ? `<a class="kurs-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer" data-stop>Kursa git →</a>` : ""}
+        </div>
+      </li>`;
+    }).join("") : `<li class="ca-empty">Henüz kurs yok. + butonuyla ekle.</li>`;
+  }
+
+  const hl = $("kariyerHedefList");
+  if (hl) {
+    const liste = kh.slice().sort((a, b) => (a.done === b.done ? (a.tarih || "9").localeCompare(b.tarih || "9") : a.done ? 1 : -1));
+    hl.innerHTML = liste.length ? liste.map(h => `
+      <li class="kh-item ${h.done ? "done" : ""}" data-act="kh-edit" data-id="${h.id}" title="Düzenlemek için tıkla">
+        <input type="checkbox" class="kh-check" data-act="kh-toggle" data-id="${h.id}" ${h.done ? "checked" : ""} aria-label="Tamamlandı">
+        <div class="kh-body">
+          <div class="kh-baslik">${esc(h.baslik)}</div>
+          <div class="kh-meta">
+            <span class="kh-kategori">${KH_KATEGORI[h.kategori] || "Diğer"}</span>
+            ${h.tarih ? `<span>${gunEtiket(h.tarih)}${!h.done ? " · " + sinavGeriSayim(h.tarih) : ""}</span>` : ""}
+          </div>
+        </div>
+        <button type="button" class="kh-del" data-act="del" data-list="kariyerHedefler" data-id="${h.id}" aria-label="Sil"><svg width="14" height="14"><use href="#i-trash"/></svg></button>
+      </li>`).join("") : `<li class="ca-empty">Henüz kariyer hedefi yok. + butonuyla ekle.</li>`;
+  }
+}
+
+// Kariyer düzenleme diyaloglarının tanımı: liste adı, alanlar ve başlıklar
+const KARIYER_DLG = {
+  basvuru:  { dlg: "dlgBasvuru",      list: "basvurular",      sil: "silBasvuru",      baslik: "dlgBasvuruTitle",      ekle: "Başvuru Ekle", duzenle: "Başvuruyu Düzenle",
+              alanlar: ["sirket", "pozisyon", "tur", "tarih", "durum", "sontarih", "link", "notlar"] },
+  kurs:     { dlg: "dlgKurs",         list: "kurslar",         sil: "silKurs",         baslik: "dlgKursTitle",         ekle: "Kurs Ekle", duzenle: "Kursu Düzenle",
+              alanlar: ["ad", "platform", "yuzde", "link", "notlar"] },
+  kh:       { dlg: "dlgKariyerHedef", list: "kariyerHedefler", sil: "silKariyerHedef", baslik: "dlgKariyerHedefTitle", ekle: "Kariyer Hedefi Ekle", duzenle: "Kariyer Hedefini Düzenle",
+              alanlar: ["baslik", "kategori", "tarih", "notlar"] },
+};
+function kariyerDuzenleAc(tip, id) {
+  const c = KARIYER_DLG[tip];
+  const it = bul(c.list, id);
+  if (!it) return;
+  const form = $(c.dlg).querySelector("form");
+  form.reset();
+  form.querySelector("[name=id]").value = it.id;
+  c.alanlar.forEach(a => { const el = form.querySelector(`[name=${a}]`); if (el && it[a] != null) el.value = it[a]; });
+  $(c.baslik).textContent = c.duzenle;
+  $(c.sil).hidden = false;
+  guvenliAc($(c.dlg));
+}
+function kayitGuncelle(list, kayit) {
+  const idx = S[list].findIndex(x => x.id === kayit.id);
+  if (idx >= 0) S[list][idx] = { ...S[list][idx], ...kayit };
+  else S[list].push(kayit);
 }
 
 // ================= İŞ PLANI =================
@@ -887,18 +1032,20 @@ function planPerformansCiz() {
   let haftaGorev = 0, ayGorev = 0;
   const gunSayilari = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
 
+  // Haftanın günlerini bir kez hesapla (eskiden her görev için 7 Date nesnesi oluşturuluyordu)
+  const haftaGunleri = new Map();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(bugunDt);
+    d.setDate(bugunDt.getDate() + pazartesiFark + i);
+    haftaGunleri.set(tarihKey(d), d.getDay());
+  }
+  const buAy = todayKey.slice(0, 7);
   (S.tasks || []).forEach(t => {
-    if (!t.done || !t.zaman) return;
-    const tz = new Date(t.zaman);
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(bugunDt);
-      d.setDate(bugunDt.getDate() + pazartesiFark + i);
-      if (tz.toDateString() === d.toDateString()) {
-        haftaGorev++;
-        gunSayilari[d.getDay()]++;
-      }
-    }
-    if (tz.getMonth() === bugunDt.getMonth() && tz.getFullYear() === bugunDt.getFullYear()) ayGorev++;
+    if (!t.done) return;
+    const k = gorevBitisGunu(t);
+    if (!k) return;
+    if (haftaGunleri.has(k)) { haftaGorev++; gunSayilari[haftaGunleri.get(k)]++; }
+    if (k.slice(0, 7) === buAy) ayGorev++;
   });
 
   if ($("perfHaftaGorev")) $("perfHaftaGorev").textContent = haftaGorev;
@@ -1007,13 +1154,8 @@ function isBugunCiz() {
     .filter(p => +p.gun === bugunGunNo)
     .sort((a, b) => saatDk(a.saat) - saatDk(b.saat));
 
-  const simdi = new Date(); simdi.setHours(0,0,0,0);
   const yaklasanTeslim = (S.deadlines || [])
-    .filter(d => {
-      const hedef = new Date(d.d); hedef.setHours(0,0,0,0);
-      const fark = Math.round((hedef - simdi) / (1000*60*60*24));
-      return fark >= 0 && fark <= 3;
-    })
+    .filter(d => { const fark = gunFarki(d.d); return fark >= 0 && fark <= 3; })
     .sort((a, b) => a.d.localeCompare(b.d));
 
   const bekleyenGorev = (S.tasks || []).filter(t => !t.done).length;
@@ -1056,8 +1198,7 @@ function isBugunCiz() {
   });
 
   yaklasanTeslim.forEach(d => {
-    const hedef = new Date(d.d); hedef.setHours(0,0,0,0);
-    const fark = Math.round((hedef - simdi) / (1000*60*60*24));
+    const fark = gunFarki(d.d);
     items.push({
       tip: "teslim",
       saat: fark === 0 ? "Bugün" : `${fark}g`,
@@ -1084,6 +1225,18 @@ function isBugunCiz() {
 
 // ================= GÖREVLER =================
 function gorevOncelik(p) { return ONCELIK[p] ? p : "mid"; }
+// Görevin tamamlanma durumunu değiştirir ve tamamlanma zamanını kaydeder.
+// (İstatistikler eskiden görevin OLUŞTURULMA tarihine bakıyordu.)
+function gorevTamamla(t, done) {
+  t.done = !!done;
+  t.doing = false;
+  if (t.done) t.bitis = new Date().toISOString();
+  else delete t.bitis;
+}
+const gorevBitisGunu = t => {
+  const z = t.bitis || t.zaman;
+  return z ? tarihKey(new Date(z)) : "";
+};
 
 function gorevlerCiz() {
   if (!S) return;
@@ -1231,17 +1384,18 @@ function ciz() {
   if ($("calTitle")) $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
   const cal = $("calendar");
   if (cal) {
-    cal.innerHTML = "";
-    ["P","S","Ç","P","C","C","P"].forEach(g => cal.insertAdjacentHTML("beforeend", `<span class="dow">${g}</span>`));
+    // Tek seferde yaz: her gün için ayrı insertAdjacentHTML çağrısı ~40 kez DOM'u yeniden düzenliyordu
+    let h = ["P","S","Ç","P","C","C","P"].map(g => `<span class="dow">${g}</span>`).join("");
     const bosluk = (new Date(view.y, view.m, 1).getDay() + 6) % 7;
     const gunler = new Date(view.y, view.m + 1, 0).getDate();
     const onceki = new Date(view.y, view.m, 0).getDate();
-    for (let i = bosluk - 1; i >= 0; i--) cal.insertAdjacentHTML("beforeend", `<span class="dim">${onceki - i}</span>`);
+    for (let i = bosluk - 1; i >= 0; i--) h += `<span class="dim">${onceki - i}</span>`;
     for (let g = 1; g <= gunler; g++) {
       const kk = key(view.y, view.m, g);
       const cls = ["d", kk === todayKey && "today", kk === sel && "sel", (S.events[kk] || []).length && "has"].filter(Boolean).join(" ");
-      cal.insertAdjacentHTML("beforeend", `<button type="button" class="${cls}" data-act="mini" data-date="${kk}">${g}</button>`);
+      h += `<button type="button" class="${cls}" data-act="mini" data-date="${kk}">${g}</button>`;
     }
+    cal.innerHTML = h;
   }
 
   if ($("bigTitle")) $("bigTitle").textContent = `${aylar[view.m]} ${view.y}`;
@@ -1323,6 +1477,7 @@ function ciz() {
   yksListeCiz();
   yksOzetCiz();
   acOzetCiz();
+  kariyerCiz();
   kaydet();
 }
 
@@ -1378,7 +1533,7 @@ document.addEventListener("click", e => {
     return;
   }
   if (e.target.closest("#pomoReset")) { e.preventDefault(); pomoSifirla(); return; }
-  if (e.target.closest("#pomoSkip")) { e.preventDefault(); pomoBitti(); return; }
+  if (e.target.closest("#pomoSkip")) { e.preventDefault(); pomoBitti(false); return; }
   if (e.target.closest(".pomo-bind-btn")) {
     e.preventDefault(); pomoBindAc(); guvenliAc($("dlgPomoBind")); return;
   }
@@ -1487,6 +1642,34 @@ document.addEventListener("click", e => {
       ciz();
       kaydet();
     }
+    return;
+  }
+
+  // ---- Kariyer ----
+  if (e.target.closest("a[data-stop]")) return; // kurs linki: düzenleme penceresini açmadan linke git
+  for (const tip in KARIYER_DLG) {
+    const c = KARIYER_DLG[tip];
+    if (e.target.closest("#" + c.sil)) {
+      e.preventDefault();
+      const id = $(c.dlg).querySelector("[name=id]").value;
+      if (id && bul(c.list, id) && confirm("Bu kaydı silmek istediğine emin misin?")) {
+        sil(c.list, id);
+        $(c.dlg).close();
+        ciz();
+      }
+      return;
+    }
+  }
+  const khToggle = e.target.closest("[data-act='kh-toggle']");
+  if (khToggle) {
+    const h = bul("kariyerHedefler", khToggle.dataset.id);
+    if (h) { h.done = khToggle.checked; kariyerCiz(); kaydet(); }
+    return;
+  }
+  const kariyerEdit = e.target.closest("[data-act='basvuru-edit'],[data-act='kurs-edit'],[data-act='kh-edit']");
+  if (kariyerEdit && !e.target.closest("[data-act='del']")) {
+    e.preventDefault();
+    kariyerDuzenleAc(kariyerEdit.dataset.act.replace("-edit", ""), kariyerEdit.dataset.id);
     return;
   }
 
@@ -1636,14 +1819,14 @@ document.addEventListener("click", e => {
   if (doneBtn2) {
     e.preventDefault();
     const t = bul("tasks", doneBtn2.dataset.id);
-    if (t) { t.done = true; t.doing = false; kanbanCiz(); gorevlerCiz(); kaydet(); }
+    if (t) { gorevTamamla(t, true); ciz(); }
     return;
   }
   const undoBtn = e.target.closest("[data-act='task-undo']");
   if (undoBtn) {
     e.preventDefault();
     const t = bul("tasks", undoBtn.dataset.id);
-    if (t) { t.done = false; t.doing = false; kanbanCiz(); gorevlerCiz(); kaydet(); }
+    if (t) { gorevTamamla(t, false); ciz(); }
     return;
   }
 
@@ -1708,6 +1891,15 @@ document.addEventListener("click", e => {
         if (dlgHead) dlgHead.textContent = "YKS Denemesi Ekle";
         const silBtn = $("silYks");
         if (silBtn) silBtn.hidden = true;
+      }
+      for (const tip in KARIYER_DLG) {
+        const c = KARIYER_DLG[tip];
+        if (opener.dataset.open !== c.dlg) continue;
+        form.querySelector("[name=id]").value = "";
+        $(c.baslik).textContent = c.ekle;
+        $(c.sil).hidden = true;
+        const tarihEl = form.querySelector("[name=tarih]");
+        if (tip === "basvuru" && tarihEl) tarihEl.value = todayKey;
       }
       if (opener.dataset.open === "dlgEvent") form.dataset.day = opener.dataset.day || "today";
       const selEl = form.querySelector("select[name=type]");
@@ -1818,11 +2010,7 @@ document.addEventListener("change", e => {
   if (!act) return;
   if (act === "grade") { const it = bul("courses", id); if (it) it.g = Math.min(100, Math.max(0, +e.target.value || 0)); }
   else if (act === "status") { const it = bul("jobs", id); if (it) it.st = e.target.value; }
-  else if (act === "done") { const it = bul("tasks", id); if (it) it.done = e.target.checked; }
-  else if (act === "task-toggle") {
-    const it = bul("tasks", id);
-    if (it) { it.done = e.target.checked; if (it.done) it.doing = false; gorevlerCiz(); kanbanCiz(); kaydet(); return; }
-  }
+  else if (act === "done" || act === "task-toggle") { const it = bul("tasks", id); if (it) gorevTamamla(it, e.target.checked); }
   else if (act === "odev-toggle") {
     const it = bul("odevler", id);
     if (it) { it.done = e.target.checked; odevlerCiz(); kaydet(); return; }
@@ -1854,7 +2042,7 @@ function adDegistir(e) {
 }
 document.addEventListener("dblclick", adDegistir);
 
-const AUTOCLOSE = ["dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti","dlgSinav","dlgOdev","dlgYks"];
+const AUTOCLOSE = ["dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti","dlgSinav","dlgOdev","dlgYks","dlgBasvuru","dlgKurs","dlgKariyerHedef"];
 document.addEventListener("submit", e => {
   e.preventDefault();
   if (!e.target.dataset || !e.target.dataset.form || !S) return;
@@ -1917,6 +2105,27 @@ document.addEventListener("submit", e => {
       else S.yksDenemeleri.push(deneme);
       break;
     }
+    case "basvuru":
+      kayitGuncelle("basvurular", {
+        id, sirket: v.sirket.trim(), pozisyon: v.pozisyon.trim(),
+        tur: BASVURU_TUR[v.tur] ? v.tur : "staj", durum: BASVURU_DURUM[v.durum] ? v.durum : "beklemede",
+        tarih: v.tarih || "", sontarih: v.sontarih || "", link: (v.link || "").trim(), notlar: (v.notlar || "").trim(),
+      });
+      break;
+    case "kurs":
+      kayitGuncelle("kurslar", {
+        id, ad: v.ad.trim(), platform: KURS_PLATFORM[v.platform] ? v.platform : "diger",
+        yuzde: Math.min(100, Math.max(0, Math.round(+v.yuzde || 0))), link: (v.link || "").trim(), notlar: (v.notlar || "").trim(),
+      });
+      break;
+    case "kariyer-hedef": {
+      const eski = bul("kariyerHedefler", id);
+      kayitGuncelle("kariyerHedefler", {
+        id, baslik: v.baslik.trim(), kategori: KH_KATEGORI[v.kategori] ? v.kategori : "diger",
+        tarih: v.tarih || "", notlar: (v.notlar || "").trim(), done: eski ? !!eski.done : false,
+      });
+      break;
+    }
     case "hedef":
       S.hedefler.push({ id, baslik: v.baslik.trim(), hedef: Math.max(1, +v.hedef || 1), birim: (v.birim || "kez").trim(), mevcut: 0, zaman: new Date().toISOString() });
       break;
@@ -1946,11 +2155,17 @@ document.addEventListener("submit", e => {
   ciz();
 });
 
-document.addEventListener("click", e => { if (e.target.tagName === "DIALOG") e.target.close(); });
+// Sadece gerçekten diyalogun DIŞINA (arka plana) tıklanınca kapat. Eskiden diyalog içindeki
+// boşluğa tıklamak da pencereyi kapatıp yazılanları kaybettiriyordu.
+document.addEventListener("click", e => {
+  if (e.target.tagName !== "DIALOG" || !e.clientX && !e.clientY) return;
+  const r = e.target.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) e.target.close();
+});
 
+// Gün değiştiyse "bugün" verilerini tazelemek için sayfayı yenile (çalışan pomodoro varsa bölme)
 document.addEventListener("visibilitychange", () => {
-  const d = new Date();
-  if (!document.hidden && key(d.getFullYear(), d.getMonth(), d.getDate()) !== todayKey) location.reload();
+  if (!document.hidden && tarihKey(new Date()) !== todayKey && !pomo.calisiyor) location.reload();
 });
 
 // ================= Giriş / çıkış =================
@@ -1977,7 +2192,8 @@ if ($("authForm")) {
     if (!ad || sifre.length < 4) return msg("Kullanıcı adını yaz, şifre en az 4 karakter olsun.");
     if (sekme === "reg") {
       if (db.users[id]) return msg("Bu kullanıcı adı zaten var.");
-      const tur = document.querySelector("input[name=tur]:checked").value;
+      const turEl = document.querySelector("#authForm input[name=tur]:checked");
+      const tur = turEl && MODLAR[turEl.value] ? turEl.value : "student";
       const tuz = uid() + uid();
       db.users[id] = { ad, tur, tuz, hash: await hashle(sifre, tuz), data: yeniVeri(tur, ad) };
     } else {
@@ -1992,20 +2208,8 @@ function basla() {
   document.body.setAttribute("data-logged-in", "true");
   const h = db.users[db.aktif];
   if (!h) { db.aktif = null; dbYaz(); if ($("auth")) $("auth").hidden = false; document.body.removeAttribute("data-logged-in"); return; }
+  h.data = veriOnar(h.data, h.tur, h.ad);
   if (!gecerli(h.data)) h.data = yeniVeri(h.tur, h.ad);
-  if (typeof h.data.avatar !== "number") h.data.avatar = 0;
-  if (!Array.isArray(h.data.notifications)) h.data.notifications = [];
-  if (!h.data.taskFilter) h.data.taskFilter = "all";
-  if (!Array.isArray(h.data.dersler)) h.data.dersler = [];
-  if (!Array.isArray(h.data.hedefler)) h.data.hedefler = [];
-  if (!Array.isArray(h.data.planItems)) h.data.planItems = [];
-  if (!Array.isArray(h.data.toplantilar)) h.data.toplantilar = [];
-  if (!Array.isArray(h.data.sinavlar)) h.data.sinavlar = [];
-  if (!Array.isArray(h.data.odevler)) h.data.odevler = [];
-  if (!Array.isArray(h.data.yksDenemeleri)) h.data.yksDenemeleri = [];
-  if (!h.data.pomo) h.data.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
-  if (!h.data.pomo.stats) h.data.pomo.stats = {};
-  (h.data.tasks || []).forEach(t => { if (typeof t.doing !== "boolean") t.doing = false; });
   S = h.data;
 
   pomo.mod = "focus";
