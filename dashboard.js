@@ -140,6 +140,13 @@ addEventListener("pagehide", () => { if (S) { dbYaz(); bulutKaydetHemen(); } });
 // ================= BULUT (Google hesabı) =================
 // Google ile giriş yapan hesaplar db.users içinde "g:<uid>" anahtarıyla tutulur;
 // localStorage'daki kopya önbellektir, asıl kayıt Firestore'dadır (bulut.js).
+// Yerel (kullanıcı adı + şifre) hesaplar: veriler tarayıcıda şifrelenmeden durduğu için
+// gerçek bir koruma sağlamıyor. Güvenli bir yöntemle değiştirilene kadar kapalı.
+// Kapalıyken eski yerel hesaplar silinmez: Google ile ilk girişte buluta aktarılabilir
+// ya da giriş ekranından şifreyle yedekleri indirilebilir.
+const YEREL_GIRIS_AKTIF = false;
+const girisMesaji = t => { if ($("authMsgUst")) $("authMsgUst").textContent = t; };
+
 const BULUT_ONEK = "g:";
 const bulutHesabiMi = id => typeof id === "string" && id.startsWith(BULUT_ONEK);
 const bulutUid = id => id.slice(BULUT_ONEK.length);
@@ -204,7 +211,7 @@ async function googleOturumAc(sonuc) {
   if (!sonuc || !sonuc.kullanici) return;
   const { kullanici, uzak } = sonuc;
   const id = BULUT_ONEK + kullanici.uid;
-  const msg = t => { if ($("authMsg")) $("authMsg").textContent = t; };
+  const msg = girisMesaji;
 
   let veri;
   if (uzak && typeof uzak.veri === "string") {
@@ -1987,7 +1994,7 @@ document.addEventListener("click", e => {
   const gBtn = e.target.closest("#googleGiris");
   if (gBtn) {
     e.preventDefault();
-    const msg = t => ($("authMsg").textContent = t);
+    const msg = girisMesaji;
     if (!bulutHazir()) { msg("Bulut bağlantısı yüklenemedi. İnternet bağlantını kontrol edip sayfayı yenile."); return; }
     gBtn.disabled = true; msg("");
     window.AYVEX_BULUT.girisYap()
@@ -2778,6 +2785,43 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ================= Giriş / çıkış =================
+// Yerel giriş kapalıyken: bilgi notu ve bu tarayıcıdaki eski yerel hesapların yedeğini
+// (hesabın şifresiyle doğrulayarak) indirme imkânı
+function yerelBilgiCiz(ids) {
+  const el = $("yerelBilgi");
+  if (!el) return;
+  if (YEREL_GIRIS_AKTIF || !ids.length) { el.hidden = true; el.innerHTML = ""; return; }
+  el.hidden = false;
+  el.innerHTML = `<p><b>Yerel hesaplar geçici olarak kapalı.</b> Bu tarayıcıdaki yerel hesapların silinmedi.
+      Google ile ilk girişinde birini buluta aktarabilir ya da aşağıdan şifresiyle yedeğini indirebilirsin.</p>
+    <ul class="yerel-yedek-liste">` +
+    ids.map(id => `<li>
+      <span class="yy-ad">${esc(db.users[id].ad)} <small>${db.users[id].tur === "work" ? "Çalışan" : "Öğrenci"}</small></span>
+      <form class="yy-form" data-yerel-yedek="${esc(id)}">
+        <input type="password" name="sifre" placeholder="Şifresi" autocomplete="current-password" aria-label="${esc(db.users[id].ad)} hesabının şifresi" required>
+        <button type="submit" class="chip light-chip">Yedeğini indir</button>
+      </form>
+    </li>`).join("") + `</ul><p class="warn" id="yerelYedekMsg" role="alert"></p>`;
+}
+document.addEventListener("submit", async e => {
+  const f = e.target.closest && e.target.closest("[data-yerel-yedek]");
+  if (!f) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const h = db.users[f.dataset.yerelYedek];
+  const msg = t => { if ($("yerelYedekMsg")) $("yerelYedekMsg").textContent = t; };
+  if (!h) return;
+  if (h.hash !== await hashle(f.sifre.value, h.tuz)) { msg("Şifre yanlış."); return; }
+  const icerik = { uygulama: "AYVEX", surum: 1, tarih: new Date().toISOString(), hesap: { ad: h.ad, tur: h.tur }, veri: h.data };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(icerik, null, 2)], { type: "application/json" }));
+  a.download = `ayvex-yedek-${h.ad}-${todayKey}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  f.reset();
+  msg("Yedek indirildi. Google ile giriş yaptıktan sonra Ayarlar > \"Yedekten geri yükle\" ile içeri alabilirsin.");
+}, true);
+
 // Giriş ekranının rengini ve tanıtım içeriğini moda göre ayarlar (kayıt formundaki seçimle senkron)
 function girisModu(tur) {
   if (!MODLAR[tur]) tur = "student";
@@ -2802,6 +2846,8 @@ function authCiz() {
   if ($("aPass")) $("aPass").autocomplete = sekme === "reg" ? "new-password" : "current-password";
   // Bulut hesaplarının önbellek kopyaları listede gösterilmez; onlar Google ile açılır
   const ids = Object.keys(db.users).filter(id => !bulutHesabiMi(id));
+  if ($("yerelGiris")) $("yerelGiris").hidden = !YEREL_GIRIS_AKTIF;
+  yerelBilgiCiz(ids);
   if ($("accList")) {
     $("accList").innerHTML = ids.length
       ? `<p class="lbl">Bu cihazdaki hesaplar</p><div class="acc">` +
@@ -2812,6 +2858,7 @@ function authCiz() {
 if ($("authForm")) {
   $("authForm").addEventListener("submit", async e => {
     e.preventDefault();
+    if (!YEREL_GIRIS_AKTIF) return;
     const ad = $("aUser").value.trim();
     const id = ad.toLowerCase();
     const sifre = $("aPass").value;
@@ -2922,8 +2969,14 @@ try {
   authCiz();
   try {
     const m = sessionStorage.getItem("ayvex-giris-mesaji");
-    if (m && $("authMsg")) { $("authMsg").textContent = m; sessionStorage.removeItem("ayvex-giris-mesaji"); }
+    if (m) { girisMesaji(m); sessionStorage.removeItem("ayvex-giris-mesaji"); }
   } catch (e) {}
+  // Yerel giriş kapalıyken açık kalmış bir yerel oturumu kapat
+  if (!YEREL_GIRIS_AKTIF && db.aktif && !bulutHesabiMi(db.aktif)) {
+    db.aktif = null;
+    dbYaz();
+    girisMesaji("Yerel hesaplarla giriş güvenlik nedeniyle geçici olarak kapatıldı. Lütfen Google ile devam et; verilerin silinmedi.");
+  }
   if (db.aktif && db.users[db.aktif]) {
     basla();
   } else {
