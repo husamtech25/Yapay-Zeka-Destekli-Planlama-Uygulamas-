@@ -375,6 +375,56 @@ function sil(list, id) {
   if (S.pomo && S.pomo.bind && S.pomo.bind.id === id) S.pomo.bind = null;
   if (Array.isArray(S.notifications)) S.notifications = S.notifications.filter(n => !String(n.uid || "").includes("::" + id + "::"));
 }
+// ================= SİLME → GERİ AL =================
+const SILME_ADI = {
+  tasks: "Görev", events: "Etkinlik", courses: "Kayıt", deadlines: "Teslim", jobs: "İş ilanı", skills: "Beceri",
+  hedefler: "Hedef", planItems: "Plan işi", toplantilar: "Toplantı", sprintIsleri: "Sprint işi",
+  kariyerHedefler: "Kariyer hedefi", yksDenemeleri: "Deneme", projeler: "Proje",
+};
+let geriAlZamani = null;
+let geriAlVerisi = null;
+function geriAlGoster(mesaj, onceki, kayit) {
+  const t = $("toast");
+  if (!t) return;
+  geriAlVerisi = { onceki, hesap: db.aktif };
+  const ad = kayit && (kayit.t || kayit.baslik || kayit.ad || kayit.n);
+  $("toastMetin").textContent = ad ? `${mesaj}: ${String(ad).slice(0, 40)}` : mesaj;
+  t.hidden = false;
+  clearTimeout(geriAlZamani);
+  geriAlZamani = setTimeout(geriAlKapat, 6000);
+}
+function geriAlKapat() {
+  clearTimeout(geriAlZamani);
+  geriAlVerisi = null;
+  if ($("toast")) $("toast").hidden = true;
+}
+function geriAl() {
+  const g = geriAlVerisi;
+  geriAlKapat();
+  if (!g || !S || g.hesap !== db.aktif) return;
+  const v = JSON.parse(g.onceki);
+  db.users[db.aktif].data = v;
+  S = v;
+  ciz();
+}
+document.addEventListener("click", e => { if (e.target.closest("#toastGeriAl")) { e.preventDefault(); geriAl(); } });
+
+// ================= TELEFONDA ARAMA =================
+function mobilAramaAc(acik) {
+  document.body.classList.toggle("arama-acik", acik);
+  const btn = $("mobilAraBtn");
+  if (btn) btn.setAttribute("aria-expanded", String(acik));
+  if (acik) { setTimeout(() => $("q") && $("q").focus(), 0); return; }
+  // Kapatınca aramayı temizle; gizli bir filtre listeleri boş gösterip kafa karıştırmasın
+  if ($("q") && $("q").value) { $("q").value = ""; $("q").dispatchEvent(new Event("input")); }
+}
+document.addEventListener("click", e => {
+  if (e.target.closest("#mobilAraBtn")) { e.preventDefault(); mobilAramaAc(!document.body.classList.contains("arama-acik")); }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.body.classList.contains("arama-acik") && e.target.id === "q") mobilAramaAc(false);
+});
+
 const delBtn = (list, id) =>
   `<button type="button" class="x" data-act="del" data-list="${list}" data-id="${id}" aria-label="Sil"><svg width="14" height="14"><use href="#i-x"/></svg></button>`;
 const ad = (list, id, field, text) =>
@@ -1251,6 +1301,8 @@ function kariyerCiz() {
 const DUZENLE_DLG = {
   proje:    { dlg: "dlgProje",        list: "projeler",        sil: "silProje",        baslik: "dlgProjeTitle",        ekle: "Proje Ekle", duzenle: "Projeyi Düzenle",
               alanlar: ["ad", "ekip", "durum", "oncelik", "bas", "bitis", "ilerleme", "notlar"] },
+  plan:     { dlg: "dlgPlanItem",     list: "planItems",       sil: "silPlanItem",     baslik: "dlgPlanItemTitle",     ekle: "Haftalık Plana Ekle", duzenle: "Plan İşini Düzenle",
+              alanlar: ["baslik", "gun", "saat", "kategori"] },
   toplanti: { dlg: "dlgToplanti",     list: "toplantilar",     sil: "silToplanti",     baslik: "dlgToplantiTitle",     ekle: "Toplantı Ekle", duzenle: "Toplantıyı Düzenle",
               alanlar: ["baslik", "tarih", "saat", "sure", "proje", "katilimcilar", "link", "notlar"] },
   basvuru:  { dlg: "dlgBasvuru",      list: "basvurular",      sil: "silBasvuru",      baslik: "dlgBasvuruTitle",      ekle: "Başvuru Ekle", duzenle: "Başvuruyu Düzenle",
@@ -1320,7 +1372,7 @@ function planHaftalikCiz() {
       </div>
       <ul class="plan-gun-items">` +
       gunItems.map(it => `
-        <li class="plan-item ${it.kategori || "gorev"}">
+        <li class="plan-item ${it.kategori || "gorev"}" data-act="plan-edit" data-id="${it.id}" title="Düzenlemek için tıkla">
           <span class="pi-saat">${esc(it.saat)}</span>
           <span class="pi-baslik">${esc(it.baslik)}</span>
           <span class="pi-kategori">${planKategoriEtiket(it.kategori)}</span>
@@ -1896,9 +1948,16 @@ function kanbanCiz() {
       </div>
     </li>`;
   };
-  todoEl.innerHTML = todo.length ? todo.slice(0, 5).map(t => renderItem(t, "todo")).join("") : `<li class="kanban-empty">Görev yok</li>`;
-  doingEl.innerHTML = doing.length ? doing.slice(0, 5).map(t => renderItem(t, "doing")).join("") : `<li class="kanban-empty">Devam eden yok</li>`;
-  doneEl.innerHTML = done.length ? done.slice(0, 5).map(t => renderItem(t, "done")).join("") : `<li class="kanban-empty">Tamamlanan yok</li>`;
+  // Her sütunda en fazla 5 kart; fazlası için Görevler sayfasına giden "+N daha" bağlantısı
+  const kolon = (liste, tur, bos) => {
+    if (!liste.length) return `<li class="kanban-empty">${bos}</li>`;
+    const fazla = liste.length - 5;
+    return liste.slice(0, 5).map(t => renderItem(t, tur)).join("") +
+      (fazla > 0 ? `<li class="kanban-more"><button type="button" data-view="tasks">+${fazla} daha · Tümünü gör</button></li>` : "");
+  };
+  todoEl.innerHTML = kolon(todo, "todo", "Görev yok");
+  doingEl.innerHTML = kolon(doing, "doing", "Devam eden yok");
+  doneEl.innerHTML = kolon(done, "done", "Tamamlanan yok");
 }
 
 function hedeflerCiz() {
@@ -2595,7 +2654,13 @@ document.addEventListener("click", e => {
     goView("cal");
   }
   if (act === "big") sel = b.dataset.date;
-  if (act === "del") sil(list, id);
+  if (act === "del") {
+    // Silmeden önce verinin anlık görüntüsünü al; "Geri al" ile aynen geri yüklenir
+    const onceki = JSON.stringify(S);
+    const kayit = list === "events" ? bul("events", id) : bul(list, id);
+    sil(list, id);
+    geriAlGoster(SILME_ADI[list] ? `${SILME_ADI[list]} silindi` : "Silindi", onceki, kayit);
+  }
   if (act === "apply") { const j = bul("jobs", id); if (j) j.st = "Beklemede"; }
   ciz();
 });
@@ -2618,6 +2683,8 @@ let aramaZamani;
 if ($("q")) {
   $("q").oninput = e => {
     q = aramaNorm(e.target.value.trim());
+    // Telefonda büyüteç düğmesi, aktif bir arama olduğunu renkle göstersin
+    if ($("mobilAraBtn")) $("mobilAraBtn").classList.toggle("aktif", !!q);
     clearTimeout(aramaZamani);
     aramaZamani = setTimeout(ciz, 150);
   };
@@ -2831,9 +2898,11 @@ document.addEventListener("submit", e => {
     case "hedef":
       S.hedefler.push({ id, baslik: v.baslik.trim(), hedef: Math.max(1, +v.hedef || 1), birim: (v.birim || "kez").trim(), mevcut: 0, zaman: new Date().toISOString() });
       break;
-    case "plan-item":
-      S.planItems.push({ id, baslik: v.baslik.trim(), gun: v.gun, saat: v.saat, kategori: v.kategori || "gorev", zaman: new Date().toISOString() });
+    case "plan-item": {
+      const eski = bul("planItems", id);
+      kayitGuncelle("planItems", { id, baslik: v.baslik.trim(), gun: v.gun, saat: v.saat, kategori: v.kategori || "gorev", zaman: eski ? eski.zaman : new Date().toISOString() });
       break;
+    }
     case "toplanti":
       kayitGuncelle("toplantilar", {
         id, baslik: v.baslik.trim(), tarih: v.tarih, saat: v.saat, katilimcilar: (v.katilimcilar || "").trim(),

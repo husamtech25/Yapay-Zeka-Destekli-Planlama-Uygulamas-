@@ -1367,6 +1367,30 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
 .tk-ekle{margin-top:auto;padding:4px;border-radius:8px;border:1px dashed var(--border);color:var(--ink-3);font-weight:700;opacity:0;transition:opacity var(--t-fast)}
 .tk-gun:hover .tk-ekle,.tk-ekle:focus-visible{opacity:1}
 .toplanti-item[data-act]{cursor:pointer}
+.plan-item[data-act]{cursor:pointer}
+.plan-item[data-act]:hover{background:var(--surface-2)}
+/* Silme sonrası "Geri al" bildirimi */
+/* left:50% + translate genişliği ekranın yarısıyla sınırlıyordu; left/right + auto kenar boşluğuyla ortalanıyor */
+.toast{position:fixed;left:16px;right:16px;margin:0 auto;width:max-content;bottom:24px;z-index:90;display:flex;align-items:center;gap:var(--s4);max-width:calc(100vw - 32px);padding:12px 12px 12px 18px;border-radius:var(--r-md);background:var(--navy-800);color:#fff;font-size:.88rem;box-shadow:var(--shadow-lg);animation:fadeUp .25s var(--t-slow)}
+.toast[hidden]{display:none}
+.toast span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toast-btn{flex-shrink:0;padding:7px 14px;border-radius:var(--r-sm);background:rgba(255,255,255,.14);color:#fff;font-weight:700;font-size:.82rem}
+.toast-btn:hover{background:rgba(255,255,255,.24)}
+@media(max-width:760px){.toast{bottom:calc(var(--mobile-nav-h) + 12px)}}
+
+/* Telefonda arama: üst çubuktaki büyüteçle açılan arama satırı */
+.mobil-ara-btn{display:none}
+@media(max-width:760px){
+  .mobil-ara-btn{display:grid}
+  .mobil-ara-btn.aktif{color:var(--teal);background:var(--surface-2)}
+  body.arama-acik .search-wrap{display:block;position:absolute;left:0;right:0;top:100%;max-width:none;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm)}
+  body.arama-acik .search-wrap .search-icon{left:26px}
+}
+
+/* Görev panosu: 5'ten fazla kart varsa "+N daha" bağlantısı */
+.kanban-more{list-style:none}
+.kanban-more button{width:100%;padding:8px;border-radius:var(--r-md);border:1px dashed var(--border);color:var(--ink-2);font-size:.78rem;font-weight:600}
+.kanban-more button:hover{border-color:var(--teal);color:var(--teal)}
 /* Geçmiş sınavlar soluk; uzun kullanıcı adı üst çubuğu itmesin */
 .sinav-item.sinav-gecmis{opacity:.55}
 .profile-info strong{display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

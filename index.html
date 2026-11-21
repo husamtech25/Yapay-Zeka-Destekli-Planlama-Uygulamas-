@@ -133,6 +133,9 @@
         <input type="search" id="q" placeholder="Ara... (etkinlik, ders, görev)" aria-label="Ara">
       </div>
       <div class="user">
+        <button type="button" class="icon-btn mobil-ara-btn" id="mobilAraBtn" aria-label="Ara" aria-expanded="false" aria-controls="q">
+          <svg width="20" height="20"><use href="#i-search"/></svg>
+        </button>
         <button type="button" class="icon-btn bell" id="bellBtn" aria-label="Bildirimler">
           <svg width="20" height="20"><use href="#i-bell"/></svg><i id="bell">0</i>
         </button>
@@ -1050,8 +1053,9 @@
 
   <!-- MODAL: Haftalık plan işi (İş modu) -->
   <dialog id="dlgPlanItem">
-    <div class="dlg-head"><h2>Haftalık Plana Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <div class="dlg-head"><h2 id="dlgPlanItemTitle">Haftalık Plana Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
     <form data-form="plan-item" class="dialog-form">
+      <input type="hidden" name="id" value="">
       <label class="fld">Başlık<input name="baslik" placeholder="Örn: Rapor hazırlığı" required maxlength="80"></label>
       <div class="fld-row">
         <label class="fld">Gün
@@ -1072,8 +1076,9 @@
         </select>
       </label>
       <div class="dialog-actions">
+        <button type="button" class="btn-danger" id="silPlanItem" hidden>🗑️ Sil</button>
         <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
-        <button type="submit" class="btn-primary">Ekle</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
       </div>
     </form>
   </dialog>
@@ -1343,6 +1348,12 @@
       <button type="button" class="btn-ghost" data-aktar-iptal>Vazgeç</button>
     </div>
   </dialog>
+
+  <!-- Silme sonrası "Geri al" bildirimi -->
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span id="toastMetin"></span>
+    <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
+  </div>
 
   <script src="dashboard.js"></script>
   <script type="module" src="bulut.js"></script>
