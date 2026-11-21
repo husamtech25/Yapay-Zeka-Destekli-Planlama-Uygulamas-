@@ -90,11 +90,14 @@
     </div>
     <nav class="side-nav" aria-label="Ana menü">
       <a href="#" data-view="home" class="active"><svg width="18" height="18"><use href="#i-home"/></svg> Ana Sayfa</a>
-      <a href="#" data-view="ac"><svg width="18" height="18"><use href="#i-book"/></svg> Akademik</a>
-      <a href="#" data-view="ca"><svg width="18" height="18"><use href="#i-briefcase"/></svg> Kariyer</a>
+      <a href="#" data-view="ac" class="menu-ogrenci"><svg width="18" height="18"><use href="#i-book"/></svg> Akademik</a>
+      <a href="#" data-view="ca" class="menu-ogrenci"><svg width="18" height="18"><use href="#i-briefcase"/></svg> Kariyer</a>
+      <a href="#" data-view="proje" class="menu-is"><svg width="18" height="18"><use href="#i-briefcase"/></svg> Projeler</a>
+      <a href="#" data-view="sprint" class="menu-is"><svg width="18" height="18"><use href="#i-zap"/></svg> Sprint Planı</a>
+      <a href="#" data-view="toplanti" class="menu-is"><svg width="18" height="18"><use href="#i-users"/></svg> Toplantılar</a>
       <a href="#" data-view="cal"><svg width="18" height="18"><use href="#i-calendar"/></svg> Takvim</a>
       <a href="#" data-view="tasks"><svg width="18" height="18"><use href="#i-check-circle"/></svg> Görevler</a>
-      <a href="#" data-view="ders"><svg width="18" height="18"><use href="#i-graduation"/></svg> Ders Programı</a>
+      <a href="#" data-view="ders" class="menu-ogrenci"><svg width="18" height="18"><use href="#i-graduation"/></svg> Ders Programı</a>
       <a href="#" data-logout><svg width="18" height="18"><use href="#i-logout"/></svg> Çıkış Yap</a>
     </nav>
 
@@ -160,12 +163,41 @@
             </div>
           </div>
 
-          <div class="card light mini-ders-card">
+          <div class="card light mini-ders-card menu-ogrenci">
             <div class="card-head">
               <h2>Haftalık Ders Programı</h2>
               <button type="button" class="chip light-chip" data-view="ders">Tümü <svg width="12" height="12"><use href="#i-arrow-right"/></svg></button>
             </div>
             <div class="mini-ders-grid" id="miniDersGrid"></div>
+          </div>
+
+          <!-- İŞ MODU: Bugünün özeti -->
+          <div class="card light is-bugun-card menu-is">
+            <div class="card-head">
+              <h2>Bugünün Özeti</h2>
+              <span class="chip light-chip" id="isBugunTarih"></span>
+            </div>
+            <div class="is-bugun-grid" id="isBugunGrid"></div>
+            <ul class="is-bugun-liste" id="isBugunListe"></ul>
+          </div>
+        </section>
+
+        <!-- İŞ MODU: Öncelikli işler + sprint durumu -->
+        <section class="home-row home-row-is menu-is">
+          <div class="card light oncelik-card">
+            <div class="card-head">
+              <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-flag"/></svg> Öncelikli İşler</h2>
+              <button type="button" class="chip light-chip" data-view="tasks">Görevler <svg width="12" height="12"><use href="#i-arrow-right"/></svg></button>
+            </div>
+            <ul class="oncelik-liste" id="oncelikListe"></ul>
+          </div>
+
+          <div class="card light sprint-mini-card">
+            <div class="card-head">
+              <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:6px"><use href="#i-zap"/></svg> Sprint Durumu</h2>
+              <button type="button" class="chip light-chip" data-view="sprint">Pano <svg width="12" height="12"><use href="#i-arrow-right"/></svg></button>
+            </div>
+            <div id="sprintMini"></div>
           </div>
         </section>
 
@@ -282,8 +314,127 @@
 
       </div>
 
+      <!-- İŞ MODU: PROJELER -->
+      <div class="view menu-is" id="v-proje">
+        <section class="card light plan-page">
+          <div class="plan-head">
+            <div>
+              <h1 class="plan-title">Projeler</h1>
+              <p class="plan-sub">Projelerini, teslim tarihlerini ve ilerlemeyi takip et</p>
+            </div>
+            <button type="button" class="btn-primary" data-open="dlgProje">
+              <svg width="16" height="16"><use href="#i-plus"/></svg> Proje Ekle
+            </button>
+          </div>
+          <div class="ders-stats">
+            <div class="stat"><span class="stat-num" id="prjToplam">0</span><span class="stat-label">Toplam</span></div>
+            <div class="stat"><span class="stat-num" id="prjAktif">0</span><span class="stat-label">Aktif</span></div>
+            <div class="stat"><span class="stat-num stat-pending" id="prjGeciken">0</span><span class="stat-label">Geciken</span></div>
+            <div class="stat"><span class="stat-num stat-done" id="prjTamam">0</span><span class="stat-label">Tamamlanan</span></div>
+          </div>
+          <div class="tasks-filter proje-filtre" role="group" aria-label="Proje filtresi">
+            <button type="button" class="chip light-chip on" data-proje-filtre="acik">Açık</button>
+            <button type="button" class="chip light-chip" data-proje-filtre="tamam">Tamamlanan</button>
+            <button type="button" class="chip light-chip" data-proje-filtre="hepsi">Tümü</button>
+          </div>
+          <div class="proje-grid" id="projeList"></div>
+        </section>
+      </div>
+
+      <!-- İŞ MODU: SPRINT PLANI -->
+      <div class="view menu-is" id="v-sprint">
+        <section class="card light plan-page">
+          <div class="plan-head">
+            <div>
+              <h1 class="plan-title">Sprint Planı</h1>
+              <p class="plan-sub">Haftalık sprintini planla, işleri panoda ilerlet</p>
+            </div>
+            <div class="sprint-head-actions">
+              <button type="button" class="chip light-chip" data-open="dlgSprint"><svg width="14" height="14"><use href="#i-settings"/></svg> Sprint Ayarları</button>
+              <button type="button" class="btn-primary" id="sprintBitir"><svg width="16" height="16"><use href="#i-check"/></svg> Sprinti Bitir</button>
+            </div>
+          </div>
+
+          <div class="sprint-ozet" id="sprintOzet"></div>
+
+          <div class="plan-tabs" role="tablist">
+            <button type="button" class="plan-tab on" data-plan-tab="sprint"><svg width="14" height="14"><use href="#i-zap"/></svg> Sprint Panosu</button>
+            <button type="button" class="plan-tab" data-plan-tab="haftalik"><svg width="14" height="14"><use href="#i-calendar"/></svg> Haftalık Plan</button>
+            <button type="button" class="plan-tab" data-plan-tab="performans"><svg width="14" height="14"><use href="#i-bar-chart"/></svg> Performans</button>
+          </div>
+
+          <div class="plan-panel on" data-plan-panel="sprint">
+            <form class="kanban-add sprint-add" data-form="sprint-is">
+              <input name="baslik" placeholder="Sprint'e iş ekle..." required autocomplete="off">
+              <select name="puan" aria-label="Efor puanı" title="Efor puanı">
+                <option value="1">1 puan</option><option value="2">2 puan</option><option value="3" selected>3 puan</option><option value="5">5 puan</option><option value="8">8 puan</option>
+              </select>
+              <select name="proje" class="proje-secim" aria-label="Proje"></select>
+              <button type="submit" class="btn-primary"><svg width="16" height="16"><use href="#i-plus"/></svg> Ekle</button>
+            </form>
+            <div class="kanban sprint-board">
+              <div class="kanban-col"><div class="kanban-head"><span class="kanban-dot dot-todo"></span><h3>Yapılacak</h3><span class="kanban-count" id="spTodoCount">0</span></div><ul class="kanban-list" id="spTodo"></ul></div>
+              <div class="kanban-col"><div class="kanban-head"><span class="kanban-dot dot-doing"></span><h3>Devam Eden</h3><span class="kanban-count" id="spDoingCount">0</span></div><ul class="kanban-list" id="spDoing"></ul></div>
+              <div class="kanban-col"><div class="kanban-head"><span class="kanban-dot dot-done"></span><h3>Tamamlanan</h3><span class="kanban-count" id="spDoneCount">0</span></div><ul class="kanban-list" id="spDone"></ul></div>
+            </div>
+          </div>
+
+          <div class="plan-panel" data-plan-panel="haftalik">
+            <div class="haftalik-plan-list" id="haftalikPlanList"></div>
+            <button type="button" class="plan-add-btn" data-open="dlgPlanItem"><svg width="16" height="16"><use href="#i-plus"/></svg> Yeni İş Ekle</button>
+          </div>
+
+          <div class="plan-panel" data-plan-panel="performans">
+            <div class="perf-cards">
+              <div class="perf-card"><div class="perf-card-title">Bu hafta</div><div class="perf-card-val" id="perfHaftaGorev">0</div><div class="perf-card-sub">tamamlanan görev</div></div>
+              <div class="perf-card"><div class="perf-card-title">Odak süresi</div><div class="perf-card-val" id="perfHaftaSaat">0</div><div class="perf-card-sub">saat (bu hafta)</div></div>
+              <div class="perf-card"><div class="perf-card-title">Bu ay</div><div class="perf-card-val" id="perfAyGorev">0</div><div class="perf-card-sub">tamamlanan görev</div></div>
+              <div class="perf-card"><div class="perf-card-title">Aktif proje</div><div class="perf-card-val" id="perfProje">0</div><div class="perf-card-sub">devam ediyor</div></div>
+            </div>
+            <h3 class="perf-section-title">Bu hafta günlere göre tamamlanan görevler</h3>
+            <div class="perf-chart" id="perfChart"></div>
+            <h3 class="perf-section-title" style="margin-top:var(--s5)">Sprint hızı (son sprintler)</h3>
+            <div class="perf-chart" id="velocityChart"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- İŞ MODU: TOPLANTI TAKVİMİ -->
+      <div class="view menu-is" id="v-toplanti">
+        <section class="card light plan-page">
+          <div class="plan-head">
+            <div>
+              <h1 class="plan-title">Toplantı Takvimi</h1>
+              <p class="plan-sub">Haftalık toplantılarını gör, yenilerini planla</p>
+            </div>
+            <button type="button" class="btn-primary" data-open="dlgToplanti">
+              <svg width="16" height="16"><use href="#i-plus"/></svg> Toplantı Ekle
+            </button>
+          </div>
+          <div class="toplanti-head">
+            <h2 class="perf-section-title" id="tkHaftaBaslik" style="margin:0"></h2>
+            <div class="cal-tools">
+              <button type="button" class="chip light-chip" data-tk-hafta="-1" aria-label="Önceki hafta"><svg width="14" height="14"><use href="#i-chevron-left"/></svg></button>
+              <button type="button" class="chip light-chip" data-tk-hafta="0">Bu hafta</button>
+              <button type="button" class="chip light-chip" data-tk-hafta="1" aria-label="Sonraki hafta"><svg width="14" height="14"><use href="#i-chevron-right"/></svg></button>
+            </div>
+          </div>
+          <div class="tk-hafta-wrap"><div class="tk-hafta" id="tkHafta"></div></div>
+          <div class="ac-iki-kolon" style="margin-top:var(--s5)">
+            <div>
+              <h3 class="perf-section-title">Yaklaşan</h3>
+              <ul class="toplanti-list" id="toplantiYaklasan"></ul>
+            </div>
+            <div>
+              <h3 class="perf-section-title">Geçmiş</h3>
+              <ul class="toplanti-list gecmis" id="toplantiGecmis"></ul>
+            </div>
+          </div>
+        </section>
+      </div>
+
       <!-- DERS PROGRAMI -->
-      <div class="view" id="v-ders">
+      <div class="view menu-ogrenci" id="v-ders">
         <section class="card light ders-page">
           <div class="ders-head">
             <div>
@@ -341,7 +492,7 @@
       </div>
 
       <!-- AKADEMİK -->
-      <div class="view" id="v-ac">
+      <div class="view menu-ogrenci" id="v-ac">
         <section class="ac-page">
 
           <div class="ac-hero card">
@@ -430,7 +581,7 @@
       </div>
 
       <!-- KARİYER (Öğrenci) -->
-      <div class="view" id="v-ca">
+      <div class="view menu-ogrenci" id="v-ca">
         <section class="ca-page">
 
           <div class="ca-hero card">
@@ -527,6 +678,7 @@
               <option value="mid" selected>Orta</option>
               <option value="high">Yüksek</option>
             </select>
+            <select name="proje" class="proje-secim menu-is" aria-label="Proje"></select>
             <button type="submit" class="btn-primary">
               <svg width="16" height="16"><use href="#i-plus"/></svg> Ekle
             </button>
@@ -559,9 +711,13 @@
       <svg width="22" height="22"><use href="#i-home"/></svg>
       <span>Ana Sayfa</span>
     </a>
-    <a href="#" class="mobile-nav-item" data-view="ders" data-mobil-nav>
+    <a href="#" class="mobile-nav-item menu-ogrenci" data-view="ders" data-mobil-nav>
       <svg width="22" height="22"><use href="#i-graduation"/></svg>
       <span>Ders</span>
+    </a>
+    <a href="#" class="mobile-nav-item menu-is" data-view="sprint" data-mobil-nav>
+      <svg width="22" height="22"><use href="#i-zap"/></svg>
+      <span>Sprint</span>
     </a>
     <a href="#" class="mobile-nav-item" data-view="tasks" data-mobil-nav>
       <svg width="22" height="22"><use href="#i-check-circle"/></svg>
@@ -629,7 +785,8 @@
     <p class="pomo-bind-hint">Bir görev veya ders seç. Seçmezsen serbest modda çalışır.</p>
     <div class="pomo-bind-tabs">
       <button type="button" class="pomo-bind-tab on" data-bind-tab="gorev">Görevler</button>
-      <button type="button" class="pomo-bind-tab" data-bind-tab="ders">Dersler</button>
+      <button type="button" class="pomo-bind-tab menu-ogrenci" data-bind-tab="ders">Dersler</button>
+      <button type="button" class="pomo-bind-tab menu-is" data-bind-tab="proje">Projeler</button>
     </div>
     <div class="pomo-bind-list" id="pomoBindList"></div>
     <div class="dialog-actions">
@@ -796,6 +953,119 @@
         <button type="button" class="btn-danger" id="silYks" hidden>🗑️ Sil</button>
         <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
         <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Proje (İş modu) -->
+  <dialog id="dlgProje">
+    <div class="dlg-head"><h2 id="dlgProjeTitle">Proje Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <form data-form="proje" class="dialog-form">
+      <input type="hidden" name="id" value="">
+      <label class="fld">Proje adı<input name="ad" placeholder="Örn: Mobil uygulama v2" required maxlength="80"></label>
+      <label class="fld">Ekip / Müşteri (opsiyonel)<input name="ekip" placeholder="Örn: Pazarlama ekibi" maxlength="60"></label>
+      <div class="fld-row">
+        <label class="fld">Durum
+          <select name="durum">
+            <option value="planlama">Planlama</option>
+            <option value="aktif" selected>Aktif</option>
+            <option value="beklemede">Beklemede</option>
+            <option value="tamam">Tamamlandı</option>
+          </select>
+        </label>
+        <label class="fld">Öncelik
+          <select name="oncelik">
+            <option value="low">Düşük</option>
+            <option value="mid" selected>Orta</option>
+            <option value="high">Yüksek</option>
+          </select>
+        </label>
+      </div>
+      <div class="fld-row">
+        <label class="fld">Başlangıç<input type="date" name="bas"></label>
+        <label class="fld">Teslim tarihi<input type="date" name="bitis"></label>
+      </div>
+      <label class="fld">Manuel ilerleme (%)<input type="number" name="ilerleme" min="0" max="100" value="0">
+        <small class="fld-hint">Projeye bağlı görev veya sprint işi varsa ilerleme onlardan otomatik hesaplanır.</small>
+      </label>
+      <label class="fld">Notlar (opsiyonel)<textarea name="notlar" rows="2"></textarea></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-danger" id="silProje" hidden>🗑️ Sil</button>
+        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Toplantı (İş modu) -->
+  <dialog id="dlgToplanti">
+    <div class="dlg-head"><h2 id="dlgToplantiTitle">Toplantı Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <form data-form="toplanti" class="dialog-form">
+      <input type="hidden" name="id" value="">
+      <label class="fld">Başlık<input name="baslik" placeholder="Örn: Haftalık ekip toplantısı" required maxlength="80"></label>
+      <div class="fld-row">
+        <label class="fld">Tarih<input type="date" name="tarih" required></label>
+        <label class="fld">Saat<input type="time" name="saat" required></label>
+      </div>
+      <div class="fld-row">
+        <label class="fld">Süre (dk)<input type="number" name="sure" min="5" max="600" step="5" value="30"></label>
+        <label class="fld">Proje<select name="proje" class="proje-secim"></select></label>
+      </div>
+      <label class="fld">Katılımcılar (opsiyonel)<input name="katilimcilar" placeholder="Örn: Ayşe, Mehmet"></label>
+      <label class="fld">Toplantı linki (opsiyonel)<input name="link" placeholder="https://meet..."></label>
+      <label class="fld">Gündem / Notlar (opsiyonel)<textarea name="notlar" rows="2"></textarea></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-danger" id="silToplanti" hidden>🗑️ Sil</button>
+        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Sprint ayarları (İş modu) -->
+  <dialog id="dlgSprint">
+    <div class="dlg-head"><h2>Sprint Ayarları</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <form data-form="sprint" class="dialog-form">
+      <label class="fld">Sprint adı<input name="ad" required maxlength="40"></label>
+      <div class="fld-row">
+        <label class="fld">Başlangıç<input type="date" name="bas" required></label>
+        <label class="fld">Bitiş<input type="date" name="bit" required></label>
+      </div>
+      <label class="fld">Sprint hedefi (opsiyonel)<input name="hedef" placeholder="Örn: Ödeme ekranını yayına al" maxlength="120"></label>
+      <label class="fld">Kapasite (puan)<input type="number" name="kapasite" min="1" max="200" value="20"></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Haftalık plan işi (İş modu) -->
+  <dialog id="dlgPlanItem">
+    <div class="dlg-head"><h2>Haftalık Plana Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <form data-form="plan-item" class="dialog-form">
+      <label class="fld">Başlık<input name="baslik" placeholder="Örn: Rapor hazırlığı" required maxlength="80"></label>
+      <div class="fld-row">
+        <label class="fld">Gün
+          <select name="gun">
+            <option value="1">Pazartesi</option><option value="2">Salı</option><option value="3">Çarşamba</option>
+            <option value="4">Perşembe</option><option value="5">Cuma</option><option value="6">Cumartesi</option><option value="0">Pazar</option>
+          </select>
+        </label>
+        <label class="fld">Saat<input type="time" name="saat" value="09:00" required></label>
+      </div>
+      <label class="fld">Kategori
+        <select name="kategori">
+          <option value="gorev">Görev</option>
+          <option value="toplanti">Toplantı</option>
+          <option value="odak">Odak çalışması</option>
+          <option value="mola">Mola</option>
+          <option value="diger">Diğer</option>
+        </select>
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
+        <button type="submit" class="btn-primary">Ekle</button>
       </div>
     </form>
   </dialog>

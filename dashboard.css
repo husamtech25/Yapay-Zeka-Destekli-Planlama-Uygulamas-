@@ -1071,7 +1071,6 @@ body[data-mode="work"]{
 /* ============ MODA GÖRE MENÜ GİZLEME ============ */
 body[data-mode="work"] .menu-ogrenci{display:none !important}
 body[data-mode="student"] .menu-is{display:none !important}
-html:not([data-mode]) .menu-is,
 body:not([data-mode]) .menu-is{display:none !important}
 
 /* Kariyer mod-özel bloklar */
@@ -1185,6 +1184,103 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
   .mobile-nav-item:active{background:var(--surface-2)}
   body{overflow-x:hidden}
 }
+/* ============ İŞ MODU MODÜLLERİ ============ */
+.home-row-is{grid-template-columns:1.4fr 1fr}
+.fld-hint{font-weight:400;color:var(--ink-3);font-size:.72rem}
+.sprint-head-actions{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.task-proje,.sp-proje{display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-weight:600}
+.sp-proje{font-size:.68rem;margin:2px 0 4px}
+.sp-puan{font-size:.68rem;font-weight:800;color:var(--teal-dark);background:var(--yellow-soft);padding:2px 7px;border-radius:var(--r-full);font-variant-numeric:tabular-nums}
+.proje-card .kurs-bar span,.sprint-ozet .kurs-bar span,#sprintMini .kurs-bar span{background:linear-gradient(90deg,var(--teal),var(--teal-dark))}
+
+/* Öncelikli işler */
+.oncelik-card,.sprint-mini-card{display:flex;flex-direction:column}
+.oncelik-liste{list-style:none;display:flex;flex-direction:column;gap:6px}
+.oncelik-item button{width:100%;display:flex;align-items:center;gap:var(--s3);padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--border-2);border-left:4px solid var(--ink-3);text-align:left;color:var(--ink)}
+.oncelik-item button:hover{background:var(--border-2)}
+.oncelik-item button>svg{color:var(--ink-3);flex-shrink:0}
+.oncelik-item.kritik button{border-left-color:var(--coral)}
+.oncelik-item.uyari button{border-left-color:var(--yellow)}
+.oncelik-item.toplanti button{border-left-color:var(--purple)}
+.oncelik-item.yuksek button{border-left-color:var(--teal)}
+.oncelik-item.sprint button{border-left-color:var(--green)}
+.oncelik-etiket{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);min-width:62px}
+.oncelik-item.kritik .oncelik-etiket{color:var(--coral)}
+.oncelik-body{flex:1;min-width:0;display:flex;flex-direction:column}
+.oncelik-body b{font-size:.86rem;overflow-wrap:anywhere}
+.oncelik-body small{font-size:.72rem;color:var(--ink-3)}
+
+/* Sprint mini kartı ve özeti */
+.sprint-mini-ust{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s2);margin-bottom:8px;font-size:.85rem}
+.sprint-mini-ust span{font-size:.75rem;color:var(--ink-3);font-weight:600}
+.sprint-mini-alt{font-size:.75rem;color:var(--ink-3);margin-bottom:var(--s3)}
+.sprint-ozet{display:flex;justify-content:space-between;gap:var(--s5);flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-lg);padding:var(--s4);margin-bottom:var(--s5)}
+.sprint-ozet-sol{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sprint-ad{font-size:1.15rem;font-weight:800;color:var(--ink)}
+.sprint-tarih{font-size:.8rem;color:var(--ink-2)}
+.sprint-hedef{font-size:.82rem;color:var(--ink);display:inline-flex;align-items:center;gap:5px;overflow-wrap:anywhere}
+.sprint-ozet-sag{flex:0 1 280px;min-width:200px;display:flex;flex-direction:column;gap:6px}
+.sprint-puan{font-size:.85rem;color:var(--ink-2)}
+.sprint-puan b{font-size:1.3rem;color:var(--ink)}
+.sprint-kapasite{font-size:.72rem;color:var(--ink-3)}
+.sprint-kapasite.asim{color:var(--coral);font-weight:700}
+.sprint-add{margin-bottom:var(--s4)}
+.proje-gecikme{color:var(--coral);font-weight:700}
+
+/* Projeler */
+.proje-filtre{display:flex;gap:6px;margin-bottom:var(--s4);flex-wrap:wrap}
+.proje-filtre .chip.on{background:var(--navy-800);color:#fff;border-color:var(--navy-800)}
+.proje-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--s3)}
+.proje-card{background:var(--surface-2);border:1px solid var(--border-2);border-top:4px solid var(--teal);border-radius:var(--r-lg);padding:var(--s4);cursor:pointer;display:flex;flex-direction:column;gap:8px;transition:transform var(--t-fast),box-shadow var(--t-fast)}
+.proje-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.proje-card.durum-planlama{border-top-color:var(--purple)}
+.proje-card.durum-beklemede{border-top-color:var(--ink-3)}
+.proje-card.durum-tamam{border-top-color:var(--green);opacity:.8}
+.proje-card.gecikti{border-top-color:var(--coral)}
+.proje-ust{display:flex;justify-content:space-between;align-items:center;gap:var(--s2)}
+.proje-durum{font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3)}
+.proje-ad{font-size:1rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.proje-ekip{font-size:.75rem;color:var(--ink-3);display:inline-flex;align-items:center;gap:4px}
+.proje-ilerleme{display:flex;align-items:center;gap:var(--s2)}
+.proje-ilerleme .kurs-bar{flex:1;margin:0}
+.proje-yuzde{font-size:.8rem;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+.proje-alt{display:flex;justify-content:space-between;gap:var(--s2);font-size:.72rem;color:var(--ink-3);flex-wrap:wrap}
+.proje-alt span{display:inline-flex;align-items:center;gap:3px}
+
+/* Haftalık plan listesi */
+.haftalik-plan-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--s3)}
+.haftalik-plan-list>.plan-empty{grid-column:1/-1}
+
+/* Toplantı haftalık takvim */
+/* Grid/flex çocukları varsayılan olarak içeriği kadar genişler; geniş haftalık takvim
+   sayfanın tamamını taşırmasın, kendi kutusunda yatay kaydırılsın. */
+.main,.content,.view,.plan-page{min-width:0}
+.tk-hafta-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.tk-hafta{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:6px;min-width:780px}
+.tk-gun{background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-md);display:flex;flex-direction:column;min-height:160px}
+.tk-gun.bugun{border-color:var(--teal);box-shadow:0 0 0 2px rgba(217,119,6,.15)}
+.tk-gun.gecmis{opacity:.65}
+.tk-gun-head{display:flex;justify-content:space-between;align-items:baseline;padding:8px 10px;border-bottom:1px solid var(--border);font-size:.72rem;font-weight:700;color:var(--ink-3);text-transform:uppercase}
+.tk-gun-head b{font-size:1rem;color:var(--ink)}
+.tk-gun.bugun .tk-gun-head b{color:var(--teal)}
+.tk-gun-body{display:flex;flex-direction:column;gap:4px;padding:6px;flex:1}
+.tk-toplanti{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border-radius:8px;background:var(--surface);border:1px solid var(--border-2);border-left:3px solid var(--purple);text-align:left;width:100%}
+.tk-toplanti:hover{background:var(--purple-soft)}
+.tk-saat{font-size:.66rem;font-weight:800;color:var(--purple);font-variant-numeric:tabular-nums}
+.tk-baslik{font-size:.76rem;font-weight:600;color:var(--ink);overflow-wrap:anywhere;line-height:1.25}
+.tk-ekle{margin-top:auto;padding:4px;border-radius:8px;border:1px dashed var(--border);color:var(--ink-3);font-weight:700;opacity:0;transition:opacity var(--t-fast)}
+.tk-gun:hover .tk-ekle,.tk-ekle:focus-visible{opacity:1}
+.toplanti-item[data-act]{cursor:pointer}
+.toplanti-item[data-act]:hover{background:var(--border-2)}
+
+@media(max-width:1200px){
+  .home-row-is{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .tk-ekle{opacity:1}
+  .sprint-ozet-sag{flex-basis:100%}
+}
+
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
 }

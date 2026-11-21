@@ -81,11 +81,26 @@ function yeniVeri(mod, name) {
     basvurular: [],
     kurslar: [],
     kariyerHedefler: [],
+    // İş modu
+    projeler: [],
+    sprintIsleri: [],
+    sprintGecmis: [],
+    sprint: yeniSprint(1),
     pomo: { ...POMO_DEFAULTS, stats: {}, bind: null },
   };
 }
+// Bu haftanın pazartesisinden başlayan 2 haftalık varsayılan sprint
+function yeniSprint(no, basTarih) {
+  const bas = basTarih ? tarihOku(basTarih) : (() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()));
+    return d;
+  })();
+  const bit = new Date(bas); bit.setDate(bas.getDate() + 13);
+  return { no, ad: `Sprint ${no}`, bas: tarihKey(bas), bit: tarihKey(bit), hedef: "", kapasite: 20 };
+}
 const DB_KEY = "planla-v3";
-const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler", "planItems", "toplantilar", "sinavlar", "odevler", "yksDenemeleri", "basvurular", "kurslar", "kariyerHedefler"];
+const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler", "planItems", "toplantilar", "sinavlar", "odevler", "yksDenemeleri", "basvurular", "kurslar", "kariyerHedefler", "projeler", "sprintIsleri", "sprintGecmis"];
 const gecerli = v => v && MODLAR[v.mode] && typeof v.name === "string" && v.events && typeof v.events === "object" && DIZI.every(k => Array.isArray(v[k]));
 // Eski sürümlerden kalan veride eksik alanları tamamlar. Doğrulamadan ÖNCE çalışmalı;
 // aksi halde yeni eklenen bir dizi alanı yüzünden eski kullanıcının tüm verisi silinir.
@@ -100,6 +115,7 @@ function veriOnar(v, tur, ad) {
   if (!v.pomo || typeof v.pomo !== "object") v.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
   if (!v.pomo.stats || typeof v.pomo.stats !== "object") v.pomo.stats = {};
   v.tasks.forEach(t => { if (typeof t.doing !== "boolean") t.doing = false; });
+  if (!v.sprint || typeof v.sprint !== "object" || !v.sprint.bas || !v.sprint.bit) v.sprint = yeniSprint(1);
   return v;
 }
 function dbOku() {
@@ -158,6 +174,11 @@ function sil(list, id) {
   } else {
     S[list] = (S[list] || []).filter(e => e.id !== id);
   }
+  // Silinen projeye bağlı görev, sprint işi ve toplantılardaki bağlantıyı temizle
+  if (list === "projeler") {
+    ["tasks", "sprintIsleri", "toplantilar"].forEach(l => (S[l] || []).forEach(x => { if (x.proje === id) x.proje = ""; }));
+    if (S.pomo && S.pomo.bind && S.pomo.bind.id === id) S.pomo.bind = null;
+  }
 }
 const delBtn = (list, id) =>
   `<button type="button" class="x" data-act="del" data-list="${list}" data-id="${id}" aria-label="Sil"><svg width="14" height="14"><use href="#i-x"/></svg></button>`;
@@ -181,8 +202,12 @@ function mobilMenuKapat() {
 
 // ============ GÖRÜNÜM ============
 function goView(v) {
-  // Var olmayan bir sayfaya gidilirse tüm görünümler gizlenip ekran boş kalıyordu.
-  if (!$("v-" + v)) v = "home";
+  // Var olmayan ya da bu moda ait olmayan bir sayfaya gidilirse ana sayfaya dön
+  // (aksi halde tüm görünümler gizlenip ekran boş kalıyor).
+  const hedefEl = $("v-" + v);
+  const mod = S ? S.mode : "student";
+  if (!hedefEl || (mod === "work" && hedefEl.classList.contains("menu-ogrenci")) ||
+      (mod !== "work" && hedefEl.classList.contains("menu-is"))) v = "home";
   aktifView = v;
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("on", el.id === "v-" + v));
   document.querySelectorAll(".side-nav [data-view]").forEach(a => a.classList.toggle("active", a.dataset.view === v));
@@ -204,8 +229,11 @@ function modUygula() {
   document.querySelectorAll("select[name=type]").forEach(s => {
     s.innerHTML = m.tur.map(t => `<option>${t}</option>`).join("");
   });
-  document.querySelectorAll(".menu-ogrenci").forEach(el => { el.hidden = S.mode !== "student"; });
-  document.querySelectorAll(".menu-is").forEach(el => { el.hidden = S.mode !== "work"; });
+  // Moda özel öğeler CSS ile gizleniyor (body[data-mode] + .menu-ogrenci / .menu-is)
+  const qEl = $("q");
+  if (qEl) qEl.placeholder = S.mode === "work" ? "Ara... (görev, proje, toplantı)" : "Ara... (etkinlik, ders, görev)";
+  const logo = document.querySelector(".sidebar .logo-mark use");
+  if (logo) logo.setAttribute("href", S.mode === "work" ? "#i-briefcase" : "#i-graduation");
 }
 
 function avatarUygula() {
@@ -328,6 +356,19 @@ function otomatikBildirimler() {
     const zamanMetni = s.tarih === todayKey ? "Bugün" : "Yarın";
     bildirimEkle(s.tarih === todayKey ? "warn" : "info", `${zamanMetni}: ${s.ad}`, `${s.tur}${s.saat ? " · " + s.saat : ""}`, "sn::" + s.id + "::" + s.tarih);
   });
+  // İş modu: bugünkü/yarınki toplantılar, yaklaşan proje teslimleri, biten sprint
+  (S.toplantilar || []).filter(t => t.tarih === todayKey || t.tarih === yarinKey).forEach(t => {
+    const bugunMu = t.tarih === todayKey;
+    bildirimEkle(bugunMu ? "warn" : "info", `${bugunMu ? "Bugün" : "Yarın"} toplantı: ${t.baslik}`, `${t.saat || ""}${t.sure ? " · " + t.sure + " dk" : ""}`, "tp::" + t.id + "::" + t.tarih + t.saat);
+  });
+  (S.projeler || []).filter(p => p.durum !== "tamam" && p.bitis).forEach(p => {
+    const f = gunFarki(p.bitis);
+    if (f >= 0 && f <= 3) bildirimEkle(f === 0 ? "warn" : "info", `Proje teslimi: ${p.ad}`, f === 0 ? "Bugün teslim!" : `${f} gün kaldı (${gunEtiket(p.bitis)})`, "pj::" + p.id + "::" + f);
+    else if (f < 0) bildirimEkle("warn", `Gecikmiş proje: ${p.ad}`, `Teslim tarihi ${gunEtiket(p.bitis)} idi`, "pjg::" + p.id + "::" + todayKey);
+  });
+  if (S.mode === "work" && S.sprint && gunFarki(S.sprint.bit) <= 1 && gunFarki(S.sprint.bit) >= 0) {
+    bildirimEkle("purple", `${S.sprint.ad} bitiyor`, gunFarki(S.sprint.bit) === 0 ? "Sprint bugün bitiyor" : "Sprint yarın bitiyor", "sp::" + S.sprint.ad + "::" + S.sprint.bit);
+  }
   const bugunOdev = (S.odevler || []).filter(o => !o.done && (o.tarih === todayKey || o.tarih === yarinKey));
   bugunOdev.forEach(o => {
     const zamanMetni = o.tarih === todayKey ? "Bugün" : "Yarın";
@@ -413,10 +454,10 @@ function kisayolCiz() {
     ];
   } else {
     items = [
-      { view: "ca",    ikon: "#i-target",       label: "Hedefler" },
-      { view: "cal",   ikon: "#i-calendar",     label: "Takvim" },
-      { view: "tasks", ikon: "#i-check-circle", label: "Görevler" },
-      { view: "ac",    ikon: "#i-briefcase",    label: "Projeler" },
+      { view: "proje",    ikon: "#i-briefcase",    label: "Projeler" },
+      { view: "sprint",   ikon: "#i-zap",          label: "Sprint" },
+      { view: "toplanti", ikon: "#i-users",        label: "Toplantılar" },
+      { view: "tasks",    ikon: "#i-check-circle", label: "Görevler" },
     ];
   }
   el.innerHTML = items.map(it =>
@@ -589,6 +630,7 @@ function pomoBindRender() {
     let ad2 = "";
     if (tip === "gorev") { const t = bul("tasks", id); ad2 = t ? t.t : ""; }
     else if (tip === "ders") { const d = bul("dersler", id); ad2 = d ? d.ad : ""; }
+    else if (tip === "proje") ad2 = projeAdi(id);
     label.textContent = ad2 || "Seçili";
     btn.classList.add("active");
   } else {
@@ -599,8 +641,21 @@ function pomoBindRender() {
 function pomoBindAc() {
   const list = $("pomoBindList");
   if (!list || !S) return;
-  const aktifTab = document.querySelector(".pomo-bind-tab.on");
+  let aktifTab = document.querySelector(".pomo-bind-tab.on");
+  // Moda ait olmayan sekme seçili kaldıysa (ör. iş modunda "Dersler") Görevler'e dön
+  const yanlisSekme = aktifTab && aktifTab.classList.contains(S.mode === "work" ? "menu-ogrenci" : "menu-is");
+  if (!aktifTab || yanlisSekme) {
+    document.querySelectorAll(".pomo-bind-tab").forEach(t => t.classList.toggle("on", t.dataset.bindTab === "gorev"));
+    aktifTab = document.querySelector(".pomo-bind-tab.on");
+  }
   const tip = aktifTab ? aktifTab.dataset.bindTab : "gorev";
+  if (tip === "proje") {
+    const items = S.projeler.filter(p => p.durum !== "tamam");
+    list.innerHTML = items.length
+      ? items.map(p => `<button type="button" class="pomo-bind-item ders" data-pomo-bind="proje" data-id="${p.id}"><span class="pbi-dot"></span><span>${esc(p.ad)}</span></button>`).join("")
+      : `<p class="pomo-bind-empty">Açık proje yok.</p>`;
+    return;
+  }
   if (tip === "gorev") {
     const items = (S.tasks || []).filter(t => !t.done);
     list.innerHTML = items.length
@@ -953,8 +1008,13 @@ function kariyerCiz() {
   }
 }
 
-// Kariyer düzenleme diyaloglarının tanımı: liste adı, alanlar ve başlıklar
-const KARIYER_DLG = {
+// Düzenlenebilir kayıt diyaloglarının tanımı: liste adı, alanlar ve başlıklar.
+// Anahtar, listedeki öğenin data-act değerinin önekidir (ör. "proje" → data-act="proje-edit").
+const DUZENLE_DLG = {
+  proje:    { dlg: "dlgProje",        list: "projeler",        sil: "silProje",        baslik: "dlgProjeTitle",        ekle: "Proje Ekle", duzenle: "Projeyi Düzenle",
+              alanlar: ["ad", "ekip", "durum", "oncelik", "bas", "bitis", "ilerleme", "notlar"] },
+  toplanti: { dlg: "dlgToplanti",     list: "toplantilar",     sil: "silToplanti",     baslik: "dlgToplantiTitle",     ekle: "Toplantı Ekle", duzenle: "Toplantıyı Düzenle",
+              alanlar: ["baslik", "tarih", "saat", "sure", "proje", "katilimcilar", "link", "notlar"] },
   basvuru:  { dlg: "dlgBasvuru",      list: "basvurular",      sil: "silBasvuru",      baslik: "dlgBasvuruTitle",      ekle: "Başvuru Ekle", duzenle: "Başvuruyu Düzenle",
               alanlar: ["sirket", "pozisyon", "tur", "tarih", "durum", "sontarih", "link", "notlar"] },
   kurs:     { dlg: "dlgKurs",         list: "kurslar",         sil: "silKurs",         baslik: "dlgKursTitle",         ekle: "Kurs Ekle", duzenle: "Kursu Düzenle",
@@ -962,18 +1022,29 @@ const KARIYER_DLG = {
   kh:       { dlg: "dlgKariyerHedef", list: "kariyerHedefler", sil: "silKariyerHedef", baslik: "dlgKariyerHedefTitle", ekle: "Kariyer Hedefi Ekle", duzenle: "Kariyer Hedefini Düzenle",
               alanlar: ["baslik", "kategori", "tarih", "notlar"] },
 };
-function kariyerDuzenleAc(tip, id) {
-  const c = KARIYER_DLG[tip];
+function kayitDuzenleAc(tip, id) {
+  const c = DUZENLE_DLG[tip];
   const it = bul(c.list, id);
   if (!it) return;
   const form = $(c.dlg).querySelector("form");
   form.reset();
+  projeSecenekleriDoldur();
   form.querySelector("[name=id]").value = it.id;
-  c.alanlar.forEach(a => { const el = form.querySelector(`[name=${a}]`); if (el && it[a] != null) el.value = it[a]; });
+  c.alanlar.forEach(a => {
+    const el = form.querySelector(`[name=${a}]`);
+    if (!el || it[a] == null) return;
+    // Tamamlanmış bir projeye bağlı kayıtta o proje listede olmayabilir: seçeneği ekle
+    if (el.tagName === "SELECT" && it[a] && ![...el.options].some(o => o.value === String(it[a]))) {
+      const p = a === "proje" && bul("projeler", it[a]);
+      if (p) el.insertAdjacentHTML("beforeend", `<option value="${p.id}">${esc(p.ad)}</option>`);
+    }
+    el.value = it[a];
+  });
   $(c.baslik).textContent = c.duzenle;
   $(c.sil).hidden = false;
   guvenliAc($(c.dlg));
 }
+const DUZENLE_SECICI = Object.keys(DUZENLE_DLG).map(k => `[data-act='${k}-edit']`).join(",");
 function kayitGuncelle(list, kayit) {
   const idx = S[list].findIndex(x => x.id === kayit.id);
   if (idx >= 0) S[list][idx] = { ...S[list][idx], ...kayit };
@@ -1051,7 +1122,7 @@ function planPerformansCiz() {
   if ($("perfHaftaGorev")) $("perfHaftaGorev").textContent = haftaGorev;
   if ($("perfHaftaSaat")) $("perfHaftaSaat").textContent = Math.round(pomoHaftaToplam() * (+(pomoAyarlari().focus || 25)) / 60);
   if ($("perfAyGorev")) $("perfAyGorev").textContent = ayGorev;
-  if ($("perfProje")) $("perfProje").textContent = (S.courses || []).length;
+  if ($("perfProje")) $("perfProje").textContent = S.projeler.filter(p => p.durum === "aktif").length;
 
   const chart = $("perfChart");
   if (!chart) return;
@@ -1076,7 +1147,10 @@ function planToplantilarCiz() {
   const toplantilar = S.toplantilar || [];
   const yaklasan = []; const gecmis = [];
   toplantilar.forEach(t => {
-    const dt = new Date(t.tarih + "T" + (t.saat || "00:00"));
+    if (!eslesir(t.baslik)) return;
+    // Toplantı bitene kadar "yaklaşan" listesinde kalsın
+    const dt = tarihOku(t.tarih);
+    dt.setMinutes(saatDk(t.saat) + (+t.sure || 30));
     if (dt >= now2) yaklasan.push({ ...t, _dt: dt });
     else gecmis.push({ ...t, _dt: dt });
   });
@@ -1086,7 +1160,9 @@ function planToplantilarCiz() {
     const [, m, d] = t.tarih.split("-");
     const gun = +d;
     const ay = aylar[+m - 1].slice(0, 3);
-    return `<li class="toplanti-item">
+    const pa = projeAdi(t.proje);
+    const link = guvenliLink(t.link);
+    return `<li class="toplanti-item" data-act="toplanti-edit" data-id="${t.id}" title="Düzenlemek için tıkla">
       <div class="toplanti-tarih">
         <span class="tt-gun">${gun} ${ay}</span>
         <span class="tt-saat">${esc(t.saat)}</span>
@@ -1096,6 +1172,8 @@ function planToplantilarCiz() {
         <div class="tb-meta">
           ${t.sure ? `<span><svg width="11" height="11"><use href="#i-clock"/></svg> ${t.sure} dk</span>` : ""}
           ${t.katilimcilar ? `<span><svg width="11" height="11"><use href="#i-users"/></svg> ${esc(t.katilimcilar)}</span>` : ""}
+          ${pa ? `<span><svg width="11" height="11"><use href="#i-briefcase"/></svg> ${esc(pa)}</span>` : ""}
+          ${link ? `<a class="kurs-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer" data-stop>Katıl →</a>` : ""}
         </div>
       </div>
       <button type="button" class="toplanti-del" data-act="del" data-list="toplantilar" data-id="${t.id}" aria-label="Sil">
@@ -1111,9 +1189,9 @@ function planSekmeDegistir(s) {
   planSekme = s;
   document.querySelectorAll(".plan-tab").forEach(t => t.classList.toggle("on", t.dataset.planTab === s));
   document.querySelectorAll(".plan-panel").forEach(p => p.classList.toggle("on", p.dataset.planPanel === s));
+  if (s === "sprint") sprintCiz();
   if (s === "haftalik") planHaftalikCiz();
-  if (s === "performans") planPerformansCiz();
-  if (s === "toplantilar") planToplantilarCiz();
+  if (s === "performans") { planPerformansCiz(); velocityCiz(); }
 }
 
 function miniPlanCiz() {
@@ -1132,6 +1210,257 @@ function miniPlanCiz() {
       <span class="mp-baslik">${esc(it.baslik)}</span>
     </li>`;
   }).join("");
+}
+
+// ================= İŞ MODU: PROJELER =================
+const PROJE_DURUM = { planlama: "Planlama", aktif: "Aktif", beklemede: "Beklemede", tamam: "Tamamlandı" };
+let projeFiltre = "acik";
+
+// Proje seçim kutularını (görev formu, sprint formu, toplantı formu) güncel listeyle doldurur
+function projeSecenekleriDoldur() {
+  if (!S) return;
+  const acik = S.projeler.filter(p => p.durum !== "tamam");
+  const html = `<option value="">Proje yok</option>` + acik.map(p => `<option value="${p.id}">${esc(p.ad)}</option>`).join("");
+  document.querySelectorAll("select.proje-secim").forEach(sel => {
+    const onceki = sel.value;
+    sel.innerHTML = html;
+    // Düzenlenen kayıt tamamlanmış bir projeye bağlıysa o seçeneği de ekle
+    if (onceki && !acik.some(p => p.id === onceki)) {
+      const p = bul("projeler", onceki);
+      if (p) sel.insertAdjacentHTML("beforeend", `<option value="${p.id}">${esc(p.ad)}</option>`);
+    }
+    sel.value = onceki;
+  });
+}
+const projeAdi = id => { const p = id && bul("projeler", id); return p ? p.ad : ""; };
+
+// Projeye bağlı görev + sprint işlerinden ilerleme; bağlı iş yoksa manuel değer
+function projeIlerleme(p) {
+  const gorevler = S.tasks.filter(t => t.proje === p.id);
+  const isler = S.sprintIsleri.filter(s => s.proje === p.id);
+  const toplam = gorevler.length + isler.reduce((t, s) => t + (+s.puan || 1), 0);
+  if (p.durum === "tamam") return { yuzde: 100, otomatik: toplam > 0, toplam: gorevler.length + isler.length };
+  if (!toplam) return { yuzde: Math.min(100, Math.max(0, +p.ilerleme || 0)), otomatik: false, toplam: 0 };
+  const biten = gorevler.filter(t => t.done).length + isler.filter(s => s.durum === "done").reduce((t, s) => t + (+s.puan || 1), 0);
+  return { yuzde: Math.round(biten / toplam * 100), otomatik: true, toplam: gorevler.length + isler.length };
+}
+const projeGecikti = p => p.durum !== "tamam" && p.bitis && gunFarki(p.bitis) < 0;
+
+function projelerCiz() {
+  const el = $("projeList");
+  if (!el || !S) return;
+  const tum = S.projeler;
+  if ($("prjToplam")) $("prjToplam").textContent = tum.length;
+  if ($("prjAktif")) $("prjAktif").textContent = tum.filter(p => p.durum === "aktif").length;
+  if ($("prjGeciken")) $("prjGeciken").textContent = tum.filter(projeGecikti).length;
+  if ($("prjTamam")) $("prjTamam").textContent = tum.filter(p => p.durum === "tamam").length;
+  document.querySelectorAll("[data-proje-filtre]").forEach(b => b.classList.toggle("on", b.dataset.projeFiltre === projeFiltre));
+
+  const oncelikSira = { high: 0, mid: 1, low: 2 };
+  const liste = tum
+    .filter(p => projeFiltre === "hepsi" || (projeFiltre === "tamam" ? p.durum === "tamam" : p.durum !== "tamam"))
+    .filter(p => eslesir(p.ad))
+    .sort((a, b) => (oncelikSira[a.oncelik] ?? 1) - (oncelikSira[b.oncelik] ?? 1) || (a.bitis || "9").localeCompare(b.bitis || "9"));
+  if (!liste.length) {
+    el.innerHTML = `<p class="plan-empty">${tum.length ? "Bu filtreye uyan proje yok." : "Henüz proje yok. Sağ üstteki \"Proje Ekle\" butonuna bas."}</p>`;
+    return;
+  }
+  el.innerHTML = liste.map(p => {
+    const il = projeIlerleme(p);
+    const gecikti = projeGecikti(p);
+    const kalan = p.bitis ? gunFarki(p.bitis) : NaN;
+    const kalanMetin = !p.bitis ? "Teslim tarihi yok" : p.durum === "tamam" ? gunEtiket(p.bitis)
+      : gecikti ? `${-kalan} gün gecikti` : kalan === 0 ? "Bugün teslim" : `${kalan} gün kaldı`;
+    const oncelik = ONCELIK[p.oncelik] ? p.oncelik : "mid";
+    return `<article class="proje-card durum-${PROJE_DURUM[p.durum] ? p.durum : "aktif"} ${gecikti ? "gecikti" : ""}" data-act="proje-edit" data-id="${p.id}" tabindex="0" title="Düzenlemek için tıkla">
+      <div class="proje-ust">
+        <span class="proje-durum">${PROJE_DURUM[p.durum] || "Aktif"}</span>
+        <span class="task-pri-badge pri-${oncelik}"><svg width="10" height="10"><use href="#i-flag"/></svg> ${ONCELIK[oncelik]}</span>
+      </div>
+      <h3 class="proje-ad">${esc(p.ad)}</h3>
+      ${p.ekip ? `<div class="proje-ekip"><svg width="12" height="12"><use href="#i-users"/></svg> ${esc(p.ekip)}</div>` : ""}
+      <div class="proje-ilerleme">
+        <div class="kurs-bar"><span style="width:${il.yuzde}%"></span></div>
+        <span class="proje-yuzde">%${il.yuzde}</span>
+      </div>
+      <div class="proje-alt">
+        <span class="${gecikti ? "proje-gecikme" : ""}"><svg width="11" height="11"><use href="#i-clock"/></svg> ${kalanMetin}</span>
+        <span>${il.otomatik ? `${il.toplam} bağlı iş` : "Manuel ilerleme"}</span>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+// ================= İŞ MODU: SPRINT =================
+const sprintKalanGun = () => S && S.sprint ? gunFarki(S.sprint.bit) : NaN;
+function sprintPuanlari() {
+  const isler = S.sprintIsleri;
+  const puan = s => +s.puan || 1;
+  const toplam = isler.reduce((t, s) => t + puan(s), 0);
+  const biten = isler.filter(s => s.durum === "done").reduce((t, s) => t + puan(s), 0);
+  return { toplam, biten, yuzde: toplam ? Math.round(biten / toplam * 100) : 0 };
+}
+
+function sprintCiz() {
+  if (!S || !$("sprintOzet")) return;
+  const sp = S.sprint;
+  const p = sprintPuanlari();
+  const kalan = sprintKalanGun();
+  const kapasite = +sp.kapasite || 20;
+  const kalanMetin = kalan < 0 ? `Süresi ${-kalan} gün önce doldu` : kalan === 0 ? "Bugün bitiyor" : `${kalan} gün kaldı`;
+  $("sprintOzet").innerHTML = `
+    <div class="sprint-ozet-sol">
+      <div class="sprint-ad">${esc(sp.ad)}</div>
+      <div class="sprint-tarih">${gunEtiket(sp.bas)} – ${gunEtiket(sp.bit)} · <b class="${kalan < 0 ? "proje-gecikme" : ""}">${kalanMetin}</b></div>
+      ${sp.hedef ? `<div class="sprint-hedef"><svg width="12" height="12"><use href="#i-target"/></svg> ${esc(sp.hedef)}</div>` : ""}
+    </div>
+    <div class="sprint-ozet-sag">
+      <div class="sprint-puan"><b>${p.biten}</b> / ${p.toplam} puan</div>
+      <div class="kurs-bar"><span style="width:${p.yuzde}%"></span></div>
+      <div class="sprint-kapasite ${p.toplam > kapasite ? "asim" : ""}">Kapasite: ${kapasite} puan${p.toplam > kapasite ? ` · ${p.toplam - kapasite} puan fazla yük` : ""}</div>
+    </div>`;
+
+  const kolonlar = { todo: [], doing: [], done: [] };
+  S.sprintIsleri.filter(s => eslesir(s.baslik)).forEach(s => (kolonlar[s.durum] || kolonlar.todo).push(s));
+  const item = s => {
+    const pa = projeAdi(s.proje);
+    const btn = (to, label, cls) => `<button type="button" class="ki-btn ${cls}" data-act="sprint-move" data-to="${to}" data-id="${s.id}">${label}</button>`;
+    const aksiyon = s.durum === "done" ? btn("doing", "Geri", "undo")
+      : s.durum === "doing" ? btn("done", "Bitti", "done-btn") + btn("todo", "Geri", "undo")
+      : btn("doing", "Başla", "start");
+    return `<li class="kanban-item ${s.durum === "done" ? "done" : ""}">
+      <div class="ki-text">${esc(s.baslik)}</div>
+      ${pa ? `<div class="sp-proje"><svg width="10" height="10"><use href="#i-briefcase"/></svg> ${esc(pa)}</div>` : ""}
+      <div class="ki-meta">
+        <span class="sp-puan" title="Efor puanı">${+s.puan || 1} p</span>
+        <span class="ki-actions">${aksiyon}<button type="button" class="ki-btn x-btn" data-act="del" data-list="sprintIsleri" data-id="${s.id}" aria-label="Sil"><svg width="12" height="12"><use href="#i-x"/></svg></button></span>
+      </div>
+    </li>`;
+  };
+  const yaz = (id, liste, bos) => {
+    if ($(id)) $(id).innerHTML = liste.length ? liste.map(item).join("") : `<li class="kanban-empty">${bos}</li>`;
+    if ($(id + "Count")) $(id + "Count").textContent = liste.length;
+  };
+  yaz("spTodo", kolonlar.todo, "Yapılacak iş yok");
+  yaz("spDoing", kolonlar.doing, "Devam eden yok");
+  yaz("spDone", kolonlar.done, "Tamamlanan yok");
+  velocityCiz();
+}
+
+function sprintMiniCiz() {
+  const el = $("sprintMini");
+  if (!el || !S) return;
+  const p = sprintPuanlari();
+  const kalan = sprintKalanGun();
+  const devam = S.sprintIsleri.filter(s => s.durum === "doing");
+  el.innerHTML = `
+    <div class="sprint-mini-ust"><b>${esc(S.sprint.ad)}</b><span>${kalan < 0 ? "Süresi doldu" : kalan === 0 ? "Bugün bitiyor" : kalan + " gün kaldı"}</span></div>
+    <div class="kurs-bar"><span style="width:${p.yuzde}%"></span></div>
+    <div class="sprint-mini-alt">%${p.yuzde} tamamlandı · ${p.biten}/${p.toplam} puan</div>
+    <ul class="mini-plan-list">${devam.length
+      ? devam.slice(0, 4).map(s => `<li class="mini-plan-item odak"><span class="mp-saat">${+s.puan || 1}p</span><span class="mp-baslik">${esc(s.baslik)}</span></li>`).join("")
+      : `<li class="mini-plan-empty">Şu an devam eden sprint işi yok.</li>`}</ul>`;
+}
+
+function velocityCiz() {
+  const el = $("velocityChart");
+  if (!el || !S) return;
+  const son = S.sprintGecmis.slice(-6);
+  if (!son.length) { el.innerHTML = `<p class="plan-empty" style="width:100%">Bir sprinti bitirdiğinde tamamlanan puanlar burada görünür.</p>`; return; }
+  const maks = Math.max(1, ...son.map(s => s.toplam || 0));
+  el.innerHTML = son.map(s => `<div class="perf-bar" title="${esc(s.ad)}: ${s.biten}/${s.toplam} puan">
+      <span class="perf-bar-num">${s.biten}</span>
+      <div class="perf-bar-inner" style="height:${(s.biten / maks) * 100}%"></div>
+      <span class="perf-bar-label">${esc(s.ad.replace("Sprint ", "S"))}</span>
+    </div>`).join("");
+}
+
+// Sprinti kapatır: tamamlanan puanı geçmişe yazar, bitmeyen işleri yeni sprinte taşır
+function sprintBitir() {
+  const sp = S.sprint;
+  const p = sprintPuanlari();
+  const bitmeyen = S.sprintIsleri.filter(s => s.durum !== "done").length;
+  if (!confirm(`"${sp.ad}" bitirilsin mi?\n\nTamamlanan: ${p.biten}/${p.toplam} puan\n${bitmeyen} bitmemiş iş yeni sprinte taşınacak.`)) return;
+  S.sprintGecmis.push({ ad: sp.ad, bas: sp.bas, bit: sp.bit, biten: p.biten, toplam: p.toplam });
+  if (S.sprintGecmis.length > 20) S.sprintGecmis.splice(0, S.sprintGecmis.length - 20);
+  S.sprintIsleri = S.sprintIsleri.filter(s => s.durum !== "done");
+  const sure = Math.max(1, Math.round((tarihOku(sp.bit) - tarihOku(sp.bas)) / GUN_MS) + 1);
+  // Erken bitirildiyse yeni sprint bugün başlar; son gününde bitirildiyse yarın;
+  // süresi geçtikten sonra bitirildiyse yine bugün (arada sprintsiz boşluk kalmasın).
+  const bugun = tarihOku(todayKey);
+  const ertesi = tarihOku(sp.bit); ertesi.setDate(ertesi.getDate() + 1);
+  const bas = sp.bit === todayKey ? ertesi : bugun;
+  const bit = new Date(bas); bit.setDate(bas.getDate() + sure - 1);
+  const no = (+sp.no || S.sprintGecmis.length) + 1;
+  S.sprint = { no, ad: `Sprint ${no}`, bas: tarihKey(bas), bit: tarihKey(bit), hedef: "", kapasite: sp.kapasite || 20 };
+  bildirimEkle("success", `${sp.ad} tamamlandı`, `${p.biten}/${p.toplam} puan bitirildi`, "sprint-bitti-" + sp.ad + sp.bit);
+  ciz();
+}
+
+// ================= İŞ MODU: TOPLANTI TAKVİMİ =================
+let tkHaftaOfset = 0;
+function toplantiHaftaCiz() {
+  const el = $("tkHafta");
+  if (!el || !S) return;
+  const bugun = tarihOku(todayKey);
+  const pzt = new Date(bugun);
+  pzt.setDate(bugun.getDate() + (bugun.getDay() === 0 ? -6 : 1 - bugun.getDay()) + tkHaftaOfset * 7);
+  const gunler = [...Array(7)].map((_, i) => { const d = new Date(pzt); d.setDate(pzt.getDate() + i); return d; });
+  const son = gunler[6];
+  if ($("tkHaftaBaslik")) {
+    $("tkHaftaBaslik").textContent = `${pzt.getDate()} ${aylar[pzt.getMonth()]} – ${son.getDate()} ${aylar[son.getMonth()]} ${son.getFullYear()}`;
+  }
+  // Toplantıları güne göre bir kez grupla
+  const gunGrup = {};
+  S.toplantilar.forEach(t => { (gunGrup[t.tarih] = gunGrup[t.tarih] || []).push(t); });
+  el.innerHTML = gunler.map(d => {
+    const k = tarihKey(d);
+    const liste = (gunGrup[k] || []).filter(t => eslesir(t.baslik)).sort((a, b) => (a.saat || "").localeCompare(b.saat || ""));
+    return `<div class="tk-gun ${k === todayKey ? "bugun" : ""} ${k < todayKey ? "gecmis" : ""}">
+      <div class="tk-gun-head"><span>${GUNLER_KISA[d.getDay()]}</span><b>${d.getDate()}</b></div>
+      <div class="tk-gun-body">
+        ${liste.map(t => `<button type="button" class="tk-toplanti" data-act="toplanti-edit" data-id="${t.id}" title="${esc(t.baslik)}">
+            <span class="tk-saat">${esc(t.saat || "")}</span>
+            <span class="tk-baslik">${esc(t.baslik)}</span>
+          </button>`).join("")}
+        <button type="button" class="tk-ekle" data-open="dlgToplanti" data-tarih="${k}" aria-label="${gunEtiket(k)} için toplantı ekle">+</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ================= İŞ MODU: ÖNCELİKLİ İŞLER =================
+// Farklı kaynaklardan aciliyete göre sıralanmış tek bir "şimdi neye bakmalıyım" listesi
+function oncelikCiz() {
+  const el = $("oncelikListe");
+  if (!el || !S) return;
+  const simdiDk = new Date().getHours() * 60 + new Date().getMinutes();
+  const items = [];
+  S.projeler.forEach(p => {
+    if (p.durum === "tamam" || !p.bitis) return;
+    const f = gunFarki(p.bitis);
+    if (f < 0) items.push({ skor: 0, tip: "kritik", etiket: "Gecikti", baslik: p.ad, alt: `${-f} gün gecikti`, view: "proje" });
+    else if (f <= 3) items.push({ skor: 2 + f / 10, tip: "uyari", etiket: "Teslim", baslik: p.ad, alt: f === 0 ? "Bugün teslim" : `${f} gün kaldı`, view: "proje" });
+  });
+  S.toplantilar.filter(t => t.tarih === todayKey && saatDk(t.saat) + (+t.sure || 30) >= simdiDk).forEach(t => {
+    items.push({ skor: 1 + saatDk(t.saat) / 10000, tip: "toplanti", etiket: "Toplantı", baslik: t.baslik, alt: `Bugün ${t.saat}`, view: "toplanti" });
+  });
+  S.tasks.filter(t => !t.done && t.p === "high").forEach(t => {
+    items.push({ skor: t.doing ? 3 : 3.5, tip: "yuksek", etiket: "Yüksek", baslik: t.t, alt: (t.doing ? "Devam ediyor" : "Bekliyor") + (projeAdi(t.proje) ? " · " + projeAdi(t.proje) : ""), view: "tasks" });
+  });
+  S.sprintIsleri.filter(s => s.durum === "doing").forEach(s => {
+    items.push({ skor: 4, tip: "sprint", etiket: "Sprint", baslik: s.baslik, alt: `${+s.puan || 1} puan · devam ediyor`, view: "sprint" });
+  });
+  items.sort((a, b) => a.skor - b.skor);
+  el.innerHTML = items.length ? items.slice(0, 6).map(it => `
+    <li class="oncelik-item ${it.tip}">
+      <button type="button" data-view="${it.view}">
+        <span class="oncelik-etiket">${it.etiket}</span>
+        <span class="oncelik-body"><b>${esc(it.baslik)}</b><small>${esc(it.alt)}</small></span>
+        <svg width="14" height="14"><use href="#i-chevron-right"/></svg>
+      </button>
+    </li>`).join("")
+    : `<li class="is-bugun-empty">Acil bir iş yok. Yüksek öncelikli görevler, yaklaşan teslimler ve bugünkü toplantılar burada görünür.</li>`;
 }
 
 // ============ İŞ MODU: BUGÜNÜN ÖZETİ ============
@@ -1275,6 +1604,7 @@ function gorevlerCiz() {
           <div class="task-meta">
             <span class="task-pri-badge pri-${p}"><svg width="10" height="10"><use href="#i-flag"/></svg> ${ONCELIK[p]}</span>
             ${t.zaman ? `<span>${new Date(t.zaman).toLocaleDateString("tr-TR")}</span>` : ""}
+            ${S.mode === "work" && projeAdi(t.proje) ? `<span class="task-proje"><svg width="10" height="10"><use href="#i-briefcase"/></svg> ${esc(projeAdi(t.proje))}</span>` : ""}
           </div>
         </div>
         <button type="button" class="task-del" data-act="del" data-list="tasks" data-id="${t.id}" aria-label="Sil">
@@ -1359,6 +1689,8 @@ function ozetCiz() {
   if (S.mode === "student") {
     if (bugunDers) parcalar.push(`<div class="ws-item"><b>${bugunDers}</b> ders</div>`);
   } else {
+    const bugunToplanti = (S.toplantilar || []).filter(t => t.tarih === todayKey).length;
+    if (bugunToplanti) parcalar.push(`<div class="ws-item"><b>${bugunToplanti}</b> toplantı</div>`);
     if (bugunPlan) parcalar.push(`<div class="ws-item"><b>${bugunPlan}</b> iş</div>`);
   }
   if (bugunEtkinlik) parcalar.push(`<div class="ws-item"><b>${bugunEtkinlik}</b> etkinlik</div>`);
@@ -1478,6 +1810,14 @@ function ciz() {
   yksOzetCiz();
   acOzetCiz();
   kariyerCiz();
+  if (S.mode === "work") {
+    projeSecenekleriDoldur();
+    projelerCiz();
+    sprintCiz();
+    sprintMiniCiz();
+    toplantiHaftaCiz();
+    oncelikCiz();
+  }
   kaydet();
 }
 
@@ -1645,10 +1985,10 @@ document.addEventListener("click", e => {
     return;
   }
 
-  // ---- Kariyer ----
-  if (e.target.closest("a[data-stop]")) return; // kurs linki: düzenleme penceresini açmadan linke git
-  for (const tip in KARIYER_DLG) {
-    const c = KARIYER_DLG[tip];
+  // ---- Düzenlenebilir kayıtlar (Kariyer + İş modu) ----
+  if (e.target.closest("a[data-stop]")) return; // kurs/toplantı linki: düzenleme penceresini açmadan linke git
+  for (const tip in DUZENLE_DLG) {
+    const c = DUZENLE_DLG[tip];
     if (e.target.closest("#" + c.sil)) {
       e.preventDefault();
       const id = $(c.dlg).querySelector("[name=id]").value;
@@ -1666,10 +2006,34 @@ document.addEventListener("click", e => {
     if (h) { h.done = khToggle.checked; kariyerCiz(); kaydet(); }
     return;
   }
-  const kariyerEdit = e.target.closest("[data-act='basvuru-edit'],[data-act='kurs-edit'],[data-act='kh-edit']");
-  if (kariyerEdit && !e.target.closest("[data-act='del']")) {
+  const kayitEdit = e.target.closest(DUZENLE_SECICI);
+  if (kayitEdit && !e.target.closest("[data-act='del']")) {
     e.preventDefault();
-    kariyerDuzenleAc(kariyerEdit.dataset.act.replace("-edit", ""), kariyerEdit.dataset.id);
+    kayitDuzenleAc(kayitEdit.dataset.act.replace("-edit", ""), kayitEdit.dataset.id);
+    return;
+  }
+
+  // ---- İş modu: sprint, proje filtresi, toplantı haftası ----
+  const spMove = e.target.closest("[data-act='sprint-move']");
+  if (spMove) {
+    e.preventDefault();
+    const s = bul("sprintIsleri", spMove.dataset.id);
+    if (s && ["todo", "doing", "done"].includes(spMove.dataset.to)) {
+      s.durum = spMove.dataset.to;
+      if (s.durum === "done") s.bitis = new Date().toISOString(); else delete s.bitis;
+      ciz();
+    }
+    return;
+  }
+  if (e.target.closest("#sprintBitir")) { e.preventDefault(); sprintBitir(); return; }
+  const pf = e.target.closest("[data-proje-filtre]");
+  if (pf) { e.preventDefault(); projeFiltre = pf.dataset.projeFiltre; projelerCiz(); return; }
+  const tkBtn = e.target.closest("[data-tk-hafta]");
+  if (tkBtn) {
+    e.preventDefault();
+    const d = +tkBtn.dataset.tkHafta;
+    tkHaftaOfset = d === 0 ? 0 : tkHaftaOfset + d;
+    toplantiHaftaCiz();
     return;
   }
 
@@ -1892,14 +2256,20 @@ document.addEventListener("click", e => {
         const silBtn = $("silYks");
         if (silBtn) silBtn.hidden = true;
       }
-      for (const tip in KARIYER_DLG) {
-        const c = KARIYER_DLG[tip];
+      for (const tip in DUZENLE_DLG) {
+        const c = DUZENLE_DLG[tip];
         if (opener.dataset.open !== c.dlg) continue;
         form.querySelector("[name=id]").value = "";
         $(c.baslik).textContent = c.ekle;
         $(c.sil).hidden = true;
         const tarihEl = form.querySelector("[name=tarih]");
         if (tip === "basvuru" && tarihEl) tarihEl.value = todayKey;
+        if (tip === "toplanti" && tarihEl) tarihEl.value = opener.dataset.tarih || todayKey;
+        if (tip === "proje" && form.querySelector("[name=bas]")) form.querySelector("[name=bas]").value = todayKey;
+      }
+      projeSecenekleriDoldur();
+      if (opener.dataset.open === "dlgSprint" && S.sprint) {
+        ["ad", "bas", "bit", "hedef", "kapasite"].forEach(a => { const el = form.querySelector(`[name=${a}]`); if (el) el.value = S.sprint[a] ?? ""; });
       }
       if (opener.dataset.open === "dlgEvent") form.dataset.day = opener.dataset.day || "today";
       const selEl = form.querySelector("select[name=type]");
@@ -2042,7 +2412,7 @@ function adDegistir(e) {
 }
 document.addEventListener("dblclick", adDegistir);
 
-const AUTOCLOSE = ["dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti","dlgSinav","dlgOdev","dlgYks","dlgBasvuru","dlgKurs","dlgKariyerHedef"];
+const AUTOCLOSE = ["dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti","dlgSinav","dlgOdev","dlgYks","dlgBasvuru","dlgKurs","dlgKariyerHedef","dlgProje","dlgSprint"];
 document.addEventListener("submit", e => {
   e.preventDefault();
   if (!e.target.dataset || !e.target.dataset.form || !S) return;
@@ -2062,7 +2432,7 @@ document.addEventListener("submit", e => {
     case "skill": S.skills.push({ id, n: v.n.trim(), p: 50 }); break;
     case "task":
     case "task-quick":
-      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", zaman: new Date().toISOString() });
+      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", proje: v.proje || "", zaman: new Date().toISOString() });
       break;
     case "note": S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" }); break;
     case "link": S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() }); break;
@@ -2133,7 +2503,28 @@ document.addEventListener("submit", e => {
       S.planItems.push({ id, baslik: v.baslik.trim(), gun: v.gun, saat: v.saat, kategori: v.kategori || "gorev", zaman: new Date().toISOString() });
       break;
     case "toplanti":
-      S.toplantilar.push({ id, baslik: v.baslik.trim(), tarih: v.tarih, saat: v.saat, katilimcilar: (v.katilimcilar||"").trim(), sure: +(v.sure || 30), notlar: (v.notlar||"").trim(), zaman: new Date().toISOString() });
+      kayitGuncelle("toplantilar", {
+        id, baslik: v.baslik.trim(), tarih: v.tarih, saat: v.saat, katilimcilar: (v.katilimcilar || "").trim(),
+        sure: Math.max(5, +v.sure || 30), proje: v.proje || "", link: (v.link || "").trim(), notlar: (v.notlar || "").trim(),
+      });
+      break;
+    case "proje": {
+      const eski = bul("projeler", id);
+      kayitGuncelle("projeler", {
+        id, ad: v.ad.trim(), ekip: (v.ekip || "").trim(),
+        durum: PROJE_DURUM[v.durum] ? v.durum : "aktif", oncelik: ONCELIK[v.oncelik] ? v.oncelik : "mid",
+        bas: v.bas || "", bitis: v.bitis || "", ilerleme: Math.min(100, Math.max(0, Math.round(+v.ilerleme || 0))),
+        notlar: (v.notlar || "").trim(), zaman: eski ? eski.zaman : new Date().toISOString(),
+      });
+      break;
+    }
+    case "sprint": {
+      if (v.bit < v.bas) { alert("Bitiş tarihi başlangıçtan önce olamaz."); return; }
+      S.sprint = { ...S.sprint, ad: v.ad.trim() || S.sprint.ad, bas: v.bas, bit: v.bit, hedef: (v.hedef || "").trim(), kapasite: Math.max(1, +v.kapasite || 20) };
+      break;
+    }
+    case "sprint-is":
+      S.sprintIsleri.push({ id, baslik: v.baslik.trim(), puan: [1, 2, 3, 5, 8].includes(+v.puan) ? +v.puan : 3, proje: v.proje || "", durum: "todo", zaman: new Date().toISOString() });
       break;
     case "pomo-ayar": {
       if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
