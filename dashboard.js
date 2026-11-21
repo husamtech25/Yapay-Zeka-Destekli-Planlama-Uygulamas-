@@ -737,19 +737,16 @@ function pomoBugun() {
   if (!S || !S.pomo || !S.pomo.stats) return { sayi: 0, dk: 0 };
   return S.pomo.stats[todayKey] || { sayi: 0, dk: 0 };
 }
-function pomoHaftaToplam() {
+// Bu haftanın (Pazartesi başlangıçlı) gün anahtarları ve Pazartesi'nin anahtarı
+function haftaGunleriKey() {
+  const pzt = tarihOku(todayKey);
+  pzt.setDate(pzt.getDate() + (pzt.getDay() === 0 ? -6 : 1 - pzt.getDay()));
+  return [...Array(7)].map((_, i) => { const d = new Date(pzt); d.setDate(pzt.getDate() + i); return tarihKey(d); });
+}
+const haftaBasiKey = () => haftaGunleriKey()[0];
+function pomoHaftaToplam(alan = "sayi") {
   if (!S || !S.pomo || !S.pomo.stats) return 0;
-  const bugun = new Date();
-  const gunNo = bugun.getDay();
-  const pazartesiFark = (gunNo === 0 ? -6 : 1 - gunNo);
-  let toplam = 0;
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(bugun);
-    d.setDate(bugun.getDate() + pazartesiFark + i);
-    const k = key(d.getFullYear(), d.getMonth(), d.getDate());
-    if (S.pomo.stats[k]) toplam += S.pomo.stats[k].sayi;
-  }
-  return toplam;
+  return haftaGunleriKey().reduce((t, k) => t + ((S.pomo.stats[k] && +S.pomo.stats[k][alan]) || 0), 0);
 }
 function pomoStatsGuncelle() {
   const b = pomoBugun(); const hafta = pomoHaftaToplam();
@@ -954,13 +951,16 @@ function haftalikGridCiz() {
   if ($("statDersSayi")) $("statDersSayi").textContent = dersler.length;
   if ($("statDersBugun")) $("statDersBugun").textContent = bugunDersler().length;
   if ($("statDersHafta")) $("statDersHafta").textContent = dersler.filter(d => +d.gun >= 1 && +d.gun <= 5).length;
+  const cerceve = grid.closest(".haftalik-grid-wrap");
   if (!dersler.length) {
     grid.innerHTML = "";
     grid.style.gridTemplateRows = "";
     if (empty) empty.hidden = false;
+    if (cerceve) cerceve.hidden = true;
     return;
   }
   if (empty) empty.hidden = true;
+  if (cerceve) cerceve.hidden = false;
   const gunSirasi = [1, 2, 3, 4, 5, 6, 0];
   const SAATLER = dersSaatleri(dersler);
   grid.style.gridTemplateRows = `40px repeat(${SAATLER.length}, 60px)`;
@@ -1202,7 +1202,12 @@ function acOzetCiz() {
   if (ortEl) ortEl.textContent = courses.length ? ort.toFixed(1) : "—";
   if (ortSubEl) ortSubEl.textContent = courses.length ? `${courses.length} ders üzerinden` : "Henüz not girilmedi";
 
-  if ($("acDersSayi")) $("acDersSayi").textContent = courses.length;
+  // Ders sayısı: ders programındaki ve not girilen derslerin (aynı adlar bir kez) toplamı.
+  // Eskiden sadece not girilenleri sayıyordu; programda 4 ders varken 0 görünüyordu.
+  if ($("acDersSayi")) {
+    const adlar = new Set([...courses.map(c => aramaNorm(c.n)), ...(S.dersler || []).map(d => aramaNorm(d.ad))].filter(Boolean));
+    $("acDersSayi").textContent = adlar.size;
+  }
   if ($("acSınavSayi")) {
     $("acSınavSayi").textContent = (S.sinavlar || []).filter(s => s.tarih >= todayKey).length;
   }
@@ -1361,9 +1366,8 @@ function planHaftalikCiz() {
   gunler.forEach(gunNo => {
     const gunItems = items.filter(it => +it.gun === gunNo);
     if (!gunItems.length) return;
-    const offset = (gunNo === 0 ? 7 - bugunDt.getDay() : gunNo - bugunDt.getDay());
-    const tarih = new Date(bugunDt);
-    tarih.setDate(bugunDt.getDate() + offset);
+    // Haftanın Pazartesi'sinden say: eskiden bugün Pazar iken tarihler bir hafta ileri kayıyordu
+    const tarih = tarihOku(haftaGunleriKey()[(gunNo + 6) % 7]);
     const tarihMetni = `${tarih.getDate()} ${aylar[tarih.getMonth()]}`;
     html += `<div class="plan-gun">
       <div class="plan-gun-head">
@@ -1410,7 +1414,9 @@ function planPerformansCiz() {
   });
 
   if ($("perfHaftaGorev")) $("perfHaftaGorev").textContent = haftaGorev;
-  if ($("perfHaftaSaat")) $("perfHaftaSaat").textContent = Math.round(pomoHaftaToplam() * (+(pomoAyarlari().focus || 25)) / 60);
+  // Odak süresi: kaydedilen gerçek dakikalardan (eskiden tur sayısı × güncel odak süresiydi;
+  // ayar değişince geçmiş turlar da yeni süreyle hesaplanıyordu)
+  if ($("perfHaftaSaat")) $("perfHaftaSaat").textContent = String(Math.round(pomoHaftaToplam("dk") / 6) / 10).replace(".", ",");
   if ($("perfAyGorev")) $("perfAyGorev").textContent = ayGorev;
   if ($("perfProje")) $("perfProje").textContent = S.projeler.filter(p => p.durum === "aktif").length;
 
@@ -1528,11 +1534,15 @@ const projeAdi = id => { const p = id && bul("projeler", id); return p ? p.ad : 
 function projeIlerleme(p) {
   const gorevler = S.tasks.filter(t => t.proje === p.id);
   const isler = S.sprintIsleri.filter(s => s.proje === p.id);
-  const toplam = gorevler.length + isler.reduce((t, s) => t + (+s.puan || 1), 0);
-  if (p.durum === "tamam") return { yuzde: 100, otomatik: toplam > 0, toplam: gorevler.length + isler.length };
-  if (!toplam) return { yuzde: Math.min(100, Math.max(0, +p.ilerleme || 0)), otomatik: false, toplam: 0 };
+  const puanToplam = isler.reduce((t, s) => t + (+s.puan || 1), 0);
+  const toplam = gorevler.length + puanToplam;
+  // Açıklama metni: her görev 1 birim, her sprint işi puanı kadar birim sayılır
+  const ozet = [gorevler.length && `${gorevler.length} görev`, isler.length && `${isler.length} sprint işi (${puanToplam} puan)`].filter(Boolean).join(" + ");
+  const aciklama = "İlerleme = tamamlanan birim / toplam birim. Her görev 1 birim, her sprint işi puanı kadar birim sayılır.";
+  if (p.durum === "tamam") return { yuzde: 100, otomatik: toplam > 0, toplam: gorevler.length + isler.length, ozet, aciklama };
+  if (!toplam) return { yuzde: Math.min(100, Math.max(0, +p.ilerleme || 0)), otomatik: false, toplam: 0, ozet: "", aciklama: "Projeye bağlı görev ya da sprint işi yok; ilerleme elle giriliyor." };
   const biten = gorevler.filter(t => t.done).length + isler.filter(s => s.durum === "done").reduce((t, s) => t + (+s.puan || 1), 0);
-  return { yuzde: Math.round(biten / toplam * 100), otomatik: true, toplam: gorevler.length + isler.length };
+  return { yuzde: Math.round(biten / toplam * 100), otomatik: true, toplam: gorevler.length + isler.length, ozet, aciklama };
 }
 const projeGecikti = p => p.durum !== "tamam" && p.bitis && gunFarki(p.bitis) < 0;
 
@@ -1550,7 +1560,10 @@ function projelerCiz() {
   const liste = tum
     .filter(p => projeFiltre === "hepsi" || (projeFiltre === "tamam" ? p.durum === "tamam" : p.durum !== "tamam"))
     .filter(p => eslesir(p.ad))
-    .sort((a, b) => (oncelikSira[a.oncelik] ?? 1) - (oncelikSira[b.oncelik] ?? 1) || (a.bitis || "9").localeCompare(b.bitis || "9"));
+    // Geciken projeler, önceliğinden bağımsız olarak en üstte; sonra öncelik, sonra teslim tarihi
+    .sort((a, b) => (projeGecikti(b) ? 1 : 0) - (projeGecikti(a) ? 1 : 0)
+      || (oncelikSira[a.oncelik] ?? 1) - (oncelikSira[b.oncelik] ?? 1)
+      || (a.bitis || "9").localeCompare(b.bitis || "9"));
   if (!liste.length) {
     el.innerHTML = `<p class="plan-empty">${tum.length ? "Bu filtreye uyan proje yok." : "Henüz proje yok. Sağ üstteki \"Proje Ekle\" butonuna bas."}</p>`;
     return;
@@ -1575,7 +1588,7 @@ function projelerCiz() {
       </div>
       <div class="proje-alt">
         <span class="${gecikti ? "proje-gecikme" : ""}"><svg width="11" height="11"><use href="#i-clock"/></svg> ${kalanMetin}</span>
-        <span>${il.otomatik ? `${il.toplam} bağlı iş` : "Manuel ilerleme"}</span>
+        <span title="${esc(il.aciklama)}">${il.otomatik ? esc(il.ozet) : "Manuel ilerleme"} ⓘ</span>
       </div>
     </article>`;
   }).join("");
@@ -1968,6 +1981,13 @@ function hedeflerCiz() {
     el.innerHTML = `<li class="hedef-empty">Henüz hedef yok. + butonuyla ekle.</li>`;
     return;
   }
+  // "Haftalık" hedefler her Pazartesi sıfırlanır; geçen haftanın sonucu ayrıca gösterilir.
+  // Hafta bilgisi olmayan eski hedefler bu haftaya atanır (ilerlemeleri silinmez).
+  const buHafta = haftaBasiKey();
+  liste.forEach(h => {
+    if (!h.hafta) h.hafta = buHafta;
+    else if (h.hafta !== buHafta) { h.gecen = h.mevcut; h.mevcut = 0; h.hafta = buHafta; }
+  });
   el.innerHTML = liste.map(h => {
     const yuzde = Math.min(100, Math.round((h.mevcut / h.hedef) * 100));
     return `<li class="hedef-item" data-id="${h.id}">
@@ -1976,6 +1996,7 @@ function hedeflerCiz() {
         <span class="hedef-sayi">${h.mevcut}/${h.hedef} ${esc(h.birim || "")}</span>
       </div>
       <div class="hedef-bar"><span style="width:${yuzde}%"></span></div>
+      ${h.gecen != null ? `<div class="hedef-gecen">Geçen hafta: ${h.gecen}/${h.hedef}${h.gecen >= h.hedef ? " ✓" : ""}</div>` : ""}
       <div class="hedef-actions">
         <button type="button" class="hedef-btn minus" data-act="hedef-minus" data-id="${h.id}">−1</button>
         <button type="button" class="hedef-btn" data-act="hedef-plus" data-id="${h.id}">+1</button>
@@ -2896,7 +2917,7 @@ document.addEventListener("submit", e => {
       break;
     }
     case "hedef":
-      S.hedefler.push({ id, baslik: v.baslik.trim(), hedef: Math.max(1, +v.hedef || 1), birim: (v.birim || "kez").trim(), mevcut: 0, zaman: new Date().toISOString() });
+      S.hedefler.push({ id, baslik: v.baslik.trim(), hedef: Math.max(1, +v.hedef || 1), birim: (v.birim || "kez").trim(), mevcut: 0, hafta: haftaBasiKey(), zaman: new Date().toISOString() });
       break;
     case "plan-item": {
       const eski = bul("planItems", id);
