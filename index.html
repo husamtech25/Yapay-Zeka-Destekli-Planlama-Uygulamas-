@@ -8,6 +8,18 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-title" content="AYVEX">
+  <link rel="canonical" href="https://ayvex-7697a.firebaseapp.com/">
+  <script>
+    // Uygulamanın adresi ayvex-7697a.firebaseapp.com (Firebase Hosting). Eski GitHub Pages adresi ve
+    // aynı sitenin web.app adresi buraya yönlendirilir: Google girişinin izinli dönüş adresi bu alan adı,
+    // ve giriş siteyle aynı alan adında olunca açılır pencere engellense bile çalışır.
+    // (Paylaşım bağlantıları gibi ?parametreler korunur.)
+    (function () {
+      var h = location.hostname, hedef = "https://ayvex-7697a.firebaseapp.com";
+      if (/\.github\.io$/.test(h)) location.replace(hedef + location.pathname.replace(/^\/Yapay-Zeka-Destekli-Planlama-Uygulamas-\/?/, "/") + location.search + location.hash);
+      else if (h === "ayvex-7697a.web.app") location.replace(hedef + location.pathname + location.search + location.hash);
+    })();
+  </script>
   <script>
     // Temayı sayfa çizilmeden uygula (beyaz ekran yanıp sönmesin). Seçim: "sistem" | "acik" | "koyu"
     (function () {
@@ -28,7 +40,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- SÜRÜM: CSS/JS dosyaları her değiştiğinde buradaki ve sayfa sonundaki ?v= değerini
        (tarih.sıra biçiminde) birlikte artır. Tarayıcılar yeni dosyaları önbelleğe takılmadan indirir. -->
-  <link rel="stylesheet" href="dashboard.css?v=20261122.13">
+  <link rel="stylesheet" href="dashboard.css?v=20261122.15">
 </head>
 <body>
   <!-- ============ SVG İKON SPRITE ============ -->
@@ -1558,7 +1570,7 @@
     <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
   </div>
 
-  <script src="dashboard.js?v=20261122.13"></script>
-  <script type="module" src="bulut.js?v=20261122.13"></script>
+  <script src="dashboard.js?v=20261122.15"></script>
+  <script type="module" src="bulut.js?v=20261122.15"></script>
 </body>
 </html>

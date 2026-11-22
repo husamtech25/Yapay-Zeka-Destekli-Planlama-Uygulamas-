@@ -14,7 +14,7 @@
 // =====================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup,
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
   getRedirectResult, onAuthStateChanged, signOut,
   createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification,
   sendPasswordResetEmail, updateProfile, reauthenticateWithCredential, EmailAuthProvider,
@@ -23,9 +23,15 @@ import {
 // Firestore (en büyük kütüphane) giriş ekranında gerekmiyor: ilk ihtiyaçta yüklenir, bkz. firestore()
 const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
+// Site ayvex-7697a.firebaseapp.com adresindeyken giriş işleyicisi (/__/auth/handler) aynı alan adında
+// bulunur ve Google girişinin izinli dönüş adresi de budur (web.app adresi bu yüzden buraya yönlendirilir)
+const AYNI_ALAN_ADI_GIRIS = location.hostname === "ayvex-7697a.firebaseapp.com";
+
 // Bu değerler gizli değildir; her Firebase web uygulamasında istemci kodunda durur.
 const firebaseConfig = {
   apiKey: "AIzaSyAFLqqEhxe50ZQwwzNRtSdIu-csUDNRfuc",
+  // Site de bu adreste yayınlanıyor; giriş işleyicisi siteyle aynı alan adında olunca tarayıcılar
+  // depolamayı ayırmaz ve açılır pencere engellendiğinde yönlendirmeli giriş de çalışır.
   authDomain: "ayvex-7697a.firebaseapp.com",
   projectId: "ayvex-7697a",
   storageBucket: "ayvex-7697a.firebasestorage.app",
@@ -91,12 +97,15 @@ async function girisYap() {
     const sonuc = await signInWithPopup(auth, saglayici);
     return await kullaniciVerisi(sonuc.user);
   } catch (e) {
-    // Not: Açılır pencere engellenince eskiden yönlendirmeyle (signInWithRedirect) deneniyordu.
-    // Site github.io'da, giriş işleyicisi firebaseapp.com'da olduğu için güncel tarayıcılar
-    // (Chrome 115+, Safari, Firefox) iki alan adı arasındaki depolamayı ayırıyor ve yönlendirme
-    // dönüşünde oturum sessizce kayboluyordu. Artık hata çağırana iletilir ve kullanıcıya
-    // ne yapacağı söylenir (bkz. dashboard.js authHataMetni).
     if (e && (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request")) return null;
+    // Açılır pencere engellendiyse (ör. bazı telefon tarayıcıları, kurulu uygulama) yönlendirmeyle dene.
+    // Bu sadece site Firebase Hosting'deyken güvenilir çalışır: giriş işleyicisi aynı alan adında olduğu
+    // için tarayıcılar depolamayı ayırmaz. Başka bir alan adında (eski github.io) yönlendirme dönüşünde
+    // oturum sessizce kaybolduğu için orada hata çağırana iletilir ve kullanıcıya ne yapacağı söylenir.
+    if (AYNI_ALAN_ADI_GIRIS && e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
+      await signInWithRedirect(auth, saglayici);
+      return null;
+    }
     throw e;
   }
 }
