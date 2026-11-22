@@ -6,12 +6,13 @@
 // 2) Bildirime tıklanınca açık uygulama sekmesine geçilir (yoksa yeni sekme açılır).
 // Kullanıcı verisi burada tutulmaz; veri tarayıcıda (localStorage) ve Firestore'da.
 // =====================================================================
-const ONBELLEK = "ayvex-v1";
+const ONBELLEK = "ayvex-v2";
 const KABUK = ["./", "index.html", "dashboard.css", "dashboard.js", "bulut.js", "manifest.webmanifest",
   "assets/ayvex-logo.webp", "assets/icon-192.png"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(ONBELLEK).then(c => c.addAll(KABUK)).then(() => self.skipWaiting()));
+  // cache: "reload": kurulumda HTTP önbelleğindeki eski kopyayı değil sunucudakini al
+  e.waitUntil(caches.open(ONBELLEK).then(c => c.addAll(KABUK.map(u => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", e => {
@@ -34,8 +35,13 @@ self.addEventListener("fetch", e => {
   if (istek.method !== "GET") return;
   const url = new URL(istek.url);
   if (!onbellekUygun(url)) return;
+  // Kendi dosyalarımızda tarayıcının HTTP önbelleğini atla, sunucuya "değişti mi?" diye sor
+  // (değişmediyse 304 döner, ucuzdur). Yoksa GitHub Pages'in 10 dakikalık önbellek süresi
+  // boyunca yeni yayın, sayfa yenilense bile görünmüyordu. Sürüm ekli dış dosyalar (Firebase,
+  // fontlar) değişmediği için normal önbellekle alınır.
+  const ayar = url.origin === self.location.origin ? { cache: "no-cache" } : undefined;
   e.respondWith(
-    fetch(istek)
+    fetch(istek, ayar)
       .then(cevap => {
         if (cevap && (cevap.ok || cevap.type === "opaque")) {
           const kopya = cevap.clone();
