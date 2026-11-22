@@ -1559,3 +1559,53 @@ body[data-paylasim="true"] .sidebar,body[data-paylasim="true"] .topbar,body[data
 :root[data-tema="koyu"] .ki-btn.start{color:var(--teal);background:rgba(43,184,168,.22)}
 .alan-hata{display:block;margin-top:6px;font-size:.78rem;font-weight:600;color:var(--coral)}
 [aria-invalid="true"]{border-color:var(--coral) !important}
+
+/* ================================================================
+   MOBİL DÜZELTMELERİ
+   ================================================================ */
+
+/* Giriş/kayıt ekranı: içerik ekrandan uzunsa "place-items:center" üst kısmı (logoyu)
+   ekranın dışına itiyordu ve oraya kaydırılamıyordu. Sığıyorsa ortala, sığmıyorsa üstten başla. */
+.onboard{place-items:start center}
+.onboard>.onboard-shell{margin-block:auto}
+
+/* Pencereler: başlık + kapat (X) üstte, Kaydet/İptal altta sabit; sadece arası kayar.
+   Pencere açıkken arkadaki sayfa kaymasın. */
+dialog{max-height:90vh;max-height:90dvh;overscroll-behavior:contain}
+dialog .dlg-head{position:sticky;top:calc(-1 * var(--s6));z-index:2;background:var(--surface);margin:calc(-1 * var(--s6)) calc(-1 * var(--s6)) var(--s4);padding:var(--s6) var(--s6) var(--s3)}
+dialog .dialog-actions{position:sticky;bottom:calc(-1 * var(--s6));z-index:2;background:var(--surface);margin:var(--s2) calc(-1 * var(--s6)) calc(-1 * var(--s6));padding:var(--s3) var(--s6) var(--s6);border-top:1px solid var(--border-2)}
+html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
+
+@media(max-width:760px){
+  /* iPhone, yazı boyutu 16px'ten küçük alana dokununca sayfayı yakınlaştırıyordu ("kayma") */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea{font-size:16px !important}
+
+  /* Pencere iç boşluğu mobilde --s5; yapışkan başlık/alt çubuk ona göre */
+  dialog{max-height:88vh;max-height:88dvh}
+  dialog .dlg-head{top:calc(-1 * var(--s5));margin:calc(-1 * var(--s5)) calc(-1 * var(--s5)) var(--s3);padding:var(--s5) var(--s5) var(--s3)}
+  dialog .dialog-actions{bottom:calc(-1 * var(--s5));margin:var(--s2) calc(-1 * var(--s5)) calc(-1 * var(--s5));padding:var(--s3) var(--s5) var(--s5)}
+  /* Mobilde düğmeler alt alta diziliyordu: yan yana küçük bir çubuk olsun, alt çubuk kısa kalsın */
+  dialog .dialog-actions{flex-direction:row;flex-wrap:wrap}
+  dialog .dialog-actions .btn-primary,dialog .dialog-actions .btn-ghost,dialog .dialog-actions .btn-danger{width:auto;flex:1 1 auto;min-height:44px;padding-inline:10px}
+
+  /* Dokunma alanları: en az 40px */
+  .icon-close{width:40px;height:40px}
+  .icon-add{min-width:40px;min-height:40px}
+  .task-item .task-del{min-width:40px;min-height:40px;display:grid;place-items:center}
+  .task-item input[type=checkbox]{width:24px;height:24px}
+  .ki-btn{min-height:32px;padding:6px 10px}
+  .chip{min-height:38px}
+  .pomo-tab{min-height:40px}
+  #pomoReset,#pomoSkip{min-width:44px;min-height:44px}
+  #bPrev,#bNext,#bToday{min-height:40px}
+  .link-btn{min-height:36px;display:inline-flex;align-items:center}
+
+  /* Çok küçük yazılar */
+  .mobile-nav-item{font-size:.7rem}
+  .cal-grid .dow,.big-grid .dow{font-size:.75rem}
+  .stat-label{font-size:.75rem}
+}
+@media(max-width:760px){
+  .task-pri-badge,.task-son,.ki-pri,.ki-btn,.pomo-stat-label,.is-bugun-stat-lbl,.nh-tablo th,.ozet-gun small{font-size:.72rem}
+  .ki-btn{min-width:36px;display:inline-flex;align-items:center;justify-content:center}
+}
