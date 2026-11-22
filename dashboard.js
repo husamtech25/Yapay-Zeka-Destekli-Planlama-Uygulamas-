@@ -620,6 +620,7 @@ function geriAlGoster(mesaj, yedek, kayit) {
   geriAlVerisi = { yedek, hesap: db.aktif };
   const ad = kayit && (kayit.t || kayit.baslik || kayit.ad || kayit.n);
   $("toastMetin").textContent = ad ? `${mesaj}: ${String(ad).slice(0, 40)}` : mesaj;
+  if ($("toastGeriAl")) $("toastGeriAl").hidden = false;
   t.hidden = false;
   clearTimeout(geriAlZamani);
   geriAlZamani = setTimeout(geriAlKapat, 6000);
@@ -629,6 +630,22 @@ function geriAlKapat() {
   geriAlVerisi = null;
   if ($("toast")) $("toast").hidden = true;
 }
+// Geri al düğmesi olmadan kısa bilgi mesajı (ör. "Görev eklendi", "Görev adı boş olamaz")
+function bilgiGoster(mesaj) {
+  const t = $("toast");
+  if (!t) return;
+  geriAlVerisi = null;
+  $("toastMetin").textContent = mesaj;
+  if ($("toastGeriAl")) $("toastGeriAl").hidden = true;
+  t.hidden = false;
+  clearTimeout(geriAlZamani);
+  geriAlZamani = setTimeout(geriAlKapat, 3000);
+}
+// Boş görev gönderilince tarayıcının kendi uyarısına ek olarak açık bir mesaj göster
+document.addEventListener("invalid", e => {
+  const f = e.target.closest && e.target.closest('form[data-form="task"], form[data-form="task-quick"]');
+  if (f && e.target.name === "t") bilgiGoster("Görev adı boş olamaz.");
+}, true);
 function geriAl() {
   const g = geriAlVerisi;
   geriAlKapat();
@@ -3095,7 +3112,9 @@ document.addEventListener("dblclick", adDegistir);
 const AUTOCLOSE = ["dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti","dlgSinav","dlgOdev","dlgYks","dlgBasvuru","dlgKurs","dlgKariyerHedef","dlgProje","dlgSprint"];
 document.addEventListener("submit", e => {
   e.preventDefault();
-  if (!e.target.dataset || !e.target.dataset.form || !S) return;
+  if (!e.target.dataset || !e.target.dataset.form) return;
+  // Oturum yokken yazılanı sessizce kaybetme; kullanıcıya neden eklenmediğini söyle
+  if (!S) { bilgiGoster("Kaydetmek için önce giriş yapmalısın."); return; }
   const f = e.target;
   // "required" alanlar sadece boşluktan oluşuyorsa kabul etme (tarayıcı boşluğu geçerli sayıyor)
   const bosAlan = [...f.querySelectorAll("input[required], textarea[required]")]
@@ -3228,6 +3247,7 @@ document.addEventListener("submit", e => {
     }
     default: return;
   }
+  if (f.dataset.form === "task" || f.dataset.form === "task-quick") bilgiGoster(`Görev eklendi: ${v.t.trim().slice(0, 40)}`);
   f.reset();
   const parentDlg = f.closest("dialog");
   if (parentDlg && AUTOCLOSE.includes(parentDlg.id)) parentDlg.close();
