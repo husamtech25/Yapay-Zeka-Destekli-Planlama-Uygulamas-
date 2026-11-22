@@ -2,6 +2,8 @@
 
 Öğrenciler ve çalışanlar için web tabanlı bir planlama uygulaması: görevler, takvim, ders programı, sınavlar, projeler, sprint panosu, toplantılar, kariyer takibi ve Pomodoro sayacı tek ekranda.
 
+**Canlı site:** https://ayvex-7697a.firebaseapp.com (Firebase Hosting). Eski GitHub Pages adresi ve ayvex-7697a.web.app buraya yönlendirilir.
+
 > **Not:** "Yapay Zeka Destekli" ifadesi, bu uygulamanın yapay zeka yardımıyla **geliştirildiğini** anlatır. Uygulamanın içinde bir yapay zeka özelliği veya yapay zeka servisine bağlantı yoktur.
 
 ## Özellikler
@@ -62,3 +64,9 @@ Gerçek hesabınızı kullanmak yerine test için ayrı bir e-posta adresiyle ka
 ## Sürüm / önbellek
 
 `index.html` içindeki `dashboard.css`, `dashboard.js` ve `bulut.js` bağlantılarının sonundaki `?v=...` değeri, her değişiklikte artırılmalıdır; böylece tarayıcılar eski dosyayı önbellekten kullanmaz.
+
+## Testler ve yayın
+
+- `npm install` sonra `npm test`: söz dizimi, HTML ve uygulama işlevleri testleri (Node 20+). Her PR'da ve `main`'e her gönderimde GitHub Actions'ta da çalışır.
+- Firebase Hosting'e yayın: `npx firebase-tools deploy --only hosting --project ayvex-7697a` (önce `firebase login`). `firebase.json` hangi dosyaların yükleneceğini belirler; testler, `.git`, `node_modules` ve yapılandırma dosyaları yüklenmez.
+- `main`'e her gönderimde otomatik yayın için GitHub'a `FIREBASE_SERVICE_ACCOUNT_AYVEX_7697A` gizli anahtarı eklenmelidir (`.github/workflows/firebase-yayin.yml`); eklenmezse o adım uyarıyla atlanır.
