@@ -1,0 +1,39 @@
+name: Firebase Hosting'e yayınla
+
+# main dalına her gönderimde site Firebase Hosting'e yüklenir (testler geçtikten sonra).
+# Gerekli GitHub gizli anahtarı: FIREBASE_SERVICE_ACCOUNT_AYVEX_7697A
+# (Firebase projesindeki bir hizmet hesabının JSON anahtarı). Anahtar yoksa yayın adımı atlanır.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  yayinla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Testleri çalıştır
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+      - name: Anahtar var mı?
+        id: anahtar
+        env:
+          ANAHTAR: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AYVEX_7697A }}
+        run: |
+          if [ -n "$ANAHTAR" ]; then echo "var=true" >> "$GITHUB_OUTPUT"; else echo "var=false" >> "$GITHUB_OUTPUT"; echo "::warning::FIREBASE_SERVICE_ACCOUNT_AYVEX_7697A gizli anahtarı yok; Firebase'e yayın atlandı."; fi
+      - name: node_modules'u temizle (siteye yüklenmesin)
+        run: rm -rf node_modules
+      - name: Firebase Hosting'e yayınla
+        if: steps.anahtar.outputs.var == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AYVEX_7697A }}
+          projectId: ayvex-7697a
+          channelId: live
