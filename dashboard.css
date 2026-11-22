@@ -1549,3 +1549,13 @@ body[data-paylasim="true"] .sidebar,body[data-paylasim="true"] .topbar,body[data
 .paylasim-bos,.paylasim-yukleniyor{color:var(--ink-3);font-size:.88rem}
 .paylasim-alt{text-align:center;margin-top:var(--s4);font-size:.8rem;color:var(--ink-3)}
 .paylasim-alt a{color:var(--teal-dark);font-weight:600}
+
+/* ============ UZUN METİNLER + MOBİL İPUÇLARI ============ */
+/* Çok uzun görev adları listeyi uzatmasın: en fazla 3 satır, gerisi "…" (tam metin title'da) */
+.task-item .task-text,.ki-text{display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nh-kaydir-ipucu{display:none;font-size:.72rem;color:var(--ink-3);text-align:right;margin-top:4px}
+@media(max-width:560px){.nh-kaydir-ipucu{display:block}}
+/* Koyu temada koyu turkuaz yazılar soluk kalıyordu: daha açık tonu kullan */
+:root[data-tema="koyu"] .ki-btn.start{color:var(--teal);background:rgba(43,184,168,.22)}
+.alan-hata{display:block;margin-top:6px;font-size:.78rem;font-weight:600;color:var(--coral)}
+[aria-invalid="true"]{border-color:var(--coral) !important}

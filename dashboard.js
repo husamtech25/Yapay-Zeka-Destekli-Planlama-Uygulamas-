@@ -3471,7 +3471,7 @@ function takvimDosyasi() {
   (S.odevler || []).filter(x => !x.done).forEach(x => ekle("odev-" + x.id, `📚 Ödev: ${x.ad}`, x.tarih, "", 0, [x.ders, x.aciklama].filter(Boolean).join(" · ")));
   (S.toplantilar || []).forEach(x => ekle("toplanti-" + x.id, `👥 ${x.baslik}`, x.tarih, x.saat, x.sure || 30, [x.katilimcilar, x.notlar, x.link].filter(Boolean).join("\n"), x.link ? [`URL:${icsMetin(x.link)}`] : []));
   (S.deadlines || []).forEach(x => ekle("teslim-" + x.id, `⏰ Teslim: ${x.t}`, x.d, "", 0, ""));
-  (S.tasks || []).filter(x => !x.done && x.son).forEach(x => ekle("gorev-" + x.id, `✅ ${x.t}`, x.son, "", 0, `Öncelik: ${ONCELIK[gorevOncelik(x.p)]}`));
+  (S.tasks || []).filter(x => !x.done && x.son).forEach(x => ekle("gorev-" + x.id, `📌 ${x.t}`, x.son, "", 0, `Öncelik: ${ONCELIK[gorevOncelik(x.p)]}`));
   (S.projeler || []).filter(x => x.bitis && x.durum !== "tamam").forEach(x => ekle("proje-" + x.id, `📦 Proje teslimi: ${x.ad}`, x.bitis, "", 0, ""));
   Object.entries(S.events || {}).forEach(([k, liste]) => (liste || []).forEach(x => ekle("etkinlik-" + x.id, x.t, k, x.time && x.time !== "00:00" ? x.time : "", 60, x.type)));
   // Ders programı: her hafta tekrarlayan olay (bu haftanın ilgili gününden başlar)
@@ -3584,6 +3584,35 @@ function adDegistir(e) {
 }
 document.addEventListener("dblclick", adDegistir);
 
+// Form hatasını açılır uyarı kutusu (alert) yerine ilgili alanın yanında göster.
+// Alan değiştirilince hata kendiliğinden temizlenir.
+function alanHatasi(form, alanAdi, mesaj) {
+  const el = form.querySelector(`[name="${alanAdi}"]`);
+  if (!el) { bilgiGoster(mesaj); return; }
+  el.setCustomValidity(mesaj);
+  el.reportValidity();
+  el.focus();
+  // Tarayıcının balonu birkaç saniyede kaybolur; mesaj alanın altında da kalsın
+  const kap = el.closest("label") || el.parentElement;
+  let yazi = kap.querySelector(".alan-hata");
+  if (!yazi) { yazi = document.createElement("span"); yazi.className = "alan-hata"; yazi.setAttribute("role", "alert"); kap.appendChild(yazi); }
+  yazi.textContent = mesaj;
+  el.setAttribute("aria-invalid", "true");
+  const temizle = () => {
+    el.setCustomValidity(""); el.removeAttribute("aria-invalid"); yazi.remove();
+    el.removeEventListener("input", temizle); el.removeEventListener("change", temizle);
+  };
+  el.addEventListener("input", temizle);
+  el.addEventListener("change", temizle);
+}
+
+// Pencere kapanınca içindeki alan hatalarını temizle (yeniden açıldığında eski hata görünmesin)
+document.addEventListener("close", e => {
+  if (!e.target || e.target.tagName !== "DIALOG") return;
+  e.target.querySelectorAll(".alan-hata").forEach(x => x.remove());
+  e.target.querySelectorAll('[aria-invalid="true"]').forEach(x => { x.setCustomValidity(""); x.removeAttribute("aria-invalid"); });
+}, true);
+
 const AUTOCLOSE = ["dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti","dlgSinav","dlgOdev","dlgYks","dlgBasvuru","dlgKurs","dlgKariyerHedef","dlgProje","dlgSprint"];
 document.addEventListener("submit", e => {
   e.preventDefault();
@@ -3615,7 +3644,7 @@ document.addEventListener("submit", e => {
     case "note": S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" }); break;
     case "link": S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() }); break;
     case "ders": {
-      if (saatDk(v.bit) <= saatDk(v.bas)) { alert("Dersin bitiş saati başlangıç saatinden sonra olmalı."); return; }
+      if (saatDk(v.bit) <= saatDk(v.bas)) { alanHatasi(f, "bit", "Dersin bitiş saati başlangıç saatinden sonra olmalı."); return; }
       const ders = { id, ad: v.ad.trim(), kod: (v.kod||"").trim(), hoca: (v.hoca||"").trim(), sinif: (v.sinif||"").trim(), gun: v.gun, renk: v.renk || "blue", bas: v.bas, bit: v.bit, notlar: (v.notlar||"").trim() };
       const idx = S.dersler.findIndex(d => d.id === id);
       if (idx >= 0) S.dersler[idx] = ders;
@@ -3690,7 +3719,7 @@ document.addEventListener("submit", e => {
       });
       break;
     case "proje": {
-      if (v.bas && v.bitis && v.bitis < v.bas) { alert("Projenin teslim tarihi başlangıç tarihinden önce olamaz."); return; }
+      if (v.bas && v.bitis && v.bitis < v.bas) { alanHatasi(f, "bitis", "Teslim tarihi başlangıç tarihinden önce olamaz."); return; }
       const eski = bul("projeler", id);
       kayitGuncelle("projeler", {
         id, ad: v.ad.trim(), ekip: (v.ekip || "").trim(),
@@ -3701,7 +3730,7 @@ document.addEventListener("submit", e => {
       break;
     }
     case "sprint": {
-      if (v.bit < v.bas) { alert("Bitiş tarihi başlangıçtan önce olamaz."); return; }
+      if (v.bit < v.bas) { alanHatasi(f, "bit", "Bitiş tarihi başlangıçtan önce olamaz."); return; }
       S.sprint = { ...S.sprint, ad: v.ad.trim() || S.sprint.ad, bas: v.bas, bit: v.bit, hedef: (v.hedef || "").trim(), kapasite: Math.max(1, +v.kapasite || 20) };
       break;
     }

@@ -28,7 +28,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- SÜRÜM: CSS/JS dosyaları her değiştiğinde buradaki ve sayfa sonundaki ?v= değerini
        (tarih.sıra biçiminde) birlikte artır. Tarayıcılar yeni dosyaları önbelleğe takılmadan indirir. -->
-  <link rel="stylesheet" href="dashboard.css?v=20261122.7">
+  <link rel="stylesheet" href="dashboard.css?v=20261122.8">
 </head>
 <body>
   <!-- ============ SVG İKON SPRITE ============ -->
@@ -252,7 +252,7 @@
             </div>
           </div>
           <form class="kanban-add" data-form="task-quick">
-            <input name="t" placeholder="Yeni görev ekle ve Enter'a bas..." required autocomplete="off">
+            <input name="t" placeholder="Yeni görev ekle ve Enter'a bas..." required autocomplete="off" maxlength="200">
             <select name="p" aria-label="Öncelik">
               <option value="low">Düşük</option>
               <option value="mid" selected>Orta</option>
@@ -629,6 +629,7 @@
                 <tbody id="nhSatirlar"></tbody>
               </table>
             </div>
+            <p class="nh-kaydir-ipucu" aria-hidden="true">Tabloyu yana kaydırabilirsin →</p>
             <div class="nh-sonuc" id="nhSonuc"></div>
           </div>
 
@@ -727,7 +728,7 @@
           </div>
 
           <form class="task-quick-add" data-form="task-quick">
-            <input name="t" placeholder="Yeni görev ekle ve Enter'a bas..." required autocomplete="off">
+            <input name="t" placeholder="Yeni görev ekle ve Enter'a bas..." required autocomplete="off" maxlength="200">
             <input type="date" name="son" class="gorev-son" aria-label="Son tarih (isteğe bağlı)" title="Son tarih (isteğe bağlı)">
             <select name="tekrar" aria-label="Tekrar" title="Tekrar: tamamlayınca bir sonraki otomatik eklenir">
               <option value="">Tekrar yok</option>
@@ -1491,7 +1492,7 @@
     <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
   </div>
 
-  <script src="dashboard.js?v=20261122.7"></script>
-  <script type="module" src="bulut.js?v=20261122.7"></script>
+  <script src="dashboard.js?v=20261122.8"></script>
+  <script type="module" src="bulut.js?v=20261122.8"></script>
 </body>
 </html>
