@@ -81,6 +81,8 @@ function yeniVeri(mod, name) {
     basvurular: [],
     kurslar: [],
     kariyerHedefler: [],
+    notHesap: [], // not ortalaması hesaplayıcı: { id, ad, kredi, vize, final } (notlar boş olabilir)
+    vizeOrani: 40,
     // İş modu
     projeler: [],
     sprintIsleri: [],
@@ -100,7 +102,7 @@ function yeniSprint(no, basTarih) {
   return { no, ad: `Sprint ${no}`, bas: tarihKey(bas), bit: tarihKey(bit), hedef: "", kapasite: 20 };
 }
 const DB_KEY = "planla-v3";
-const DIZI = ["courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler", "planItems", "toplantilar", "sinavlar", "odevler", "yksDenemeleri", "basvurular", "kurslar", "kariyerHedefler", "projeler", "sprintIsleri", "sprintGecmis"];
+const DIZI = ["notHesap", "courses", "deadlines", "jobs", "skills", "tasks", "links", "notes", "notifications", "dersler", "hedefler", "planItems", "toplantilar", "sinavlar", "odevler", "yksDenemeleri", "basvurular", "kurslar", "kariyerHedefler", "projeler", "sprintIsleri", "sprintGecmis"];
 const gecerli = v => v && MODLAR[v.mode] && typeof v.name === "string" && v.events && typeof v.events === "object" && DIZI.every(k => Array.isArray(v[k]));
 // Eski sürümlerden kalan veride eksik alanları tamamlar. Doğrulamadan ÖNCE çalışmalı;
 // aksi halde yeni eklenen bir dizi alanı yüzünden eski kullanıcının tüm verisi silinir.
@@ -143,12 +145,20 @@ function veriOnar(v, tur, ad) {
     });
   });
   if (typeof v.avatar !== "number") v.avatar = 0;
+  if (typeof v.vizeOrani !== "number" || !(v.vizeOrani >= 0 && v.vizeOrani <= 100)) v.vizeOrani = 40;
+  v.notHesap.forEach(n => {
+    metin(n, "ad");
+    n.kredi = Math.min(30, Math.max(0, +n.kredi || 0));
+    ["vize", "final"].forEach(a => { n[a] = n[a] === "" || n[a] == null || isNaN(+n[a]) ? "" : Math.min(100, Math.max(0, +n[a])); });
+  });
   if (!v.taskFilter) v.taskFilter = "all";
   if (!v.pomo || typeof v.pomo !== "object") v.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
   if (!v.pomo.stats || typeof v.pomo.stats !== "object") v.pomo.stats = {};
   v.tasks.forEach(t => {
     if (typeof t.doing !== "boolean") t.doing = false;
     if (t.son && !tarihMi(t.son)) t.son = "";
+    if (t.tekrar && !["gunluk", "haftalik", "aylik"].includes(t.tekrar)) t.tekrar = "";
+    if (t.tekrarGun != null && !(+t.tekrarGun >= 1 && +t.tekrarGun <= 31)) delete t.tekrarGun;
   });
   if (!v.sprint || typeof v.sprint !== "object" || !v.sprint.bas || !v.sprint.bit) v.sprint = yeniSprint(1);
   return v;
@@ -206,6 +216,121 @@ function bulutKaydetHemen() {
   window.AYVEX_BULUT.kaydet(bulutUid(db.aktif), { veri, ad: S.name, tur: S.mode });
   if (h) h.guncel = Date.now();
   bulutDurumCiz();
+  paylasimlariGuncelle();
+}
+
+// ================= PROJE PAYLAŞIMI (salt okunur bağlantı) =================
+// Paylaşılan projenin özeti ayrı bir Firestore belgesine yazılır; hesabın geri kalanı paylaşılmaz.
+const sonPaylasim = {}; // paylasimId → son yazılan JSON (değişmediyse tekrar yazma)
+function projePaylasimVerisi(p) {
+  const il = projeIlerleme(p);
+  return JSON.stringify({
+    ad: p.ad, durum: p.durum, oncelik: p.oncelik, bas: p.bas || "", bitis: p.bitis || "", ekip: p.ekip || "",
+    ilerleme: il.yuzde,
+    gorevler: S.tasks.filter(t => t.proje === p.id).map(t => ({ t: t.t, done: !!t.done, son: t.son || "", p: gorevOncelik(t.p) })),
+    isler: S.sprintIsleri.filter(s => s.proje === p.id && !s.arsiv).map(s => ({ baslik: s.baslik, durum: s.durum, puan: s.puan })),
+    toplantilar: S.toplantilar.filter(t => t.proje === p.id).map(t => ({ baslik: t.baslik, tarih: t.tarih, saat: t.saat })),
+  });
+}
+function paylasimLinki(id) { return `${location.origin}${location.pathname}?paylasim=${encodeURIComponent(id)}`; }
+async function projePaylas(p) {
+  const veri = projePaylasimVerisi(p);
+  await window.AYVEX_BULUT.paylasimYaz(p.paylasimId, { baslik: p.ad, veri });
+  sonPaylasim[p.paylasimId] = veri;
+}
+function paylasimlariGuncelle() {
+  if (!S || !bulutHesabiMi(db.aktif) || !window.AYVEX_BULUT || !window.AYVEX_BULUT.paylasimYaz) return;
+  (S.projeler || []).filter(p => p.paylasimId).forEach(p => {
+    const veri = projePaylasimVerisi(p);
+    if (sonPaylasim[p.paylasimId] === veri) return;
+    sonPaylasim[p.paylasimId] = veri;
+    window.AYVEX_BULUT.paylasimYaz(p.paylasimId, { baslik: p.ad, veri }).catch(e => console.warn("[AYVEX] paylaşım güncellenemedi:", e));
+  });
+}
+function paylasimKutusu(p) {
+  const kutu = $("paylasimKutu");
+  if (!kutu) return;
+  kutu.hidden = !(p && p.paylasimId);
+  if (p && p.paylasimId) $("paylasimLink").value = paylasimLinki(p.paylasimId);
+}
+function dlgProjesi() {
+  const idEl = $("dlgProje") && $("dlgProje").querySelector("[name=id]");
+  return idEl && idEl.value ? bul("projeler", idEl.value) : null;
+}
+document.addEventListener("click", async e => {
+  const t = e.target.closest && e.target.closest("#paylasProje, #paylasimKopyala, #paylasimDurdur");
+  if (!t || !S) return;
+  e.preventDefault();
+  const p = dlgProjesi();
+  if (!p) return;
+  if (t.id === "paylasimKopyala") {
+    const link = $("paylasimLink").value;
+    try { await navigator.clipboard.writeText(link); bilgiGoster("Bağlantı kopyalandı."); }
+    catch (err) { $("paylasimLink").select(); bilgiGoster("Bağlantıyı seçtim, kopyalayabilirsin."); }
+    return;
+  }
+  if (!bulutHesabiMi(db.aktif) || !window.AYVEX_BULUT) { bilgiGoster("Paylaşım için Google ya da e-posta hesabıyla giriş yapmalısın."); return; }
+  t.disabled = true;
+  try {
+    if (t.id === "paylasProje") {
+      if (!p.paylasimId) p.paylasimId = window.AYVEX_BULUT.paylasimIdUret();
+      await projePaylas(p);
+      kaydet();
+      paylasimKutusu(p);
+      bilgiGoster("Paylaşım bağlantısı hazır.");
+    } else {
+      await window.AYVEX_BULUT.paylasimSil(p.paylasimId);
+      delete sonPaylasim[p.paylasimId];
+      delete p.paylasimId;
+      kaydet();
+      paylasimKutusu(null);
+      bilgiGoster("Paylaşım durduruldu; bağlantı artık açılmaz.");
+    }
+  } catch (err) {
+    console.error("[AYVEX] paylaşım hatası:", err);
+    bilgiGoster(err && err.code === "permission-denied" ? "Paylaşım izni yok (Firestore kuralları güncel değil olabilir)." : "Paylaşım yapılamadı, tekrar dene.");
+  } finally { t.disabled = false; }
+});
+if ($("dlgProje")) $("dlgProje").addEventListener("close", () => paylasimKutusu(null));
+
+// ---- Paylaşılan projeyi görüntüleme (?paylasim=…) ----
+const PAYLASIM_ID = (() => { try { return new URLSearchParams(location.search).get("paylasim"); } catch (e) { return null; } })();
+async function paylasimSayfasiAc(id) {
+  document.body.setAttribute("data-paylasim", "true");
+  if ($("auth")) $("auth").hidden = true;
+  const sayfa = $("paylasimSayfa"), el = $("paylasimIcerik");
+  sayfa.hidden = false;
+  el.innerHTML = `<p class="paylasim-yukleniyor">Yükleniyor…</p>`;
+  const bulut = () => new Promise(r => window.AYVEX_BULUT ? r() : addEventListener("ayvex-bulut-hazir", r, { once: true }));
+  try {
+    await bulut();
+    const kayit = await window.AYVEX_BULUT.paylasimOku(id);
+    if (!kayit) { el.innerHTML = `<h1>Bağlantı bulunamadı</h1><p>Bu paylaşım kaldırılmış ya da bağlantı hatalı olabilir.</p>`; return; }
+    const p = JSON.parse(kayit.veri);
+    document.title = `${p.ad} — AYVEX`;
+    const kalan = p.bitis ? gunFarki(p.bitis) : NaN;
+    const teslim = !p.bitis ? "Teslim tarihi yok" : p.durum === "tamam" ? `Teslim: ${gunEtiket(p.bitis)}`
+      : kalan < 0 ? `${-kalan} gün gecikti (${gunEtiket(p.bitis)})` : kalan === 0 ? "Bugün teslim" : `${kalan} gün kaldı (${gunEtiket(p.bitis)})`;
+    const liste = (dizi, satir, bos) => dizi.length ? `<ul>${dizi.map(satir).join("")}</ul>` : `<p class="paylasim-bos">${bos}</p>`;
+    const ISDURUM = { todo: "Yapılacak", doing: "Devam ediyor", done: "Bitti" };
+    el.innerHTML = `
+      <div class="paylasim-ust">
+        <span class="proje-durum">${esc(PROJE_DURUM[p.durum] || "Aktif")}</span>
+        <span class="task-pri-badge pri-${ONCELIK[p.oncelik] ? p.oncelik : "mid"}">${ONCELIK[p.oncelik] || "Orta"}</span>
+      </div>
+      <h1>${esc(p.ad)}</h1>
+      ${p.ekip ? `<p class="paylasim-ekip">👥 ${esc(p.ekip)}</p>` : ""}
+      <div class="paylasim-ilerleme"><div class="kurs-bar"><span style="width:${+p.ilerleme || 0}%"></span></div><b>%${+p.ilerleme || 0}</b></div>
+      <p class="paylasim-teslim">⏰ ${teslim}</p>
+      <h2>Görevler</h2>
+      ${liste(p.gorevler || [], g => `<li class="${g.done ? "bitti" : ""}"><span>${g.done ? "✅" : "⬜"}</span> ${esc(g.t)}${g.son ? ` <small>${gunEtiket(g.son)}</small>` : ""}</li>`, "Bu projeye bağlı görev yok.")}
+      ${(p.isler || []).length ? `<h2>Sprint işleri</h2>${liste(p.isler, s => `<li><span>${s.durum === "done" ? "✅" : s.durum === "doing" ? "🔄" : "⬜"}</span> ${esc(s.baslik)} <small>${ISDURUM[s.durum] || ""}</small></li>`, "")}` : ""}
+      ${(p.toplantilar || []).length ? `<h2>Toplantılar</h2>${liste(p.toplantilar, t => `<li><span>👥</span> ${esc(t.baslik)} <small>${gunEtiket(t.tarih)}${t.saat ? " · " + esc(t.saat) : ""}</small></li>`, "")}` : ""}
+      ${kayit.guncelleme ? `<p class="paylasim-guncel">Son güncelleme: ${kayit.guncelleme.toLocaleString("tr-TR")}</p>` : ""}`;
+  } catch (err) {
+    console.error("[AYVEX] paylaşım okunamadı:", err);
+    el.innerHTML = `<h1>Açılamadı</h1><p>Paylaşım yüklenemedi. İnternet bağlantını kontrol edip sayfayı yenile.</p>`;
+  }
 }
 
 let bulutDurumu = {};
@@ -325,6 +450,7 @@ function aktarmaSec(kullanici) {
 // bulut.js'in çağırdığı geri çağrılar
 window.AYVEX = {
   authDegisti(kullanici) {
+    if (PAYLASIM_ID) return; // paylaşılan proje sayfasında uygulama açılmaz
     if (bulutHesabiMi(db.aktif)) {
       if (kullanici && BULUT_ONEK + kullanici.uid === db.aktif) {
         window.AYVEX_BULUT.dinle(kullanici.uid);
@@ -345,8 +471,8 @@ window.AYVEX = {
         .then(s => googleOturumAc({ ...s, kullanici })).catch(() => {});
     }
   },
-  googleGirisSonucu: sonuc => googleOturumAc(sonuc),
-  uzakVeriGeldi: uzakVeriyiUygula,
+  googleGirisSonucu: sonuc => { if (!PAYLASIM_ID) googleOturumAc(sonuc); },
+  uzakVeriGeldi: veri => { if (!PAYLASIM_ID) uzakVeriyiUygula(veri); },
   bulutDurum(d) { bulutDurumu = d || {}; bulutDurumCiz(); },
 };
 
@@ -834,7 +960,54 @@ function bildirimEkle(tip, baslik, mesaj, ozelId) {
   });
   if (S.notifications.length > 50) S.notifications.length = 50;
   kaydet();
+  sistemBildirimiGoster(baslik, mesaj, benzersizId);
 }
+
+// ================= SİSTEM BİLDİRİMLERİ (telefon / masaüstü) =================
+// Kullanıcı Ayarlar'dan açarsa yeni uygulama bildirimleri işletim sistemi bildirimi olarak da
+// gösterilir. Not: Sunucu olmadığı için bildirimler uygulama açıkken (arka planda bir sekmede
+// ya da kurulu uygulama olarak) üretilir; uygulama tamamen kapalıyken bildirim gelmez.
+let swKayit = null;
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").then(k => { swKayit = k; }).catch(e => console.warn("[AYVEX] service worker kaydedilemedi:", e));
+  });
+}
+function sistemBildirimiAcik() {
+  try { return "Notification" in window && Notification.permission === "granted" && localStorage.getItem("ayvex-sistem-bildirim") === "acik"; }
+  catch (e) { return false; }
+}
+function sistemBildirimiGoster(baslik, mesaj, etiket) {
+  if (!sistemBildirimiAcik()) return;
+  const secenek = { body: mesaj || "", tag: etiket, icon: "assets/icon-192.png", badge: "assets/icon-192.png", lang: "tr" };
+  try {
+    if (swKayit && swKayit.showNotification) swKayit.showNotification(baslik, secenek);
+    else new Notification(baslik, secenek);
+  } catch (e) {}
+}
+function sistemBildirimDugmesi() {
+  const b = $("sistemBildirimBtn");
+  if (!b) return;
+  if (!("Notification" in window)) { b.textContent = "🔕 Bu tarayıcı bildirimleri desteklemiyor"; b.disabled = true; return; }
+  if (Notification.permission === "denied") { b.textContent = "🔕 Bildirimler tarayıcı ayarlarından engellenmiş"; b.disabled = true; return; }
+  b.disabled = false;
+  b.textContent = sistemBildirimiAcik() ? "🔔 Cihaz bildirimleri açık (kapatmak için dokun)" : "🔔 Cihaz bildirimlerini aç";
+}
+document.addEventListener("click", async e => {
+  if (!e.target.closest || !e.target.closest("#sistemBildirimBtn")) return;
+  if (sistemBildirimiAcik()) {
+    try { localStorage.setItem("ayvex-sistem-bildirim", "kapali"); } catch (err) {}
+  } else {
+    const izin = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    if (izin === "granted") {
+      try { localStorage.setItem("ayvex-sistem-bildirim", "acik"); } catch (err) {}
+      sistemBildirimiGoster("Bildirimler açıldı", "Yaklaşan görev, sınav ve toplantılar için haber vereceğiz.", "ayvex-test");
+    }
+  }
+  sistemBildirimDugmesi();
+});
+// Uygulama uzun süre açık kalırsa (ör. kurulu uygulama) yaklaşan işleri yarım saatte bir yeniden kontrol et
+setInterval(() => { if (S) otomatikBildirimler(); }, 30 * 60 * 1000);
 
 function otomatikBildirimler() {
   if (!S) return;
@@ -1627,6 +1800,7 @@ function kayitDuzenleAc(tip, id) {
   });
   $(c.baslik).textContent = c.duzenle;
   $(c.sil).hidden = false;
+  if (tip === "proje") paylasimKutusu(it);
   guvenliAc($(c.dlg));
 }
 const DUZENLE_SECICI = Object.keys(DUZENLE_DLG).map(k => `[data-act='${k}-edit']`).join(",");
@@ -2158,10 +2332,46 @@ function gorevOncelik(p) { return ONCELIK[p] ? p : "mid"; }
 // Görevin tamamlanma durumunu değiştirir ve tamamlanma zamanını kaydeder.
 // (İstatistikler eskiden görevin OLUŞTURULMA tarihine bakıyordu.)
 function gorevTamamla(t, done) {
+  const once = !!t.done;
   t.done = !!done;
   t.doing = false;
   if (t.done) t.bitis = new Date().toISOString();
   else delete t.bitis;
+  if (t.done && !once) tekrarUret(t);
+  if (!t.done && once) tekrarGeriAl(t);
+}
+
+// ---- Tekrarlayan görevler ----
+// Tekrarlayan bir görev tamamlanınca bir sonraki tarihli kopyası oluşturulur.
+// Tamamlama geri alınırsa (henüz bitirilmemişse) o kopya da silinir.
+const TEKRAR = { gunluk: "Her gün", haftalik: "Her hafta", aylik: "Her ay" };
+// aylik için "gun": ayın asıl günü (31 Ocak → 28 Şubat → 31 Mart; 28'de takılı kalmasın)
+function tekrarIleri(k, tekrar, gun) {
+  const d = tarihOku(k);
+  if (tekrar === "gunluk") d.setDate(d.getDate() + 1);
+  else if (tekrar === "haftalik") d.setDate(d.getDate() + 7);
+  else if (tekrar === "aylik") {
+    gun = gun || d.getDate();
+    d.setDate(1); d.setMonth(d.getMonth() + 1);
+    d.setDate(Math.min(gun, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); // 31 Ocak → 28/29 Şubat
+  }
+  return tarihKey(d);
+}
+function tekrarUret(t) {
+  if (!TEKRAR[t.tekrar] || (t.sonraki && S.tasks.some(x => x.id === t.sonraki))) return;
+  const tekrarGun = t.tekrarGun || tarihOku(t.son || todayKey).getDate();
+  let son = tekrarIleri(t.son || todayKey, t.tekrar, tekrarGun);
+  while (son < todayKey) son = tekrarIleri(son, t.tekrar, tekrarGun); // uzun süre beklemiş görevde geçmiş tarih üretme
+  const yeni = { id: uid(), t: t.t, done: false, doing: false, p: t.p, proje: t.proje || "", son, tekrar: t.tekrar, zaman: new Date().toISOString() };
+  if (t.tekrar === "aylik") yeni.tekrarGun = tekrarGun;
+  t.sonraki = yeni.id;
+  S.tasks.push(yeni);
+}
+function tekrarGeriAl(t) {
+  if (!t.sonraki) return;
+  const i = S.tasks.findIndex(x => x.id === t.sonraki && !x.done);
+  if (i >= 0) S.tasks.splice(i, 1);
+  delete t.sonraki;
 }
 const gorevBitisGunu = t => {
   const z = t.bitis || t.zaman;
@@ -2225,6 +2435,7 @@ function gorevlerCiz() {
           <div class="task-meta">
             <span class="task-pri-badge pri-${p}"><svg width="10" height="10"><use href="#i-flag"/></svg> ${ONCELIK[p]}</span>
             ${gorevSonEtiketi(t)}
+            ${TEKRAR[t.tekrar] ? `<span class="task-son" title="Tamamlayınca bir sonraki otomatik eklenir">🔁 ${TEKRAR[t.tekrar]}</span>` : ""}
             ${t.zaman ? `<span>${new Date(t.zaman).toLocaleDateString("tr-TR")}</span>` : ""}
             ${S.mode === "work" && projeAdi(t.proje) ? `<span class="task-proje"><svg width="10" height="10"><use href="#i-briefcase"/></svg> ${esc(projeAdi(t.proje))}</span>` : ""}
           </div>
@@ -2344,6 +2555,146 @@ function ozetCiz() {
 }
 
 // ================= Çizim =================
+// ================= NOT ORTALAMASI HESAPLAYICI =================
+// Ders notu = vize × oran + final × (1 − oran). Harf notu yaygın 4'lük tabloya göre;
+// ortalama (GANO) = Σ(katsayı × kredi) / Σ kredi. Notu girilmemiş dersler hesaba katılmaz.
+const HARF_TABLOSU = [[90, "AA", 4], [85, "BA", 3.5], [80, "BB", 3], [75, "CB", 2.5], [65, "CC", 2], [58, "DC", 1.5], [50, "DD", 1], [40, "FD", 0.5], [0, "FF", 0]];
+function nhDersNotu(n) {
+  const oran = (S.vizeOrani ?? 40) / 100;
+  if (n.final === "" && n.vize === "") return null;
+  if (n.final === "") return null; // final yoksa ders notu henüz belli değil
+  return (n.vize === "" ? 0 : +n.vize) * oran + (+n.final) * (1 - oran);
+}
+const nhHarf = not => HARF_TABLOSU.find(([alt]) => not >= alt - 0.0001);
+function nhSonucCiz() {
+  const el = $("nhSonuc");
+  if (!el || !S) return;
+  let krediTop = 0, puanTop = 0, sayi = 0;
+  (S.notHesap || []).forEach(n => {
+    const not = nhDersNotu(n);
+    const satir = document.querySelector(`#nhSatirlar tr[data-id="${n.id}"]`);
+    if (satir) {
+      const h = not == null ? null : nhHarf(Math.round(not));
+      satir.querySelector(".nh-not").textContent = not == null ? "–" : not.toFixed(1);
+      const harfEl = satir.querySelector(".nh-harf");
+      harfEl.textContent = h ? h[1] : "–";
+      harfEl.className = "nh-harf" + (h ? (h[2] >= 2 ? " gecti" : h[2] >= 1 ? " sartli" : " kaldi") : "");
+    }
+    if (not == null || !(n.kredi > 0)) return;
+    krediTop += n.kredi; puanTop += nhHarf(Math.round(not))[2] * n.kredi; sayi++;
+  });
+  el.innerHTML = sayi
+    ? `<div><span>Dönem ortalaması</span><b>${(puanTop / krediTop).toFixed(2)}</b><small>/ 4.00</small></div>
+       <div><span>Hesaba katılan</span><b>${sayi}</b><small>ders · ${krediTop} kredi</small></div>`
+    : `<p class="nh-bos">Ders ekleyip kredi ve final notunu girince ortalaman burada hesaplanır.</p>`;
+}
+function notHesapCiz() {
+  const govde = $("nhSatirlar");
+  if (!govde || !S) return;
+  const oranEl = document.querySelector('[data-act="nh-oran"]');
+  if (oranEl && document.activeElement !== oranEl) oranEl.value = S.vizeOrani ?? 40;
+  const sayiAlani = (n, alan, ust) => `<input type="number" inputmode="decimal" min="0" max="${ust}" value="${n[alan] === "" ? "" : n[alan]}" data-act="nh" data-id="${n.id}" data-alan="${alan}" aria-label="${alan}">`;
+  govde.innerHTML = (S.notHesap || []).map(n => `<tr data-id="${n.id}">
+      <td><input type="text" maxlength="40" value="${esc(n.ad)}" placeholder="Ders adı" data-act="nh" data-id="${n.id}" data-alan="ad" aria-label="Ders adı"></td>
+      <td>${sayiAlani(n, "kredi", 30)}</td>
+      <td>${sayiAlani(n, "vize", 100)}</td>
+      <td>${sayiAlani(n, "final", 100)}</td>
+      <td class="nh-not">–</td>
+      <td class="nh-harf">–</td>
+      <td><button type="button" class="task-del" data-act="nh-sil" data-id="${n.id}" aria-label="Dersi sil"><svg width="14" height="14"><use href="#i-trash"/></svg></button></td>
+    </tr>`).join("") || `<tr><td colspan="7" class="nh-bos">Henüz ders yok. "+ Ders ekle" ile başla.</td></tr>`;
+  nhSonucCiz();
+}
+// Yazarken tabloyu yeniden çizme (odak kaybolmasın); sadece veriyi ve sonuçları güncelle
+document.addEventListener("input", e => {
+  const a = e.target.dataset && e.target.dataset.act;
+  if (!S || (a !== "nh" && a !== "nh-oran")) return;
+  if (a === "nh-oran") { S.vizeOrani = Math.min(100, Math.max(0, +e.target.value || 0)); }
+  else {
+    const n = (S.notHesap || []).find(x => x.id === e.target.dataset.id);
+    if (!n) return;
+    const alan = e.target.dataset.alan;
+    if (alan === "ad") n.ad = e.target.value.slice(0, 40);
+    else if (e.target.value === "") n[alan] = alan === "kredi" ? 0 : "";
+    else n[alan] = Math.min(alan === "kredi" ? 30 : 100, Math.max(0, +e.target.value || 0));
+  }
+  nhSonucCiz();
+  kaydet();
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest('[data-act="nh-ekle"], [data-act="nh-sil"]');
+  if (!b || !S) return;
+  e.preventDefault();
+  if (b.dataset.act === "nh-ekle") {
+    const yeni = { id: uid(), ad: "", kredi: 3, vize: "", final: "" };
+    S.notHesap.push(yeni);
+    notHesapCiz();
+    const ilk = document.querySelector(`#nhSatirlar tr[data-id="${yeni.id}"] input`);
+    if (ilk) ilk.focus();
+  } else {
+    S.notHesap = S.notHesap.filter(x => x.id !== b.dataset.id);
+    notHesapCiz();
+  }
+  kaydet();
+});
+
+// ================= HAFTALIK ÖZET =================
+// Bu hafta (Pzt–Paz) tamamlanan görevler ve Pomodoro odak dakikaları, gün gün.
+function haftalikOzetCiz() {
+  const el = $("ozetSayilar");
+  if (!el || !S) return;
+  const gunler = haftaGunleriKey();
+  const gorevSay = gunler.map(k => (S.tasks || []).filter(t => t.done && gorevBitisGunu(t) === k).length);
+  const odakDk = gunler.map(k => (S.pomo && S.pomo.stats && S.pomo.stats[k] && +S.pomo.stats[k].dk) || 0);
+  const toplamGorev = gorevSay.reduce((a, b) => a + b, 0);
+  const toplamDk = odakDk.reduce((a, b) => a + b, 0);
+  const gecikmis = (S.tasks || []).filter(t => !t.done && t.son && gunFarki(t.son) < 0).length;
+  const ilk = tarihOku(gunler[0]), son = tarihOku(gunler[6]);
+  if ($("ozetAralik")) $("ozetAralik").textContent = `${ilk.getDate()} ${aylar[ilk.getMonth()].slice(0, 3)} – ${son.getDate()} ${aylar[son.getMonth()].slice(0, 3)}`;
+  const saatMetni = dk => dk >= 60 ? `${Math.floor(dk / 60)} sa ${dk % 60 ? (dk % 60) + " dk" : ""}`.trim() : `${dk} dk`;
+  el.innerHTML = `
+    <div class="ozet-sayi"><b>${toplamGorev}</b><span>tamamlanan görev</span></div>
+    <div class="ozet-sayi"><b>${saatMetni(toplamDk)}</b><span>odak süresi</span></div>
+    <div class="ozet-sayi ${gecikmis ? "uyari" : ""}"><b>${gecikmis}</b><span>gecikmiş görev</span></div>`;
+  // Günlük çubuk grafik: yükseklik o günün "puanı" (1 görev = 25 dk odak sayılır)
+  const puan = gunler.map((_, i) => gorevSay[i] * 25 + odakDk[i]);
+  const enCok = Math.max(...puan, 1);
+  if ($("ozetGrafik")) $("ozetGrafik").innerHTML = gunler.map((k, i) => {
+    const gelecek = k > todayKey;
+    const yuzde = Math.round(puan[i] / enCok * 100);
+    return `<div class="ozet-gun ${k === todayKey ? "bugun" : ""} ${gelecek ? "gelecek" : ""}" title="${GUNLER_KISA[tarihOku(k).getDay()]}: ${gorevSay[i]} görev, ${odakDk[i]} dk odak">
+      <div class="ozet-cubuk"><span style="height:${puan[i] ? Math.max(6, yuzde) : 0}%"></span></div>
+      <small>${GUNLER_KISA[tarihOku(k).getDay()]}</small>
+    </div>`;
+  }).join("");
+  let not = "";
+  if (puan.some(p => p > 0)) {
+    const enIyi = puan.indexOf(Math.max(...puan));
+    not = `En verimli günün: <b>${GUNLER_KISA[tarihOku(gunler[enIyi]).getDay()]}</b> (${gorevSay[enIyi]} görev, ${odakDk[enIyi]} dk odak).`;
+  } else {
+    not = "Bu hafta henüz tamamlanan görev ya da Pomodoro yok. Küçük bir görevle başla!";
+  }
+  if ($("ozetNot")) $("ozetNot").innerHTML = not;
+}
+
+// ================= SINAV GERİ SAYIMI =================
+function geriSayimCiz() {
+  const kart = $("geriSayimKart"), el = $("geriSayim");
+  if (!kart || !el || !S) return;
+  const sinav = (S.sinavlar || []).filter(s => gunFarki(s.tarih) >= 0)
+    .sort((a, b) => (a.tarih + (a.saat || "")).localeCompare(b.tarih + (b.saat || "")))[0];
+  kart.hidden = !sinav;
+  if (!sinav) return;
+  const fark = gunFarki(sinav.tarih);
+  const sayi = fark === 0 ? "Bugün" : fark === 1 ? "Yarın" : fark;
+  el.innerHTML = `
+    <div class="gs-sayi ${fark <= 3 ? "yakin" : ""}">${sayi}${fark > 1 ? "<small>gün kaldı</small>" : ""}</div>
+    <div class="gs-bilgi">
+      <b>${esc(sinav.ad)}</b>
+      <span>${esc(sinav.tur || "Sınav")} · ${gunEtiket(sinav.tarih)}${sinav.saat ? " · " + esc(sinav.saat) : ""}${sinav.yer ? " · " + esc(sinav.yer) : ""}</span>
+    </div>`;
+}
+
 function ciz() {
   if (!S) return;
   // Bildirimleri her çizimde güncelle (yinelenenleri bildirimEkle zaten eliyor);
@@ -2360,6 +2711,8 @@ function ciz() {
   avatarUygula();
   ozetCiz();
   rozetCiz();
+  haftalikOzetCiz();
+  geriSayimCiz();
 
   if ($("calTitle")) $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
   const cal = $("calendar");
@@ -2412,6 +2765,7 @@ function ciz() {
       : S.mode === "work" ? `Ortalama ilerleme: %${ort.toFixed(0)}`
       : `Ortalama: ${ort.toFixed(0)} / 100  (GP: ${(ort / 25).toFixed(2)})`;
   }
+  notHesapCiz();
   if ($("courses")) {
     $("courses").innerHTML = S.courses.map(c =>
       `<li>${ad("courses", c.id, "n", c.n)}<input type="number" min="0" max="100" value="${c.g}" data-act="grade" data-id="${c.id}">${delBtn("courses", c.id)}</li>`
@@ -2961,6 +3315,7 @@ document.addEventListener("click", e => {
     if (dlgBtn.dataset.dlg === "pomodoroAyarDlg") pomoAyarFormDoldur();
     if (dlgBtn.dataset.dlg === "settingsDlg" && S) {
       $("setName").value = S.name;
+      sistemBildirimDugmesi();
       const h = db.users[db.aktif];
       const modAdi = S.mode === "work" ? "Çalışan" : "Öğrenci";
       const epostaHesabi = bulutHesabiMi(db.aktif) && h.saglayici === "password";
@@ -2984,7 +3339,8 @@ document.addEventListener("click", e => {
   const b = e.target.closest("[data-act]");
   if (!b) return;
   if (["done", "grade", "status", "skill", "task-toggle", "ders-edit", "sinav-edit", "odev-edit", "odev-toggle",
-       "task-start", "task-done", "task-undo", "hedef-plus", "hedef-minus", "yks-edit"].includes(b.dataset.act)) return;
+       "task-start", "task-done", "task-undo", "hedef-plus", "hedef-minus", "yks-edit",
+       "nh", "nh-oran", "nh-ekle", "nh-sil", "paylas-proje"].includes(b.dataset.act)) return;
   e.preventDefault();
   const { act, id, list } = b.dataset;
   if (act === "mini") {
@@ -3078,7 +3434,67 @@ if ($("yedekIndir")) $("yedekIndir").onclick = () => {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
-if ($("yedekYukle")) $("yedekYukle").onclick = () => { if ($("yedekDosya")) { $("yedekDosya").value = ""; $("yedekDosya").click(); } };
+// ================= TAKVİME AKTAR (.ics) =================
+// Google Takvim, Outlook ve Apple Takvim'in okuduğu iCalendar dosyası üretir.
+// Saatli kayıtlar "yüzen" yerel saatle yazılır (saat dilimi dönüşümü olmasın), saatsizler tüm gün olur.
+function icsMetin(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
+function icsSatirKatla(satir) {
+  // RFC 5545: satırlar 75 bayttan uzun olmamalı; devam satırı bir boşlukla başlar
+  const parcalar = []; let kalan = satir;
+  while (new TextEncoder().encode(kalan).length > 73) {
+    let n = 73; while (new TextEncoder().encode(kalan.slice(0, n)).length > 73) n--;
+    parcalar.push(kalan.slice(0, n)); kalan = " " + kalan.slice(n);
+  }
+  parcalar.push(kalan);
+  return parcalar.join("\r\n");
+}
+function takvimDosyasi() {
+  const gunStr = k => k.replace(/-/g, "");
+  const saatStr = h => { const [s, d] = (h || "00:00").split(":"); return `${String(+s).padStart(2, "0")}${String(+d || 0).padStart(2, "0")}00`; };
+  const dkEkle = (k, h, dk) => { const d = tarihOku(k); const [s, m] = (h || "00:00").split(":"); d.setHours(+s, (+m || 0) + dk); return `${tarihKey(d).replace(/-/g, "")}T${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}00`; };
+  const ertesi = k => { const d = tarihOku(k); d.setDate(d.getDate() + 1); return gunStr(tarihKey(d)); };
+  const damga = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  const olaylar = [];
+  const ekle = (id, baslik, k, saat, sureDk, aciklama, ek = []) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k || "")) return;
+    const s = ["BEGIN:VEVENT", `UID:${id}@ayvex`, `DTSTAMP:${damga}`, `SUMMARY:${icsMetin(baslik)}`];
+    if (saat) s.push(`DTSTART:${gunStr(k)}T${saatStr(saat)}`, `DTEND:${dkEkle(k, saat, sureDk || 60)}`);
+    else s.push(`DTSTART;VALUE=DATE:${gunStr(k)}`, `DTEND;VALUE=DATE:${ertesi(k)}`);
+    if (aciklama) s.push(`DESCRIPTION:${icsMetin(aciklama)}`);
+    s.push(...ek, "END:VEVENT");
+    olaylar.push(...s);
+  };
+  (S.sinavlar || []).forEach(x => ekle("sinav-" + x.id, `📝 ${x.ad} (${x.tur || "Sınav"})`, x.tarih, x.saat, 90, x.notlar, x.yer ? [`LOCATION:${icsMetin(x.yer)}`] : []));
+  (S.odevler || []).filter(x => !x.done).forEach(x => ekle("odev-" + x.id, `📚 Ödev: ${x.ad}`, x.tarih, "", 0, [x.ders, x.aciklama].filter(Boolean).join(" · ")));
+  (S.toplantilar || []).forEach(x => ekle("toplanti-" + x.id, `👥 ${x.baslik}`, x.tarih, x.saat, x.sure || 30, [x.katilimcilar, x.notlar, x.link].filter(Boolean).join("\n"), x.link ? [`URL:${icsMetin(x.link)}`] : []));
+  (S.deadlines || []).forEach(x => ekle("teslim-" + x.id, `⏰ Teslim: ${x.t}`, x.d, "", 0, ""));
+  (S.tasks || []).filter(x => !x.done && x.son).forEach(x => ekle("gorev-" + x.id, `✅ ${x.t}`, x.son, "", 0, `Öncelik: ${ONCELIK[gorevOncelik(x.p)]}`));
+  (S.projeler || []).filter(x => x.bitis && x.durum !== "tamam").forEach(x => ekle("proje-" + x.id, `📦 Proje teslimi: ${x.ad}`, x.bitis, "", 0, ""));
+  Object.entries(S.events || {}).forEach(([k, liste]) => (liste || []).forEach(x => ekle("etkinlik-" + x.id, x.t, k, x.time && x.time !== "00:00" ? x.time : "", 60, x.type)));
+  // Ders programı: her hafta tekrarlayan olay (bu haftanın ilgili gününden başlar)
+  const RRGUN = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+  (S.dersler || []).forEach(x => {
+    const gun = haftaGunleriKey().find(k => tarihOku(k).getDay() === +x.gun);
+    if (!gun) return;
+    const sure = Math.max(15, saatDk(x.bit) - saatDk(x.bas));
+    ekle("ders-" + x.id, `🎓 ${x.ad}${x.kod ? " (" + x.kod + ")" : ""}`, gun, x.bas, sure, x.hoca ? "Hoca: " + x.hoca : "",
+      [`RRULE:FREQ=WEEKLY;BYDAY=${RRGUN[+x.gun]}`, ...(x.sinif ? [`LOCATION:${icsMetin(x.sinif)}`] : [])]);
+  });
+  const satirlar = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AYVEX//Planlama//TR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:AYVEX", ...olaylar, "END:VCALENDAR"];
+  return { metin: satirlar.map(icsSatirKatla).join("\r\n") + "\r\n", sayi: olaylar.filter(s => s === "BEGIN:VEVENT").length };
+}
+if ($("takvimAktar")) $("takvimAktar").onclick = () => {
+  if (!S) return;
+  const { metin, sayi } = takvimDosyasi();
+  if (!sayi) { bilgiGoster("Aktarılacak tarihli kayıt yok."); return; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([metin], { type: "text/calendar;charset=utf-8" }));
+  a.download = `ayvex-takvim-${todayKey}.ics`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  bilgiGoster(`${sayi} kayıt takvim dosyasına aktarıldı.`);
+};
+if ($("yedekYukle")) $("yedekYukle").onclick =() => { if ($("yedekDosya")) { $("yedekDosya").value = ""; $("yedekDosya").click(); } };
 if ($("yedekDosya")) $("yedekDosya").onchange = async e => {
   const dosya = e.target.files && e.target.files[0];
   if (!dosya || !S) return;
@@ -3191,7 +3607,7 @@ document.addEventListener("submit", e => {
     case "skill": S.skills.push({ id, n: v.n.trim(), p: 50 }); break;
     case "task":
     case "task-quick":
-      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", proje: v.proje || "", son: v.son || "", zaman: new Date().toISOString() });
+      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", proje: v.proje || "", son: v.son || "", tekrar: TEKRAR[v.tekrar] ? v.tekrar : "", zaman: new Date().toISOString() });
       break;
     case "note": S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" }); break;
     case "link": S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() }); break;
@@ -3489,7 +3905,9 @@ try {
     dbYaz();
     girisMesaji("Yerel hesaplarla giriş güvenlik nedeniyle geçici olarak kapatıldı. Lütfen Google ile devam et; verilerin silinmedi.");
   }
-  if (db.aktif && db.users[db.aktif]) {
+  if (PAYLASIM_ID) {
+    paylasimSayfasiAc(PAYLASIM_ID);
+  } else if (db.aktif && db.users[db.aktif]) {
     basla();
   } else {
     if ($("auth")) $("auth").hidden = false;

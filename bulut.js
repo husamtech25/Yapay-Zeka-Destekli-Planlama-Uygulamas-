@@ -229,11 +229,43 @@ async function verimiSil(uid) {
   try { await deleteUser(auth.currentUser); } catch (e) { await signOut(auth); }
 }
 
+// ---- Salt okunur paylaşım bağlantıları ----
+// paylasimlar/{id} = { sahip: uid, tur: "proje", baslik, veri: <JSON metni>, guncelleme }.
+// Bağlantıyı bilen herkes okuyabilir (giriş gerekmez); sadece sahibi yazıp silebilir (firestore.rules).
+// id tahmin edilemeyecek kadar uzun ve rastgeledir.
+const paylasimBelge = ({ fs, F }, id) => F.doc(fs, "paylasimlar", id);
+function paylasimIdUret() {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  return [...b].map(x => x.toString(36).padStart(2, "0")).join("").slice(0, 24);
+}
+async function paylasimYaz(id, { baslik, veri }) {
+  const u = auth.currentUser;
+  if (!u) throw new Error("Oturum yok");
+  const db = await firestore();
+  await db.F.setDoc(paylasimBelge(db, id), {
+    sahip: u.uid, tur: "proje", baslik: String(baslik || "").slice(0, 120), veri, guncelleme: db.F.serverTimestamp(),
+  });
+}
+async function paylasimSil(id) {
+  const db = await firestore();
+  await db.F.deleteDoc(paylasimBelge(db, id));
+}
+async function paylasimOku(id) {
+  const db = await firestore();
+  const snap = await db.F.getDoc(paylasimBelge(db, id));
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  return { baslik: d.baslik, veri: d.veri, guncelleme: d.guncelleme && d.guncelleme.toDate ? d.guncelleme.toDate() : null };
+}
+
 window.AYVEX_BULUT = {
   girisYap, kullaniciVerisi, dinle, kaydet, bekleyenleriGonder, cikisYap, verimiSil,
   epostaKayit, epostaGiris, dogrulamaGonder, dogrulamaKontrol, sifreSifirla, sifreDegistir, hesabiTamamenSil,
+  paylasimIdUret, paylasimYaz, paylasimSil, paylasimOku,
   mevcutKullanici: () => kullaniciBilgi(auth.currentUser),
 };
+window.dispatchEvent(new Event("ayvex-bulut-hazir"));
 
 // Yönlendirmeyle yapılan girişin sonucu (açılır pencere engellendiyse)
 getRedirectResult(auth)

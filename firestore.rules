@@ -7,10 +7,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function dogrulanmis() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
     match /users/{uid} {
       function sahibi() {
-        return request.auth != null && request.auth.uid == uid
-          && request.auth.token.email_verified == true;
+        return dogrulanmis() && request.auth.uid == uid;
       }
       function gecerliBelge() {
         let d = request.resource.data;
@@ -24,6 +27,28 @@ service cloud.firestore {
 
       allow read, delete: if sahibi();
       allow create, update: if sahibi() && gecerliBelge();
+    }
+
+    // Salt okunur paylaşım bağlantıları (ör. bir projenin özeti).
+    // Bağlantıyı (uzun, rastgele id) bilen herkes tek belgeyi okuyabilir; listeleme kapalı.
+    // Sadece paylaşımı oluşturan kullanıcı güncelleyebilir ya da silebilir.
+    match /paylasimlar/{id} {
+      function gecerliPaylasim() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['sahip', 'tur', 'baslik', 'veri', 'guncelleme'])
+          && d.sahip == request.auth.uid
+          && d.tur in ['proje']
+          && d.baslik is string && d.baslik.size() <= 120
+          && d.veri is string && d.veri.size() < 200000
+          && d.guncelleme == request.time
+          && id.size() >= 20;
+      }
+
+      allow get: if true;
+      allow list: if false;
+      allow create: if dogrulanmis() && gecerliPaylasim();
+      allow update: if dogrulanmis() && resource.data.sahip == request.auth.uid && gecerliPaylasim();
+      allow delete: if dogrulanmis() && resource.data.sahip == request.auth.uid;
     }
 
     // Diğer her şey kapalı

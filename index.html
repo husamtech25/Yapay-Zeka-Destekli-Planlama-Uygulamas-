@@ -28,7 +28,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- SÜRÜM: CSS/JS dosyaları her değiştiğinde buradaki ve sayfa sonundaki ?v= değerini
        (tarih.sıra biçiminde) birlikte artır. Tarayıcılar yeni dosyaları önbelleğe takılmadan indirir. -->
-  <link rel="stylesheet" href="dashboard.css?v=20261122.5">
+  <link rel="stylesheet" href="dashboard.css?v=20261122.6">
 </head>
 <body>
   <!-- ============ SVG İKON SPRITE ============ -->
@@ -331,6 +331,23 @@
           </div>
         </section>
 
+        <!-- Haftalık özet + sınav geri sayımı -->
+        <section class="home-row home-row-ozet">
+          <div class="card light haftalik-ozet-card">
+            <div class="card-head">
+              <h2>Bu Haftanın Özeti</h2>
+              <span class="chip light-chip" id="ozetAralik"></span>
+            </div>
+            <div class="ozet-sayilar" id="ozetSayilar"></div>
+            <div class="ozet-grafik" id="ozetGrafik" aria-label="Günlere göre tamamlanan görev ve odak dakikası"></div>
+            <p class="ozet-not" id="ozetNot"></p>
+          </div>
+          <div class="card light geri-sayim-card menu-ogrenci" id="geriSayimKart" hidden>
+            <div class="card-head"><h2>Sıradaki Sınav</h2></div>
+            <div class="geri-sayim" id="geriSayim"></div>
+          </div>
+        </section>
+
       </div>
 
       <!-- İŞ MODU: PROJELER -->
@@ -596,6 +613,25 @@
             <p class="gpa" id="gpa"></p>
           </div>
 
+          <!-- Not ortalaması hesaplayıcı (öğrenci modu) -->
+          <div class="card light nh-card menu-ogrenci">
+            <div class="card-head">
+              <h2>🎯 Not Ortalaması Hesapla</h2>
+              <button type="button" class="chip light-chip" data-act="nh-ekle">+ Ders ekle</button>
+            </div>
+            <div class="nh-ayar">
+              <label>Vize ağırlığı <input type="number" min="0" max="100" step="5" data-act="nh-oran" aria-label="Vize ağırlığı yüzde"> %</label>
+              <span class="nh-ipucu">Final ağırlığı geri kalanıdır. Harf notları yaygın 4'lük sisteme göredir; okulunun tablosu farklı olabilir.</span>
+            </div>
+            <div class="nh-tablo-kap">
+              <table class="nh-tablo">
+                <thead><tr><th>Ders</th><th>Kredi</th><th>Vize</th><th>Final</th><th>Not</th><th>Harf</th><th></th></tr></thead>
+                <tbody id="nhSatirlar"></tbody>
+              </table>
+            </div>
+            <div class="nh-sonuc" id="nhSonuc"></div>
+          </div>
+
         </section>
       </div>
 
@@ -693,6 +729,12 @@
           <form class="task-quick-add" data-form="task-quick">
             <input name="t" placeholder="Yeni görev ekle ve Enter'a bas..." required autocomplete="off">
             <input type="date" name="son" class="gorev-son" aria-label="Son tarih (isteğe bağlı)" title="Son tarih (isteğe bağlı)">
+            <select name="tekrar" aria-label="Tekrar" title="Tekrar: tamamlayınca bir sonraki otomatik eklenir">
+              <option value="">Tekrar yok</option>
+              <option value="gunluk">Her gün</option>
+              <option value="haftalik">Her hafta</option>
+              <option value="aylik">Her ay</option>
+            </select>
             <select name="p" aria-label="Öncelik">
               <option value="low">Düşük</option>
               <option value="mid" selected>Orta</option>
@@ -776,6 +818,12 @@
       <button type="button" data-tema-sec="acik" aria-pressed="false">☀️ Açık</button>
       <button type="button" data-tema-sec="koyu" aria-pressed="false">🌙 Koyu</button>
     </div>
+    <p class="lbl">Bildirimler</p>
+    <button type="button" class="reset" id="sistemBildirimBtn">🔔 Cihaz bildirimlerini aç</button>
+    <p class="ayar-not">Uygulama açıkken ya da arka planda çalışırken yaklaşan görev, sınav ve toplantıları bildirir.</p>
+    <p class="lbl">Takvim</p>
+    <button type="button" class="reset" id="takvimAktar">📅 Google / Outlook takvimine aktar (.ics)</button>
+    <p class="ayar-not">Sınav, ödev, toplantı, etkinlik ve son tarihli görevleri bir takvim dosyası olarak indirir. Dosyayı Google Takvim'de "İçe aktar" ile ya da Outlook'ta açarak ekleyebilirsin.</p>
     <p class="lbl">Hesap</p>
     <p id="setAcc"></p>
     <p class="bulut-durum" id="bulutDurum" hidden></p>
@@ -1025,11 +1073,26 @@
       <label class="fld">Notlar (opsiyonel)<textarea name="notlar" rows="2"></textarea></label>
       <div class="dialog-actions">
         <button type="button" class="btn-danger" id="silProje" hidden>🗑️ Sil</button>
+        <button type="button" class="btn-ghost" id="paylasProje" data-act="paylas-proje">🔗 Paylaş</button>
         <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
         <button type="submit" class="btn-primary">Kaydet</button>
       </div>
+      <div class="paylasim-kutu" id="paylasimKutu" hidden>
+        <p><b>Salt okunur bağlantı:</b> Bağlantıyı alan herkes projenin adını, durumunu, ilerlemesini, görevlerini ve toplantılarını görebilir (notlar paylaşılmaz). Projeyi değiştirdikçe güncellenir.</p>
+        <div class="paylasim-satir">
+          <input type="text" id="paylasimLink" readonly aria-label="Paylaşım bağlantısı">
+          <button type="button" class="btn-primary" id="paylasimKopyala">Kopyala</button>
+        </div>
+        <button type="button" class="link-btn" id="paylasimDurdur">Paylaşımı durdur</button>
+      </div>
     </form>
   </dialog>
+
+  <!-- PAYLAŞILAN PROJE (salt okunur, ?paylasim=… bağlantısıyla açılır) -->
+  <section class="paylasim-sayfa" id="paylasimSayfa" hidden>
+    <div class="paylasim-icerik" id="paylasimIcerik"></div>
+    <p class="paylasim-alt">AYVEX ile paylaşıldı · <a href="./">Kendi planını oluştur</a></p>
+  </section>
 
   <!-- MODAL: Toplantı (İş modu) -->
   <dialog id="dlgToplanti">
@@ -1428,7 +1491,7 @@
     <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
   </div>
 
-  <script src="dashboard.js?v=20261122.5"></script>
-  <script type="module" src="bulut.js?v=20261122.5"></script>
+  <script src="dashboard.js?v=20261122.6"></script>
+  <script type="module" src="bulut.js?v=20261122.6"></script>
 </body>
 </html>
