@@ -14,7 +14,7 @@
 // =====================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+  getAuth, GoogleAuthProvider, signInWithPopup,
   getRedirectResult, onAuthStateChanged, signOut,
   createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification,
   sendPasswordResetEmail, updateProfile, reauthenticateWithCredential, EmailAuthProvider,
@@ -91,11 +91,11 @@ async function girisYap() {
     const sonuc = await signInWithPopup(auth, saglayici);
     return await kullaniciVerisi(sonuc.user);
   } catch (e) {
-    // Açılır pencere engellendiyse yönlendirme ile dene (sonuç sayfa yenilenince gelir)
-    if (e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
-      await signInWithRedirect(auth, saglayici);
-      return null;
-    }
+    // Not: Açılır pencere engellenince eskiden yönlendirmeyle (signInWithRedirect) deneniyordu.
+    // Site github.io'da, giriş işleyicisi firebaseapp.com'da olduğu için güncel tarayıcılar
+    // (Chrome 115+, Safari, Firefox) iki alan adı arasındaki depolamayı ayırıyor ve yönlendirme
+    // dönüşünde oturum sessizce kayboluyordu. Artık hata çağırana iletilir ve kullanıcıya
+    // ne yapacağı söylenir (bkz. dashboard.js authHataMetni).
     if (e && (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request")) return null;
     throw e;
   }
