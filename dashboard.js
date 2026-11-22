@@ -511,6 +511,9 @@ function authHataMetni(e, baglam) {
     "auth/requires-recent-login": "Güvenlik için çıkış yapıp tekrar giriş yapman gerekiyor.",
     "auth/account-exists-with-different-credential": "Bu e-posta başka bir giriş yöntemiyle kayıtlı. Google ile devam etmeyi dene.",
     "auth/operation-not-allowed": "E-posta ile giriş şu an kullanılamıyor.",
+    "auth/popup-blocked": "Google giriş penceresi açılamadı çünkü tarayıcın açılır pencereleri engelliyor. Adres çubuğundaki engelleme simgesinden bu siteye izin verip tekrar dene ya da aşağıdan e-posta ile giriş yap.",
+    "auth/operation-not-supported-in-this-environment": "Bu tarayıcı Google ile girişi desteklemiyor (ör. bir uygulamanın içinde açılan sayfa). Sayfayı Chrome ya da Safari'de açmayı veya aşağıdan e-posta ile girişi dene.",
+    "auth/web-storage-unsupported": "Tarayıcının çerez/depolama ayarları girişi engelliyor. Gizli sekme dışında tekrar dene ya da e-posta ile giriş yap.",
   };
   return M[kod] || `Bir sorun oluştu${kod ? ` (${kod})` : ""}. Lütfen tekrar dene.`;
 }
@@ -2844,7 +2847,7 @@ document.addEventListener("click", e => {
     gBtn.disabled = true; msg("");
     window.AYVEX_BULUT.girisYap()
       .then(googleOturumAc)
-      .catch(err => msg("Google ile giriş yapılamadı: " + (err && err.message ? err.message : err)))
+      .catch(err => { console.warn("[AYVEX] Google girişi:", err); msg(authHataMetni(err)); })
       .finally(() => { gBtn.disabled = false; });
     return;
   }
