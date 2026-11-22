@@ -28,7 +28,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- SÜRÜM: CSS/JS dosyaları her değiştiğinde buradaki ve sayfa sonundaki ?v= değerini
        (tarih.sıra biçiminde) birlikte artır. Tarayıcılar yeni dosyaları önbelleğe takılmadan indirir. -->
-  <link rel="stylesheet" href="dashboard.css?v=20261122.12">
+  <link rel="stylesheet" href="dashboard.css?v=20261122.13">
 </head>
 <body>
   <!-- ============ SVG İKON SPRITE ============ -->
@@ -599,6 +599,31 @@
 
             <h3 class="perf-section-title" style="margin-top:var(--s4)">Son Denemeler</h3>
             <ul class="yks-liste" id="yksListe"></ul>
+          </div>
+
+          <!-- YKS konu takibi -->
+          <div class="card light yks-konu-card">
+            <div class="card-head">
+              <h2>📚 YKS Konu Takibi</h2>
+              <div class="yk-sekmeler" role="tablist" aria-label="Sınav">
+                <button type="button" class="chip light-chip" data-yk-sinav="tyt" role="tab">TYT</button>
+                <button type="button" class="chip light-chip" data-yk-sinav="ayt" role="tab">AYT</button>
+              </div>
+            </div>
+            <div class="yk-ust">
+              <label class="yk-alan" id="ykAlanKutu">Alan
+                <select id="ykAlan" aria-label="AYT alanı">
+                  <option value="say">Sayısal</option>
+                  <option value="ea">Eşit Ağırlık</option>
+                  <option value="soz">Sözel</option>
+                </select>
+              </label>
+              <div class="yk-genel" id="ykGenel"></div>
+            </div>
+            <p class="yk-ipucu">Bir konuya dokundukça durumu değişir: <span class="yk-d yk-bos">Başlanmadı</span> → <span class="yk-d yk-calisiyor">Çalışılıyor</span> → <span class="yk-d yk-bitti">Bitti</span> → <span class="yk-d yk-tekrar">Tekrar gerekli</span></p>
+            <div class="yk-tekrar-kutu" id="ykTekrar" hidden></div>
+            <div class="yk-dersler" id="ykDersler"></div>
+            <p class="yk-not">Konu listesi genel YKS müfredatına göre hazırlandı; ÖSYM'nin güncel konu listesi farklı olabilir.</p>
           </div>
 
           <div class="card light">
@@ -1533,7 +1558,7 @@
     <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
   </div>
 
-  <script src="dashboard.js?v=20261122.12"></script>
-  <script type="module" src="bulut.js?v=20261122.12"></script>
+  <script src="dashboard.js?v=20261122.13"></script>
+  <script type="module" src="bulut.js?v=20261122.13"></script>
 </body>
 </html>

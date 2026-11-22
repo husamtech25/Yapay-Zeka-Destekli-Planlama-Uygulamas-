@@ -146,6 +146,10 @@ function veriOnar(v, tur, ad) {
   });
   if (typeof v.avatar !== "number") v.avatar = 0;
   if (typeof v.vizeOrani !== "number" || !(v.vizeOrani >= 0 && v.vizeOrani <= 100)) v.vizeOrani = 40;
+  // YKS konu takibi: { "sinav|ders|konu": "calisiyor" | "bitti" | "tekrar" }
+  if (!v.yksKonu || typeof v.yksKonu !== "object" || Array.isArray(v.yksKonu)) v.yksKonu = {};
+  Object.keys(v.yksKonu).forEach(k => { if (!["calisiyor", "bitti", "tekrar"].includes(v.yksKonu[k])) delete v.yksKonu[k]; });
+  if (!["say", "ea", "soz"].includes(v.yksAlan)) v.yksAlan = "say";
   v.notHesap.forEach(n => {
     metin(n, "ad");
     n.kredi = Math.min(30, Math.max(0, +n.kredi || 0));
@@ -2812,6 +2816,119 @@ document.addEventListener("click", e => {
   kaydet();
 });
 
+// ================= YKS KONU TAKİBİ =================
+// Konu durumları S.yksKonu içinde "sinav|ders|konu" anahtarıyla tutulur:
+// "" (başlanmadı) → "calisiyor" → "bitti" → "tekrar" → "" ...
+// Konu listesi genel YKS müfredatına göre hazırlanmıştır (arayüzde not olarak belirtilir).
+const YKS_KONULAR = {
+  tyt: {
+    "Türkçe": ["Sözcükte Anlam", "Cümlede Anlam", "Paragraf", "Ses Bilgisi", "Yazım Kuralları", "Noktalama İşaretleri", "Sözcük Yapısı", "İsimler", "Sıfatlar", "Zamirler", "Zarflar", "Edat, Bağlaç, Ünlem", "Fiiller ve Ek Fiil", "Fiilimsiler", "Cümlenin Ögeleri", "Cümle Türleri", "Anlatım Bozuklukları"],
+    "Matematik": ["Temel Kavramlar", "Sayı Basamakları", "Bölme ve Bölünebilme", "EBOB - EKOK", "Rasyonel Sayılar", "Basit Eşitsizlikler", "Mutlak Değer", "Üslü Sayılar", "Köklü Sayılar", "Çarpanlara Ayırma", "Oran - Orantı", "Denklem Çözme", "Problemler", "Kümeler", "Mantık", "Fonksiyonlar", "Permütasyon - Kombinasyon", "Olasılık", "Veri ve İstatistik", "Polinomlar"],
+    "Geometri": ["Doğruda ve Üçgende Açılar", "Özel Üçgenler", "Açıortay - Kenarortay", "Üçgende Alan", "Benzerlik", "Çokgenler", "Dörtgenler", "Çember ve Daire", "Analitik Geometri", "Katı Cisimler"],
+    "Fizik": ["Fizik Bilimine Giriş", "Madde ve Özellikleri", "Hareket ve Kuvvet", "İş, Güç ve Enerji", "Isı ve Sıcaklık", "Basınç", "Kaldırma Kuvveti", "Elektrostatik", "Elektrik Akımı", "Manyetizma", "Dalgalar", "Optik"],
+    "Kimya": ["Kimya Bilimi", "Atom ve Periyodik Sistem", "Kimyasal Türler Arası Etkileşimler", "Maddenin Halleri", "Doğa ve Kimya", "Kimyanın Temel Kanunları", "Mol Kavramı", "Kimyasal Tepkimeler", "Karışımlar", "Asitler, Bazlar ve Tuzlar", "Kimya Her Yerde"],
+    "Biyoloji": ["Canlıların Ortak Özellikleri", "Canlıların Temel Bileşenleri", "Hücre", "Canlıların Sınıflandırılması", "Hücre Bölünmeleri", "Kalıtım", "Ekosistem Ekolojisi"],
+    "Tarih": ["Tarih Bilimi", "İlk Çağ Uygarlıkları", "İlk Türk Devletleri", "İslam Tarihi", "Türk - İslam Devletleri", "Osmanlı Kuruluş ve Yükselme", "Osmanlı Duraklama ve Gerileme", "Osmanlı Dağılma Dönemi", "I. Dünya Savaşı", "Kurtuluş Savaşı", "Atatürk İlke ve İnkılapları"],
+    "Coğrafya": ["Doğa ve İnsan", "Dünya'nın Şekli ve Hareketleri", "Harita Bilgisi", "İklim Bilgisi", "Yer Şekilleri", "Nüfus ve Yerleşme", "Ekonomik Faaliyetler", "Bölgeler", "Doğal Afetler"],
+    "Felsefe": ["Felsefeye Giriş", "Bilgi Felsefesi", "Varlık Felsefesi", "Ahlak Felsefesi", "Sanat Felsefesi", "Din Felsefesi", "Siyaset Felsefesi", "Bilim Felsefesi"],
+    "Din Kültürü": ["Bilgi ve İnanç", "İbadet", "Ahlak ve Değerler", "Hz. Muhammed", "Vahiy ve Akıl", "İslam Düşüncesinde Yorumlar"],
+  },
+  ayt: {
+    "Matematik": ["Fonksiyonlar", "Polinomlar", "İkinci Dereceden Denklemler", "Eşitsizlikler", "Parabol", "Trigonometri", "Logaritma", "Diziler", "Limit ve Süreklilik", "Türev", "İntegral", "Permütasyon, Kombinasyon, Olasılık", "Karmaşık Sayılar"],
+    "Geometri": ["Üçgenler", "Dörtgenler", "Çember ve Daire", "Analitik Geometri", "Dönüşümler", "Katı Cisimler", "Çemberin Analitiği"],
+    "Fizik": ["Vektörler", "Kuvvet ve Tork", "Denge", "Newton'un Hareket Yasaları", "Atışlar", "İş, Enerji ve Momentum", "Çembersel Hareket", "Basit Harmonik Hareket", "Elektrik ve Manyetizma", "Dalga Mekaniği", "Modern Fizik"],
+    "Kimya": ["Modern Atom Teorisi", "Gazlar", "Sıvı Çözeltiler", "Kimyasal Tepkimelerde Enerji", "Tepkime Hızı", "Kimyasal Denge", "Asit - Baz Dengesi", "Çözünürlük Dengesi", "Elektrokimya", "Organik Kimya"],
+    "Biyoloji": ["Sinir Sistemi", "Endokrin Sistem", "Duyu Organları", "Destek ve Hareket Sistemi", "Sindirim Sistemi", "Dolaşım Sistemi", "Solunum Sistemi", "Boşaltım Sistemi", "Üreme Sistemi", "Genden Proteine", "Fotosentez ve Kemosentez", "Hücresel Solunum", "Bitki Biyolojisi", "Ekoloji"],
+    "Edebiyat": ["Şiir Bilgisi", "Edebi Sanatlar", "İslamiyet Öncesi Türk Edebiyatı", "Divan Edebiyatı", "Halk Edebiyatı", "Tanzimat Edebiyatı", "Servet-i Fünun", "Milli Edebiyat", "Cumhuriyet Dönemi", "Edebi Akımlar"],
+    "Tarih": ["Osmanlı Kültür ve Medeniyeti", "XX. Yüzyıl Başlarında Osmanlı", "Milli Mücadele", "Atatürk Dönemi", "II. Dünya Savaşı", "Soğuk Savaş", "Yumuşama Dönemi", "Küreselleşen Dünya"],
+    "Coğrafya": ["Ekosistem", "Nüfus Politikaları", "Türkiye Ekonomisi", "Küresel Ortam", "Çevre ve Toplum"],
+    "Felsefe Grubu": ["Mantık", "Psikoloji", "Sosyoloji"],
+  },
+};
+// AYT'de alana göre görünen dersler
+const YK_ALAN_DERSLER = {
+  say: ["Matematik", "Geometri", "Fizik", "Kimya", "Biyoloji"],
+  ea: ["Matematik", "Geometri", "Edebiyat", "Tarih", "Coğrafya"],
+  soz: ["Edebiyat", "Tarih", "Coğrafya", "Felsefe Grubu"],
+};
+const YK_SIRA = ["", "calisiyor", "bitti", "tekrar"];
+const YK_ETIKET = { "": "Başlanmadı", calisiyor: "Çalışılıyor", bitti: "Bitti", tekrar: "Tekrar gerekli" };
+let ykSinav = "tyt";
+const ykAcikDersler = new Set();
+const ykAnahtar = (sinav, ders, konu) => `${sinav}|${ders}|${konu}`;
+function ykDersler(sinav) {
+  const hepsi = Object.keys(YKS_KONULAR[sinav]);
+  return sinav === "ayt" ? hepsi.filter(d => (YK_ALAN_DERSLER[S.yksAlan] || YK_ALAN_DERSLER.say).includes(d)) : hepsi;
+}
+function ykIlerleme(sinav, ders) {
+  const konular = YKS_KONULAR[sinav][ders];
+  const d = konular.map(k => (S.yksKonu || {})[ykAnahtar(sinav, ders, k)] || "");
+  return { toplam: konular.length, bitti: d.filter(x => x === "bitti").length, tekrar: d.filter(x => x === "tekrar").length, calisiyor: d.filter(x => x === "calisiyor").length };
+}
+function yksKonuCiz() {
+  const el = $("ykDersler");
+  if (!el || !S) return;
+  document.querySelectorAll("[data-yk-sinav]").forEach(b => { b.classList.toggle("on", b.dataset.ykSinav === ykSinav); b.setAttribute("aria-selected", String(b.dataset.ykSinav === ykSinav)); });
+  if ($("ykAlan")) $("ykAlan").value = S.yksAlan || "say";
+  if ($("ykAlanKutu")) $("ykAlanKutu").hidden = ykSinav !== "ayt";
+  const dersler = ykDersler(ykSinav);
+  // Genel ilerleme (bitti = tam, çalışılıyor = yarım sayılır)
+  let toplam = 0, puan = 0, tekrarListe = [];
+  dersler.forEach(d => {
+    const i = ykIlerleme(ykSinav, d); toplam += i.toplam; puan += i.bitti + i.calisiyor * 0.5;
+    YKS_KONULAR[ykSinav][d].forEach(k => { if ((S.yksKonu || {})[ykAnahtar(ykSinav, d, k)] === "tekrar") tekrarListe.push({ d, k }); });
+  });
+  const genelYuzde = toplam ? Math.round(puan / toplam * 100) : 0;
+  if ($("ykGenel")) $("ykGenel").innerHTML = `<div class="yk-genel-bar"><span style="width:${genelYuzde}%"></span></div><b>%${genelYuzde}</b><small>${ykSinav.toUpperCase()} genel ilerleme</small>`;
+  const tk = $("ykTekrar");
+  if (tk) {
+    tk.hidden = !tekrarListe.length;
+    tk.innerHTML = tekrarListe.length ? `<b>🔁 Tekrar gereken ${tekrarListe.length} konu:</b> ${tekrarListe.slice(0, 8).map(x => `<span>${esc(x.k)} <small>${esc(x.d)}</small></span>`).join("")}${tekrarListe.length > 8 ? `<span>+${tekrarListe.length - 8} daha</span>` : ""}` : "";
+  }
+  el.innerHTML = dersler.map(d => {
+    const i = ykIlerleme(ykSinav, d);
+    const yuzde = Math.round(i.bitti / i.toplam * 100);
+    const acik = ykAcikDersler.has(ykSinav + "|" + d);
+    return `<div class="yk-ders ${acik ? "acik" : ""}">
+      <button type="button" class="yk-ders-bas" data-yk-ders="${esc(d)}" aria-expanded="${acik}">
+        <span class="yk-ders-ad">${esc(d)}</span>
+        <span class="yk-ders-bar"><span style="width:${yuzde}%"></span></span>
+        <span class="yk-ders-sayi">${i.bitti}/${i.toplam}${i.tekrar ? ` <em>· ${i.tekrar} tekrar</em>` : ""}</span>
+        <span class="yk-ok" aria-hidden="true">›</span>
+      </button>
+      ${acik ? `<div class="yk-konular">${YKS_KONULAR[ykSinav][d].map(k => {
+        const durum = (S.yksKonu || {})[ykAnahtar(ykSinav, d, k)] || "";
+        return `<button type="button" class="yk-konu yk-${durum || "bos"}" data-yk-konu="${esc(k)}" data-yk-d="${esc(d)}" title="${YK_ETIKET[durum]}: dokununca değişir">${esc(k)}</button>`;
+      }).join("")}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+document.addEventListener("click", e => {
+  if (!S || !e.target.closest) return;
+  const sekme = e.target.closest("[data-yk-sinav]");
+  if (sekme) { ykSinav = sekme.dataset.ykSinav; yksKonuCiz(); return; }
+  const ders = e.target.closest("[data-yk-ders]");
+  if (ders) {
+    const k = ykSinav + "|" + ders.dataset.ykDers;
+    if (ykAcikDersler.has(k)) ykAcikDersler.delete(k); else ykAcikDersler.add(k);
+    yksKonuCiz(); return;
+  }
+  const konu = e.target.closest("[data-yk-konu]");
+  if (konu) {
+    if (!S.yksKonu || typeof S.yksKonu !== "object") S.yksKonu = {};
+    const anahtar = ykAnahtar(ykSinav, konu.dataset.ykD, konu.dataset.ykKonu);
+    const simdiki = S.yksKonu[anahtar] || "";
+    const sonraki = YK_SIRA[(YK_SIRA.indexOf(simdiki) + 1) % YK_SIRA.length];
+    if (sonraki) S.yksKonu[anahtar] = sonraki; else delete S.yksKonu[anahtar];
+    kaydet(); yksKonuCiz();
+  }
+});
+document.addEventListener("change", e => {
+  if (e.target.id !== "ykAlan" || !S) return;
+  S.yksAlan = YK_ALAN_DERSLER[e.target.value] ? e.target.value : "say";
+  kaydet(); yksKonuCiz();
+});
+
 // ================= SERİ (STREAK) =================
 // "Aktif gün": en az bir görev tamamlanan ya da en az bir Pomodoro yapılan gün.
 // Seri bugünden geriye kesintisiz aktif gün sayısıdır; bugün henüz bir şey yapılmadıysa
@@ -3054,6 +3171,7 @@ function ciz() {
   haftalikOzetCiz();
   geriSayimCiz();
   bugunCiz();
+  yksKonuCiz();
 
   if ($("calTitle")) $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
   const cal = $("calendar");
