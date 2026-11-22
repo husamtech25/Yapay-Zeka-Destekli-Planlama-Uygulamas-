@@ -7,7 +7,9 @@
 ## Özellikler
 
 - **İki mod:** Öğrenci (akademik, ders programı, kariyer) ve İş (projeler, sprint planı, toplantılar)
-- **Görevler:** öncelik, proje bağlantısı, Kanban görünümü, silinen kaydı "Geri al"
+- **Görevler:** öncelik, isteğe bağlı son tarih (geciken ve yaklaşan görevler renkli gösterilir, bildirim gelir), proje bağlantısı, Kanban görünümü, silinen kaydı "Geri al"
+- **Görünüm:** açık / koyu / sistem teması (Ayarlar > Görünüm)
+- **Uygulama olarak kurulum:** telefonda ve masaüstünde ana ekrana eklenebilir (`manifest.webmanifest`)
 - **Takvim, sınav ve ödev takibi**, bildirimler
 - **Giriş:** Google hesabı veya e-posta + şifre (e-posta doğrulaması zorunlu)
 - **Bulut senkronizasyonu:** veriler Firebase Firestore'da saklanır, cihazlar arasında eşitlenir; çevrimdışıyken tarayıcıda (localStorage) tutulur

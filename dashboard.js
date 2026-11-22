@@ -146,7 +146,10 @@ function veriOnar(v, tur, ad) {
   if (!v.taskFilter) v.taskFilter = "all";
   if (!v.pomo || typeof v.pomo !== "object") v.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
   if (!v.pomo.stats || typeof v.pomo.stats !== "object") v.pomo.stats = {};
-  v.tasks.forEach(t => { if (typeof t.doing !== "boolean") t.doing = false; });
+  v.tasks.forEach(t => {
+    if (typeof t.doing !== "boolean") t.doing = false;
+    if (t.son && !tarihMi(t.son)) t.son = "";
+  });
   if (!v.sprint || typeof v.sprint !== "object" || !v.sprint.bas || !v.sprint.bit) v.sprint = yeniSprint(1);
   return v;
 }
@@ -870,6 +873,11 @@ function otomatikBildirimler() {
   if (S.mode === "work" && S.sprint && gunFarki(S.sprint.bit) <= 1 && gunFarki(S.sprint.bit) >= 0) {
     bildirimEkle("purple", `${S.sprint.ad} bitiyor`, gunFarki(S.sprint.bit) === 0 ? "Sprint bugün bitiyor" : "Sprint yarın bitiyor", "sp::" + S.sprint.ad + "::" + S.sprint.bit);
   }
+  (S.tasks || []).filter(t => !t.done && t.son).forEach(t => {
+    const f = gunFarki(t.son);
+    if (f === 0 || f === 1) bildirimEkle(f === 0 ? "warn" : "info", `${f === 0 ? "Bugün" : "Yarın"} son gün: ${t.t}`, "Görev", "gs::" + t.id + "::" + t.son);
+    else if (f < 0) bildirimEkle("warn", `Gecikmiş görev: ${t.t}`, `Son tarih ${gunEtiket(t.son)} idi`, "gsg::" + t.id + "::" + todayKey);
+  });
   const bugunOdev = (S.odevler || []).filter(o => !o.done && (o.tarih === todayKey || o.tarih === yarinKey));
   bugunOdev.forEach(o => {
     const zamanMetni = o.tarih === todayKey ? "Bugün" : "Yarın";
@@ -1277,6 +1285,17 @@ function miniDersGridCiz() {
   const gunSirasi = [1, 2, 3, 4, 5, 6, 0].filter(g => g >= 1 && g <= 5 || tumDersler.some(d => +d.gun === g));
   const gorunen = tumDersler.filter(d => eslesir(d.ad) || eslesir(d.kod));
   const miniSaatler = [9, 11, 13, 15, 17];
+  // Hiç ders yoksa boş gri tablo yerine ne yapılacağını söyleyen bir mesaj göster
+  el.classList.toggle("mdg-bos", !tumDersler.length);
+  if (!tumDersler.length) {
+    el.style.gridTemplateColumns = "";
+    el.style.gridAutoRows = "";
+    el.innerHTML = `<div class="mdg-bos-mesaj">
+      <p>Henüz ders eklemedin. Haftalık programın burada görünecek.</p>
+      <button type="button" class="btn-primary" data-open="dlgDers"><svg width="16" height="16"><use href="#i-plus"/></svg> İlk dersini ekle</button>
+    </div>`;
+    return;
+  }
   el.style.gridTemplateColumns = `repeat(${gunSirasi.length}, minmax(0, 1fr))`;
   el.style.gridAutoRows = "32px";
   let html = "";
@@ -2149,6 +2168,20 @@ const gorevBitisGunu = t => {
   return z ? tarihKey(new Date(z)) : "";
 };
 
+// Görevin son tarihi için rozet: geçmişse kırmızı, bugün/yarınsa sarı
+function gorevSonEtiketi(t) {
+  if (!t.son) return "";
+  const f = gunFarki(t.son);
+  if (isNaN(f)) return "";
+  let metin = `Son: ${gunEtiket(t.son)}`, sinif = "";
+  if (!t.done) {
+    if (f < 0) { metin = `Gecikti: ${gunEtiket(t.son)}`; sinif = "gecikti"; }
+    else if (f === 0) { metin = "Son gün: bugün"; sinif = "yakin"; }
+    else if (f === 1) { metin = "Son gün: yarın"; sinif = "yakin"; }
+  }
+  return `<span class="task-son ${sinif}"><svg width="10" height="10"><use href="#i-calendar"/></svg> ${metin}</span>`;
+}
+
 function gorevlerCiz() {
   if (!S) return;
   const liste = $("tasksListFull"); const bos = $("tasksEmpty");
@@ -2170,7 +2203,10 @@ function gorevlerCiz() {
   gosterilecek.sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
     // "?? 1" kullanılmalı: "|| 1" yüksek önceliğin 0 değerini 1'e çevirip sıralamayı bozuyordu
-    return (priSirala[gorevOncelik(a.p)] ?? 1) - (priSirala[gorevOncelik(b.p)] ?? 1);
+    const pf = (priSirala[gorevOncelik(a.p)] ?? 1) - (priSirala[gorevOncelik(b.p)] ?? 1);
+    if (pf) return pf;
+    // Aynı öncelikte son tarihi yakın olan önce; tarihi olmayanlar sona
+    return (a.son || "9999") < (b.son || "9999") ? -1 : (a.son || "9999") > (b.son || "9999") ? 1 : 0;
   });
   if (!gosterilecek.length) {
     liste.innerHTML = "";
@@ -2188,6 +2224,7 @@ function gorevlerCiz() {
           <div class="task-text" data-rename data-list="tasks" data-id="${t.id}" data-field="t" title="Çift tıkla: düzenle">${esc(t.t)}</div>
           <div class="task-meta">
             <span class="task-pri-badge pri-${p}"><svg width="10" height="10"><use href="#i-flag"/></svg> ${ONCELIK[p]}</span>
+            ${gorevSonEtiketi(t)}
             ${t.zaman ? `<span>${new Date(t.zaman).toLocaleDateString("tr-TR")}</span>` : ""}
             ${S.mode === "work" && projeAdi(t.proje) ? `<span class="task-proje"><svg width="10" height="10"><use href="#i-briefcase"/></svg> ${esc(projeAdi(t.proje))}</span>` : ""}
           </div>
@@ -2999,7 +3036,26 @@ if ($("miniCalToggle")) {
     $("miniCalToggle").setAttribute("aria-expanded", String(collapsed));
   };
 }
-if ($("setName")) $("setName").onchange = e => { const ad = e.target.value.trim().slice(0, 30); if (ad && S) { S.name = ad; ciz(); } };
+// ================= TEMA (açık / koyu / sistem) =================
+// Cihaza özel bir tercih: hesap verisine değil bu tarayıcıya kaydedilir.
+function temaSecimi() { try { return localStorage.getItem("ayvex-tema") || "sistem"; } catch (e) { return "sistem"; } }
+const koyuSistem = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+function temaUygula() {
+  const s = temaSecimi();
+  const koyu = s === "koyu" || (s === "sistem" && koyuSistem && koyuSistem.matches);
+  document.documentElement.setAttribute("data-tema", koyu ? "koyu" : "acik");
+  document.querySelectorAll("[data-tema-sec]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.temaSec === s)));
+}
+if (koyuSistem && koyuSistem.addEventListener) koyuSistem.addEventListener("change", temaUygula);
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-tema-sec]");
+  if (!b) return;
+  try { localStorage.setItem("ayvex-tema", b.dataset.temaSec); } catch (err) {}
+  temaUygula();
+});
+temaUygula();
+
+if ($("setName")) $("setName").onchange =e => { const ad = e.target.value.trim().slice(0, 30); if (ad && S) { S.name = ad; ciz(); } };
 if ($("reset")) $("reset").onclick = () => {
   if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
     db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
@@ -3135,7 +3191,7 @@ document.addEventListener("submit", e => {
     case "skill": S.skills.push({ id, n: v.n.trim(), p: 50 }); break;
     case "task":
     case "task-quick":
-      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", proje: v.proje || "", zaman: new Date().toISOString() });
+      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", proje: v.proje || "", son: v.son || "", zaman: new Date().toISOString() });
       break;
     case "note": S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" }); break;
     case "link": S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() }); break;
