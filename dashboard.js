@@ -3248,42 +3248,8 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ================= Giriş / çıkış =================
-// Yerel giriş kapalıyken: bilgi notu ve bu tarayıcıdaki eski yerel hesapların yedeğini
-// (hesabın şifresiyle doğrulayarak) indirme imkânı
-function yerelBilgiCiz(ids) {
-  const el = $("yerelBilgi");
-  if (!el) return;
-  if (YEREL_GIRIS_AKTIF || !ids.length) { el.hidden = true; el.innerHTML = ""; return; }
-  el.hidden = false;
-  el.innerHTML = `<p><b>Yerel hesaplar geçici olarak kapalı.</b> Bu tarayıcıdaki yerel hesapların silinmedi.
-      Google ile ilk girişinde birini buluta aktarabilir ya da aşağıdan şifresiyle yedeğini indirebilirsin.</p>
-    <ul class="yerel-yedek-liste">` +
-    ids.map(id => `<li>
-      <span class="yy-ad">${esc(db.users[id].ad)} <small>${db.users[id].tur === "work" ? "Çalışan" : "Öğrenci"}</small></span>
-      <form class="yy-form" data-yerel-yedek="${esc(id)}">
-        <input type="password" name="sifre" placeholder="Şifresi" autocomplete="current-password" aria-label="${esc(db.users[id].ad)} hesabının şifresi" required>
-        <button type="submit" class="chip light-chip">Yedeğini indir</button>
-      </form>
-    </li>`).join("") + `</ul><p class="warn" id="yerelYedekMsg" role="alert"></p>`;
-}
-document.addEventListener("submit", async e => {
-  const f = e.target.closest && e.target.closest("[data-yerel-yedek]");
-  if (!f) return;
-  e.preventDefault();
-  e.stopImmediatePropagation();
-  const h = db.users[f.dataset.yerelYedek];
-  const msg = t => { if ($("yerelYedekMsg")) $("yerelYedekMsg").textContent = t; };
-  if (!h) return;
-  if (h.hash !== await hashle(f.sifre.value, h.tuz)) { msg("Şifre yanlış."); return; }
-  const icerik = { uygulama: "AYVEX", surum: 1, tarih: new Date().toISOString(), hesap: { ad: h.ad, tur: h.tur }, veri: h.data };
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(icerik, null, 2)], { type: "application/json" }));
-  a.download = `ayvex-yedek-${h.ad}-${todayKey}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  f.reset();
-  msg("Yedek indirildi. Google ile giriş yaptıktan sonra Ayarlar > \"Yedekten geri yükle\" ile içeri alabilirsin.");
-}, true);
+// Not: Eski yerel hesaplar (kullanıcı adı + şifre) silinmez; Google ya da e-posta ile ilk
+// girişte açılan aktarma penceresinden buluta taşınabilirler.
 
 // Giriş ekranının rengini ve tanıtım içeriğini moda göre ayarlar (kayıt formundaki seçimle senkron)
 function girisModu(tur) {
@@ -3318,7 +3284,6 @@ function authCiz() {
   // Bulut hesaplarının önbellek kopyaları listede gösterilmez; onlar Google ile açılır
   const ids = Object.keys(db.users).filter(id => !bulutHesabiMi(id));
   if ($("yerelGiris")) $("yerelGiris").hidden = !YEREL_GIRIS_AKTIF;
-  yerelBilgiCiz(ids);
   if ($("accList")) {
     $("accList").innerHTML = ids.length
       ? `<p class="lbl">Bu cihazdaki hesaplar</p><div class="acc">` +
