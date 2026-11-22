@@ -1729,3 +1729,41 @@ body:not([data-logged-in="true"]) .hizli-ekle,body[data-paylasim="true"] .hizli-
   .toast{bottom:calc(var(--mobile-nav-h) + 84px)}
 }
 .bugun-kart .welcome-summary[hidden]{display:none}
+
+/* ================================================================
+   ALT GÖREVLER, KANBAN SÜRÜKLE-BIRAK, GÖREV ODAK SÜRESİ
+   ================================================================ */
+.alt-gorevler{margin-top:6px}
+.alt-ac{display:inline-flex;align-items:center;gap:8px;font-size:.76rem;font-weight:600;color:var(--ink-3);padding:4px 0;min-height:28px}
+.alt-ac:hover{color:var(--teal-dark)}
+.alt-bar{display:inline-block;width:54px;height:6px;border-radius:var(--r-full);background:var(--border);overflow:hidden}
+.alt-bar span{display:block;height:100%;background:var(--teal);border-radius:inherit}
+.alt-liste{list-style:none;display:flex;flex-direction:column;gap:2px;margin:6px 0 4px;padding-left:2px}
+.alt-liste li{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--ink-2);padding:4px 0}
+.alt-liste li span{flex:1;min-width:0;overflow-wrap:anywhere}
+.alt-liste li.bitti span{text-decoration:line-through;opacity:.55}
+.alt-liste input[type=checkbox]{width:18px;height:18px;accent-color:var(--teal);flex-shrink:0;cursor:pointer}
+.alt-sil{width:28px;height:28px;border-radius:50%;color:var(--ink-3);font-size:1.1rem;line-height:1;flex-shrink:0}
+.alt-sil:hover{background:var(--coral-soft);color:#a02c1f}
+.alt-ekle-satir{display:flex;gap:6px;margin-top:4px}
+.alt-yeni{flex:1;min-width:0;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem}
+.alt-ekle{width:36px;border-radius:var(--r-sm);background:var(--teal);color:#fff;font-weight:700;font-size:1.1rem}
+
+.kanban-item{position:relative;cursor:grab}
+.ki-tasi{position:absolute;top:6px;right:8px;color:var(--ink-3);font-size:.8rem;letter-spacing:-2px;opacity:.5;padding:4px 6px;touch-action:none;cursor:grab;user-select:none}
+.kanban-item:hover .ki-tasi{opacity:1}
+.kanban-item .ki-text{padding-right:22px}
+.ki-ek{display:flex;gap:10px;font-size:.72rem;color:var(--ink-3);margin:4px 0 2px;font-weight:600}
+.kanban-item.surukleniyor{opacity:.35}
+.kanban-hayalet{position:fixed;z-index:200;pointer-events:none;transform:rotate(2deg) scale(1.03);box-shadow:var(--shadow-lg);opacity:.95;margin:0;list-style:none}
+.kanban-col.hedef{outline:2px dashed var(--teal);outline-offset:-2px;background:rgba(43,184,168,.08)}
+body.kanban-surukle{user-select:none;cursor:grabbing}
+body.kanban-surukle *{cursor:grabbing !important}
+@media(max-width:760px){
+  .ki-tasi{opacity:1;font-size:.95rem;padding:6px 8px;top:2px;right:2px}
+  .alt-ac{min-height:36px}
+  .alt-sil{width:36px;height:36px}
+  .alt-liste input[type=checkbox]{width:22px;height:22px}
+}
+.task-item:has(.alt-gorevler.acik){align-items:flex-start}
+.task-item:has(.alt-gorevler.acik)>input[type=checkbox],.task-item:has(.alt-gorevler.acik)>.task-del{margin-top:2px}

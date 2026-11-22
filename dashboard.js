@@ -159,6 +159,11 @@ function veriOnar(v, tur, ad) {
     if (t.son && !tarihMi(t.son)) t.son = "";
     if (t.tekrar && !["gunluk", "haftalik", "aylik"].includes(t.tekrar)) t.tekrar = "";
     if (t.tekrarGun != null && !(+t.tekrarGun >= 1 && +t.tekrarGun <= 31)) delete t.tekrarGun;
+    if (t.alt != null) {
+      t.alt = Array.isArray(t.alt) ? t.alt.filter(a => a && typeof a === "object") : [];
+      t.alt.forEach(a => { metin(a, "t"); a.done = !!a.done; if (typeof a.id !== "string" || !a.id) a.id = uid(); });
+    }
+    if (t.odakDk != null && !(+t.odakDk >= 0)) delete t.odakDk;
   });
   if (!v.sprint || typeof v.sprint !== "object" || !v.sprint.bas || !v.sprint.bit) v.sprint = yeniSprint(1);
   return v;
@@ -1210,8 +1215,14 @@ function pomoKaydet(tamamlananMod) {
   if (tamamlananMod === "focus") {
     const b = S.pomo.stats[todayKey] || { sayi: 0, dk: 0 };
     b.sayi += 1;
-    b.dk += (+pomoAyarlari().focus || 25);
+    const dk = (+pomoAyarlari().focus || 25);
+    b.dk += dk;
     S.pomo.stats[todayKey] = b;
+    // Pomodoro bir göreve bağlıysa, odak süresini o göreve de yaz (görev başına toplam çalışma)
+    if (S.pomo.bind && S.pomo.bind.tip === "gorev") {
+      const g = (S.tasks || []).find(t => t.id === S.pomo.bind.id);
+      if (g) { g.odakDk = (+g.odakDk || 0) + dk; g.pomo = (+g.pomo || 0) + 1; }
+    }
     pomo.tur += 1;
     bildirimEkle("success", "Pomodoro tamamlandı 🍅", `Bir odak turu bitti. Toplam: ${b.sayi}`, "pomo-" + todayKey + "-" + b.sayi);
   }
@@ -2344,6 +2355,159 @@ function gorevTamamla(t, done) {
   if (!t.done && once) tekrarGeriAl(t);
 }
 
+// ---- Alt görevler ----
+// t.alt = [{ id, t, done }]. Görev listesinde açılıp kapanan bir kontrol listesi olarak gösterilir.
+const acikAltlar = new Set(); // hangi görevin alt listesi açık (sadece bu oturum)
+const odakMetni = dk => dk >= 60 ? `${Math.floor(dk / 60)} sa${dk % 60 ? " " + (dk % 60) + " dk" : ""}` : `${dk} dk`;
+function altGorevDurum(t) {
+  const alt = Array.isArray(t.alt) ? t.alt : [];
+  return { toplam: alt.length, biten: alt.filter(a => a.done).length };
+}
+function altGorevHtml(t) {
+  const alt = Array.isArray(t.alt) ? t.alt : [];
+  const { toplam, biten } = altGorevDurum(t);
+  const acik = acikAltlar.has(t.id);
+  const yuzde = toplam ? Math.round(biten / toplam * 100) : 0;
+  const dugme = `<button type="button" class="alt-ac" data-act="alt-ac" data-id="${t.id}" aria-expanded="${acik}">
+      ${toplam ? `<span class="alt-bar"><span style="width:${yuzde}%"></span></span> ${biten}/${toplam} alt görev` : "+ Alt görev ekle"}
+    </button>`;
+  if (!acik) return `<div class="alt-gorevler">${dugme}</div>`;
+  return `<div class="alt-gorevler acik">${dugme}
+    <ul class="alt-liste">${alt.map(a => `<li class="${a.done ? "bitti" : ""}">
+        <input type="checkbox" ${a.done ? "checked" : ""} data-act="alt-toggle" data-id="${t.id}" data-alt="${a.id}" aria-label="Alt görevi tamamla">
+        <span>${esc(a.t)}</span>
+        <button type="button" class="alt-sil" data-act="alt-sil" data-id="${t.id}" data-alt="${a.id}" aria-label="Alt görevi sil">×</button>
+      </li>`).join("")}</ul>
+    <div class="alt-ekle-satir"><input type="text" class="alt-yeni" data-id="${t.id}" maxlength="120" placeholder="Alt görev yaz, Enter'a bas" aria-label="Yeni alt görev"><button type="button" class="alt-ekle" data-act="alt-ekle" data-id="${t.id}" aria-label="Alt görev ekle">+</button></div>
+  </div>`;
+}
+function altGorevEkle(gorevId, metin) {
+  const t = bul("tasks", gorevId);
+  metin = (metin || "").trim();
+  if (!t || !metin) return false;
+  if (!Array.isArray(t.alt)) t.alt = [];
+  t.alt.push({ id: uid(), t: metin.slice(0, 120), done: false });
+  return true;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest('[data-act="alt-ac"], [data-act="alt-sil"], [data-act="alt-ekle"]');
+  if (!b || !S) return;
+  e.preventDefault();
+  const t = bul("tasks", b.dataset.id);
+  if (!t) return;
+  if (b.dataset.act === "alt-ac") {
+    if (acikAltlar.has(t.id)) acikAltlar.delete(t.id); else acikAltlar.add(t.id);
+    gorevlerCiz();
+    if (acikAltlar.has(t.id)) { const i = document.querySelector(`.alt-yeni[data-id="${t.id}"]`); if (i && !(t.alt || []).length) i.focus(); }
+    return;
+  }
+  if (b.dataset.act === "alt-sil") t.alt = (t.alt || []).filter(a => a.id !== b.dataset.alt);
+  if (b.dataset.act === "alt-ekle") {
+    const i = document.querySelector(`.alt-yeni[data-id="${t.id}"]`);
+    if (!altGorevEkle(t.id, i && i.value)) return;
+  }
+  kaydet(); ciz();
+  if (b.dataset.act === "alt-ekle") { const i = document.querySelector(`.alt-yeni[data-id="${t.id}"]`); if (i) i.focus(); }
+});
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter" || !e.target.classList || !e.target.classList.contains("alt-yeni") || !S) return;
+  e.preventDefault();
+  const id = e.target.dataset.id;
+  if (!altGorevEkle(id, e.target.value)) return;
+  kaydet(); ciz();
+  const i = document.querySelector(`.alt-yeni[data-id="${id}"]`); if (i) i.focus();
+});
+document.addEventListener("change", e => {
+  if (!e.target.dataset || e.target.dataset.act !== "alt-toggle" || !S) return;
+  const t = bul("tasks", e.target.dataset.id);
+  const a = t && (t.alt || []).find(x => x.id === e.target.dataset.alt);
+  if (!a) return;
+  a.done = e.target.checked;
+  kaydet(); ciz();
+});
+
+// ---- Kanban sürükle-bırak ----
+// Fare ve dokunmatik için Pointer Events. Farede kartın her yerinden sürüklenir (6px hareketten sonra).
+// Dokunmatikte sayfa kaydırmasıyla karışmasın diye sadece kartın sol üstündeki ⋮⋮ tutamacından
+// sürüklenir (tutamaçta touch-action:none var, kart üzerinde parmakla kaydırma normal çalışır).
+let surukle = null;
+const KANBAN_KOLON = { kanbanTodo: "todo", kanbanDoing: "doing", kanbanDone: "done" };
+function kanbanTasi(t, kolon) {
+  if (kolon === "done") { if (!t.done) gorevTamamla(t, true); }
+  else {
+    if (t.done) gorevTamamla(t, false);
+    t.doing = kolon === "doing";
+  }
+}
+document.addEventListener("pointerdown", e => {
+  const kart = e.target.closest && e.target.closest("[data-kanban-id]");
+  if (!kart || !S || e.button > 0 || e.target.closest("button, input, a")) return;
+  const baslangic = { x: e.clientX, y: e.clientY };
+  const dokunmatik = e.pointerType !== "mouse";
+  if (dokunmatik && !e.target.closest(".ki-tasi")) return;
+  surukle = { kart, id: kart.dataset.kanbanId, baslangic, aktif: false, hayalet: null, zamanlayici: null, pointerId: e.pointerId };
+  const baslat = () => {
+    if (!surukle || surukle.aktif) return;
+    surukle.aktif = true;
+    const r = kart.getBoundingClientRect();
+    const h = kart.cloneNode(true);
+    h.classList.add("kanban-hayalet");
+    h.style.width = r.width + "px";
+    h.style.left = r.left + "px"; h.style.top = r.top + "px";
+    surukle.fark = { x: baslangic.x - r.left, y: baslangic.y - r.top };
+    document.body.appendChild(h);
+    surukle.hayalet = h;
+    kart.classList.add("surukleniyor");
+    document.body.classList.add("kanban-surukle");
+    if (navigator.vibrate && dokunmatik) navigator.vibrate(15);
+  };
+  if (dokunmatik) baslat();
+  else surukle.baslat = baslat;
+});
+document.addEventListener("pointermove", e => {
+  if (!surukle) return;
+  const dx = e.clientX - surukle.baslangic.x, dy = e.clientY - surukle.baslangic.y;
+  if (!surukle.aktif) {
+    // Fare: 6px hareket edince başla (sadece tıklamada sürükleme başlamasın)
+    if (Math.hypot(dx, dy) > 6 && surukle.baslat) surukle.baslat(); else return;
+  }
+  e.preventDefault();
+  surukle.hayalet.style.left = (e.clientX - surukle.fark.x) + "px";
+  surukle.hayalet.style.top = (e.clientY - surukle.fark.y) + "px";
+  document.querySelectorAll(".kanban-col.hedef").forEach(c => c.classList.remove("hedef"));
+  surukle.hayalet.style.visibility = "hidden";
+  const altta = document.elementFromPoint(e.clientX, e.clientY);
+  surukle.hayalet.style.visibility = "";
+  const kolon = altta && altta.closest(".kanban-col");
+  if (kolon) kolon.classList.add("hedef");
+}, { passive: false });
+function surukleBitir(e) {
+  if (!surukle) return;
+  clearTimeout(surukle.zamanlayici);
+  const s = surukle; surukle = null;
+  if (!s.aktif) return;
+  document.querySelectorAll(".kanban-col.hedef").forEach(c => c.classList.remove("hedef"));
+  s.hayalet.remove();
+  s.kart.classList.remove("surukleniyor");
+  document.body.classList.remove("kanban-surukle");
+  if (!e || e.type === "pointercancel") return;
+  const altta = document.elementFromPoint(e.clientX, e.clientY);
+  const liste = altta && altta.closest(".kanban-col") && altta.closest(".kanban-col").querySelector(".kanban-list");
+  const hedef = liste && KANBAN_KOLON[liste.id];
+  const t = bul("tasks", s.id);
+  if (!t || !hedef) return;
+  kanbanTasi(t, hedef);
+  kaydet(); ciz();
+  // Sürüklemeden sonra gelen tıklama kartın düğmelerini tetiklemesin
+  const engelle = ev => { ev.stopPropagation(); ev.preventDefault(); };
+  document.addEventListener("click", engelle, { capture: true, once: true });
+  setTimeout(() => document.removeEventListener("click", engelle, { capture: true }), 50);
+}
+document.addEventListener("pointerup", surukleBitir);
+document.addEventListener("pointercancel", surukleBitir);
+// Dokunmatikte basılı tutarken açılan bağlam menüsünü engelle
+document.addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest("[data-kanban-id]")) e.preventDefault(); });
+
 // ---- Tekrarlayan görevler ----
 // Tekrarlayan bir görev tamamlanınca bir sonraki tarihli kopyası oluşturulur.
 // Tamamlama geri alınırsa (henüz bitirilmemişse) o kopya da silinir.
@@ -2367,6 +2531,8 @@ function tekrarUret(t) {
   while (son < todayKey) son = tekrarIleri(son, t.tekrar, tekrarGun); // uzun süre beklemiş görevde geçmiş tarih üretme
   const yeni = { id: uid(), t: t.t, done: false, doing: false, p: t.p, proje: t.proje || "", son, tekrar: t.tekrar, zaman: new Date().toISOString() };
   if (t.tekrar === "aylik") yeni.tekrarGun = tekrarGun;
+  // Alt görevler bir sonraki tekrara işaretsiz olarak taşınır (ör. her hafta aynı kontrol listesi)
+  if (Array.isArray(t.alt) && t.alt.length) yeni.alt = t.alt.map(a => ({ id: uid(), t: a.t, done: false }));
   t.sonraki = yeni.id;
   S.tasks.push(yeni);
 }
@@ -2441,7 +2607,9 @@ function gorevlerCiz() {
             ${TEKRAR[t.tekrar] ? `<span class="task-son" title="Tamamlayınca bir sonraki otomatik eklenir">🔁 ${TEKRAR[t.tekrar]}</span>` : ""}
             ${t.zaman ? `<span>${new Date(t.zaman).toLocaleDateString("tr-TR")}</span>` : ""}
             ${S.mode === "work" && projeAdi(t.proje) ? `<span class="task-proje"><svg width="10" height="10"><use href="#i-briefcase"/></svg> ${esc(projeAdi(t.proje))}</span>` : ""}
+            ${t.odakDk ? `<span class="task-son" title="Bu göreve bağlı Pomodoro süresi">⏱️ ${odakMetni(t.odakDk)}</span>` : ""}
           </div>
+          ${altGorevHtml(t)}
         </div>
         <button type="button" class="task-del" data-act="del" data-list="tasks" data-id="${t.id}" aria-label="Sil">
           <svg width="16" height="16"><use href="#i-trash"/></svg>
@@ -2475,8 +2643,11 @@ function kanbanCiz() {
       aksiyonlar = `<button type="button" class="ki-btn undo" data-act="task-undo" data-id="${t.id}">Geri Al</button>
         <button type="button" class="ki-btn x-btn" data-act="del" data-list="tasks" data-id="${t.id}"><svg width="12" height="12"><use href="#i-x"/></svg></button>`;
     }
-    return `<li class="kanban-item ${t.done ? "done" : ""}">
+    const alt = altGorevDurum(t);
+    return `<li class="kanban-item ${t.done ? "done" : ""}" data-kanban-id="${t.id}" title="Sürükleyip başka sütuna bırakabilirsin">
+      <span class="ki-tasi" aria-hidden="true">⋮⋮</span>
       <div class="ki-text">${esc(t.t)}</div>
+      ${alt.toplam || t.odakDk ? `<div class="ki-ek">${alt.toplam ? `<span>☑ ${alt.biten}/${alt.toplam}</span>` : ""}${t.odakDk ? `<span>⏱️ ${odakMetni(t.odakDk)}</span>` : ""}</div>` : ""}
       <div class="ki-meta">
         <span class="ki-pri pri-${p}">${ONCELIK[p]}</span>
         <span class="ki-actions">${aksiyonlar}</span>
@@ -3510,7 +3681,7 @@ document.addEventListener("click", e => {
   if (!b) return;
   if (["done", "grade", "status", "skill", "task-toggle", "ders-edit", "sinav-edit", "odev-edit", "odev-toggle",
        "task-start", "task-done", "task-undo", "hedef-plus", "hedef-minus", "yks-edit",
-       "nh", "nh-oran", "nh-ekle", "nh-sil", "paylas-proje"].includes(b.dataset.act)) return;
+       "nh", "nh-oran", "nh-ekle", "nh-sil", "paylas-proje", "alt-ac", "alt-sil", "alt-ekle", "alt-toggle"].includes(b.dataset.act)) return;
   e.preventDefault();
   const { act, id, list } = b.dataset;
   if (act === "mini") {
