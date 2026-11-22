@@ -28,7 +28,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- SÜRÜM: CSS/JS dosyaları her değiştiğinde buradaki ve sayfa sonundaki ?v= değerini
        (tarih.sıra biçiminde) birlikte artır. Tarayıcılar yeni dosyaları önbelleğe takılmadan indirir. -->
-  <link rel="stylesheet" href="dashboard.css?v=20261122.10">
+  <link rel="stylesheet" href="dashboard.css?v=20261122.11">
 </head>
 <body>
   <!-- ============ SVG İKON SPRITE ============ -->
@@ -166,38 +166,28 @@
       <!-- ANA SAYFA -->
       <div class="view on" id="v-home">
 
-        <section class="home-row home-row-top">
-          <div class="card light welcome-card">
-            <div class="welcome-inner">
-              <div class="welcome-text">
+        <!-- BUGÜN: selamlama, seri, günün sayıları ve bugünün akışı -->
+        <section class="home-row home-hero-row">
+          <div class="card bugun-kart">
+            <div class="bugun-ust">
+              <div class="bugun-selam">
+                <div class="welcome-date" id="welcomeDate"></div>
                 <h1 id="hello"></h1>
                 <p id="helloSub"></p>
-                <div class="welcome-rozet" id="welcomeRozet"></div>
-                <div class="welcome-summary" id="welcomeSummary"></div>
-                <div class="welcome-date" id="welcomeDate"></div>
+                <div class="bugun-rozetler">
+                  <span class="seri-chip" id="seriChip" hidden></span>
+                  <div class="welcome-rozet" id="welcomeRozet"></div>
+                </div>
               </div>
-              <div class="welcome-avatar">
-                <span class="avatar avatar-xl" id="avatarXL">?</span>
-              </div>
+              <span class="avatar avatar-xl" id="avatarXL">?</span>
             </div>
-          </div>
-
-          <div class="card light mini-ders-card menu-ogrenci">
-            <div class="card-head">
-              <h2>Haftalık Ders Programı</h2>
-              <button type="button" class="chip light-chip" data-view="ders">Tümü <svg width="12" height="12"><use href="#i-arrow-right"/></svg></button>
+            <div class="bugun-statlar" id="bugunStatlar"></div>
+            <div class="bugun-akis-bas">
+              <h2>Bugünün akışı</h2>
+              <span class="chip light-chip" id="bugunAkisSayi"></span>
             </div>
-            <div class="mini-ders-grid" id="miniDersGrid"></div>
-          </div>
-
-          <!-- İŞ MODU: Bugünün özeti -->
-          <div class="card light is-bugun-card menu-is">
-            <div class="card-head">
-              <h2>Bugünün Özeti</h2>
-              <span class="chip light-chip" id="isBugunTarih"></span>
-            </div>
-            <div class="is-bugun-grid" id="isBugunGrid"></div>
-            <ul class="is-bugun-liste" id="isBugunListe"></ul>
+            <ul class="bugun-akis" id="bugunAkis"></ul>
+            <div class="welcome-summary" id="welcomeSummary" hidden></div>
           </div>
         </section>
 
@@ -217,6 +207,26 @@
               <button type="button" class="chip light-chip" data-view="sprint">Pano <svg width="12" height="12"><use href="#i-arrow-right"/></svg></button>
             </div>
             <div id="sprintMini"></div>
+          </div>
+        </section>
+
+        <!-- Haftalık özet + sınav geri sayımı -->
+        <section class="home-row home-row-ozet">
+          <div class="card light haftalik-ozet-card">
+            <div class="card-head">
+              <h2>Bu Haftanın Özeti</h2>
+              <div class="ozet-bas-sag">
+                <span class="chip light-chip" id="ozetAralik"></span>
+                <button type="button" class="chip light-chip" id="aylikRaporBtn">📊 Aylık rapor</button>
+              </div>
+            </div>
+            <div class="ozet-sayilar" id="ozetSayilar"></div>
+            <div class="ozet-grafik" id="ozetGrafik" aria-label="Günlere göre tamamlanan görev ve odak dakikası"></div>
+            <p class="ozet-not" id="ozetNot"></p>
+          </div>
+          <div class="card light geri-sayim-card menu-ogrenci" id="geriSayimKart" hidden>
+            <div class="card-head"><h2>Sıradaki Sınav</h2></div>
+            <div class="geri-sayim" id="geriSayim"></div>
           </div>
         </section>
 
@@ -262,12 +272,7 @@
           </form>
         </section>
 
-        <section class="home-row home-row-bottom">
-          <div class="card light kısayol-card">
-            <div class="card-head"><h2>Kısayollar</h2></div>
-            <div class="kısayol-grid" id="kisayolGrid"></div>
-          </div>
-
+        <section class="home-row home-row-alt">
           <div class="card light pomodoro-card" id="pomodoroCard">
             <div class="card-head">
               <h2><svg width="16" height="16" style="display:inline;vertical-align:-2px;margin-right:4px"><use href="#i-tomato"/></svg> Pomodoro</h2>
@@ -331,20 +336,13 @@
           </div>
         </section>
 
-        <!-- Haftalık özet + sınav geri sayımı -->
-        <section class="home-row home-row-ozet">
-          <div class="card light haftalik-ozet-card">
+        <section class="home-row home-row-full menu-ogrenci">
+          <div class="card light mini-ders-card menu-ogrenci">
             <div class="card-head">
-              <h2>Bu Haftanın Özeti</h2>
-              <span class="chip light-chip" id="ozetAralik"></span>
+              <h2>Haftalık Ders Programı</h2>
+              <button type="button" class="chip light-chip" data-view="ders">Tümü <svg width="12" height="12"><use href="#i-arrow-right"/></svg></button>
             </div>
-            <div class="ozet-sayilar" id="ozetSayilar"></div>
-            <div class="ozet-grafik" id="ozetGrafik" aria-label="Günlere göre tamamlanan görev ve odak dakikası"></div>
-            <p class="ozet-not" id="ozetNot"></p>
-          </div>
-          <div class="card light geri-sayim-card menu-ogrenci" id="geriSayimKart" hidden>
-            <div class="card-head"><h2>Sıradaki Sınav</h2></div>
-            <div class="geri-sayim" id="geriSayim"></div>
+            <div class="mini-ders-grid" id="miniDersGrid"></div>
           </div>
         </section>
 
@@ -1486,13 +1484,56 @@
     </div>
   </dialog>
 
+  <!-- HIZLI EKLE: her sayfada sağ altta "+" düğmesi ve menüsü -->
+  <div class="hizli-ekle" id="hizliEkle">
+    <div class="hizli-menu" id="hizliMenu" hidden>
+      <button type="button" data-open="dlgGorev"><span>✅</span> Görev</button>
+      <button type="button" data-open="dlgEvent"><span>📅</span> Etkinlik</button>
+      <button type="button" class="menu-ogrenci" data-open="dlgSinav"><span>📝</span> Sınav</button>
+      <button type="button" class="menu-ogrenci" data-open="dlgOdev"><span>📚</span> Ödev</button>
+      <button type="button" class="menu-ogrenci" data-open="dlgDers"><span>🎓</span> Ders</button>
+      <button type="button" class="menu-is" data-open="dlgToplanti"><span>👥</span> Toplantı</button>
+      <button type="button" class="menu-is" data-open="dlgProje"><span>📦</span> Proje</button>
+    </div>
+    <button type="button" class="hizli-btn" id="hizliBtn" aria-label="Hızlı ekle" aria-expanded="false" aria-controls="hizliMenu">
+      <svg width="24" height="24"><use href="#i-plus"/></svg>
+    </button>
+  </div>
+
+  <!-- MODAL: Hızlı görev -->
+  <dialog id="dlgGorev">
+    <div class="dlg-head"><h2>Görev Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <form data-form="task" class="dialog-form">
+      <label class="fld">Görev<input name="t" required maxlength="200" autocomplete="off" placeholder="Örn: Fizik ödevini bitir"></label>
+      <div class="fld-row">
+        <label class="fld">Son tarih (isteğe bağlı)<input type="date" name="son"></label>
+        <label class="fld">Öncelik<select name="p"><option value="low">Düşük</option><option value="mid" selected>Orta</option><option value="high">Yüksek</option></select></label>
+      </div>
+      <label class="fld">Tekrar<select name="tekrar"><option value="">Tekrar yok</option><option value="gunluk">Her gün</option><option value="haftalik">Her hafta</option><option value="aylik">Her ay</option></select></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
+        <button type="submit" class="btn-primary">Ekle</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Aylık rapor -->
+  <dialog id="dlgRapor">
+    <div class="dlg-head"><h2 id="raporBaslik">Aylık Rapor</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <div class="rapor-gezinme">
+      <button type="button" class="chip light-chip" data-rapor-ay="-1" aria-label="Önceki ay">‹ Önceki</button>
+      <button type="button" class="chip light-chip" data-rapor-ay="1" aria-label="Sonraki ay">Sonraki ›</button>
+    </div>
+    <div class="rapor-icerik" id="raporIcerik"></div>
+  </dialog>
+
   <!-- Silme sonrası "Geri al" bildirimi -->
   <div class="toast" id="toast" role="status" aria-live="polite" hidden>
     <span id="toastMetin"></span>
     <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
   </div>
 
-  <script src="dashboard.js?v=20261122.10"></script>
-  <script type="module" src="bulut.js?v=20261122.10"></script>
+  <script src="dashboard.js?v=20261122.11"></script>
+  <script type="module" src="bulut.js?v=20261122.11"></script>
 </body>
 </html>

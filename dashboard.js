@@ -2641,6 +2641,172 @@ document.addEventListener("click", e => {
   kaydet();
 });
 
+// ================= SERİ (STREAK) =================
+// "Aktif gün": en az bir görev tamamlanan ya da en az bir Pomodoro yapılan gün.
+// Seri bugünden geriye kesintisiz aktif gün sayısıdır; bugün henüz bir şey yapılmadıysa
+// dünden itibaren sayılır (gün bitmeden seri "kırılmış" görünmesin).
+function aktifGunler() {
+  const gunler = new Set();
+  (S.tasks || []).forEach(t => { if (t.done && t.bitis) gunler.add(tarihKey(new Date(t.bitis))); });
+  Object.entries((S.pomo && S.pomo.stats) || {}).forEach(([k, v]) => { if (v && +v.sayi > 0) gunler.add(k); });
+  return gunler;
+}
+function seriHesapla() {
+  const gunler = aktifGunler();
+  const onceki = k => { const d = tarihOku(k); d.setDate(d.getDate() - 1); return tarihKey(d); };
+  let k = gunler.has(todayKey) ? todayKey : onceki(todayKey);
+  let seri = 0;
+  while (gunler.has(k)) { seri++; k = onceki(k); }
+  // En uzun seri
+  let enUzun = 0, sayac = 0, son = null;
+  [...gunler].sort().forEach(g => { sayac = son && onceki(g) === son ? sayac + 1 : 1; enUzun = Math.max(enUzun, sayac); son = g; });
+  return { seri, enUzun, bugunAktif: gunler.has(todayKey) };
+}
+
+// ================= BUGÜN EKRANI =================
+// Bugünün dersleri, toplantıları, etkinlikleri, sınav/ödevleri ve son günü gelmiş görevleri
+// tek bir zaman akışında gösterir.
+function bugunAkisi() {
+  const ogeler = [];
+  const ekle = o => ogeler.push(o);
+  if (S.mode === "student") {
+    bugunDersler().forEach(d => ekle({ saat: d.bas, bitis: d.bit, ikon: "🎓", baslik: d.ad, alt: [d.sinif, d.hoca].filter(Boolean).join(" · "), tur: "ders" }));
+    (S.sinavlar || []).filter(s => s.tarih === todayKey).forEach(s => ekle({ saat: s.saat || "", ikon: "📝", baslik: s.ad, alt: s.tur + (s.yer ? " · " + s.yer : ""), tur: "sinav", vurgu: true }));
+    (S.odevler || []).filter(o => !o.done && o.tarih === todayKey).forEach(o => ekle({ saat: "", ikon: "📚", baslik: o.ad, alt: (o.ders ? o.ders + " · " : "") + "bugün teslim", tur: "odev", vurgu: true }));
+  } else {
+    (S.toplantilar || []).filter(t => t.tarih === todayKey).forEach(t => ekle({ saat: t.saat || "", ikon: "👥", baslik: t.baslik, alt: t.sure ? t.sure + " dk" : "", tur: "toplanti" }));
+    (S.planItems || []).filter(p => +p.gun === bugunGunNo).forEach(p => ekle({ saat: p.saat || "", ikon: "🗂️", baslik: p.baslik, alt: planKategoriEtiket(p.kategori), tur: "plan" }));
+  }
+  (S.events[todayKey] || []).forEach(e => ekle({ saat: e.time && e.time !== "00:00" ? e.time : "", ikon: "📅", baslik: e.t, alt: e.type, tur: "etkinlik" }));
+  (S.tasks || []).filter(t => !t.done && t.son && t.son <= todayKey).forEach(t => ekle({
+    saat: "", ikon: "", baslik: t.t, alt: t.son < todayKey ? `Gecikti · ${gunEtiket(t.son)}` : "Son gün bugün",
+    tur: "gorev", gorev: t, gecikti: t.son < todayKey,
+  }));
+  // Saatliler saat sırasıyla önce, saatsizler (görev, teslim) sonra
+  return ogeler.sort((a, b) => (a.saat ? 0 : 1) - (b.saat ? 0 : 1) || (a.saat || "").localeCompare(b.saat || ""));
+}
+function bugunCiz() {
+  const akisEl = $("bugunAkis");
+  if (!akisEl || !S) return;
+  const { seri, enUzun, bugunAktif } = seriHesapla();
+  const chip = $("seriChip");
+  if (chip) {
+    chip.hidden = seri === 0;
+    chip.textContent = `🔥 ${seri} gün seri`;
+    chip.title = `En uzun serin: ${enUzun} gün` + (bugunAktif ? "" : " · Seriyi sürdürmek için bugün bir görev tamamla ya da bir Pomodoro yap");
+    chip.classList.toggle("bekliyor", !bugunAktif);
+  }
+  const akis = bugunAkisi();
+  const tamamBugun = (S.tasks || []).filter(t => t.done && t.bitis && tarihKey(new Date(t.bitis)) === todayKey).length;
+  const odakDk = (S.pomo && S.pomo.stats && S.pomo.stats[todayKey] && +S.pomo.stats[todayKey].dk) || 0;
+  const bekleyen = (S.tasks || []).filter(t => !t.done).length;
+  const stat = (sayi, etiket, ikon, view) => `<button type="button" class="bugun-stat" ${view ? `data-view="${view}"` : ""}><span class="bs-ikon">${ikon}</span><b>${sayi}</b><span>${etiket}</span></button>`;
+  if ($("bugunStatlar")) $("bugunStatlar").innerHTML =
+    stat(akis.length, "bugünün akışı", "🗓️", "") +
+    stat(tamamBugun, "bugün tamamlanan", "✅", "tasks") +
+    stat(odakDk ? odakDk + " dk" : "0 dk", "bugün odak", "⏱️", "") +
+    stat(bekleyen, "bekleyen görev", "📋", "tasks");
+  if ($("bugunAkisSayi")) $("bugunAkisSayi").textContent = akis.length ? `${akis.length} öğe` : "Boş";
+  if (!akis.length) {
+    akisEl.innerHTML = `<li class="bugun-bos"><span>🎉</span><div><b>Bugün için planlanmış bir şey yok.</b><small>Sağ alttaki + ile görev, etkinlik ya da ${S.mode === "work" ? "toplantı" : "sınav"} ekleyebilirsin.</small></div></li>`;
+    return;
+  }
+  const simdi = new Date(); const simdiDk = simdi.getHours() * 60 + simdi.getMinutes();
+  akisEl.innerHTML = akis.map(o => {
+    const gecti = o.saat && (o.bitis ? saatDk(o.bitis) : saatDk(o.saat) + 60) < simdiDk;
+    const suAn = o.saat && o.bitis && saatDk(o.saat) <= simdiDk && simdiDk < saatDk(o.bitis);
+    const sol = o.tur === "gorev"
+      ? `<input type="checkbox" data-act="task-toggle" data-id="${o.gorev.id}" aria-label="Tamamla">`
+      : `<span class="ba-ikon">${o.ikon}</span>`;
+    return `<li class="bugun-oge tur-${o.tur} ${o.vurgu ? "vurgu" : ""} ${o.gecikti ? "gecikti" : ""} ${gecti ? "gecti" : ""} ${suAn ? "su-an" : ""}">
+      <span class="ba-saat">${o.saat ? esc(o.saat) + (o.bitis ? `<small>${esc(o.bitis)}</small>` : "") : "—"}</span>
+      ${sol}
+      <div class="ba-metin"><b>${esc(o.baslik)}</b>${o.alt ? `<small>${esc(o.alt)}</small>` : ""}</div>
+      ${suAn ? `<span class="ba-etiket">Şu an</span>` : ""}
+    </li>`;
+  }).join("");
+}
+
+// ================= AYLIK RAPOR =================
+let raporAy = null; // { y, m }
+function aylikRaporCiz() {
+  const el = $("raporIcerik");
+  if (!el || !S) return;
+  const { y, m } = raporAy;
+  const gunSayisi = new Date(y, m + 1, 0).getDate();
+  const gunler = [...Array(gunSayisi)].map((_, i) => key(y, m, i + 1));
+  const ayAnahtari = (yy, mm) => `${yy}-${String(mm + 1).padStart(2, "0")}`;
+  const buAy = ayAnahtari(y, m);
+  const oncekiTarih = new Date(y, m - 1, 1), oncekiAy = ayAnahtari(oncekiTarih.getFullYear(), oncekiTarih.getMonth());
+  const tamamlanan = ay => (S.tasks || []).filter(t => t.done && t.bitis && tarihKey(new Date(t.bitis)).startsWith(ay));
+  const odak = ay => Object.entries((S.pomo && S.pomo.stats) || {}).filter(([k]) => k.startsWith(ay)).reduce((a, [, v]) => a + ((v && +v.dk) || 0), 0);
+  const bu = tamamlanan(buAy), once = tamamlanan(oncekiAy);
+  const odakBu = odak(buAy), odakOnce = odak(oncekiAy);
+  const gunGorev = gunler.map(k => bu.filter(t => tarihKey(new Date(t.bitis)) === k).length);
+  const gunOdak = gunler.map(k => (S.pomo.stats[k] && +S.pomo.stats[k].dk) || 0);
+  const aktif = aktifGunler();
+  const aktifSayi = gunler.filter(k => aktif.has(k)).length;
+  const puan = gunler.map((_, i) => gunGorev[i] * 25 + gunOdak[i]);
+  const enIyi = puan.some(p => p > 0) ? puan.indexOf(Math.max(...puan)) : -1;
+  // Haftanın günlerine göre dağılım (Pzt..Paz)
+  const haftaGunu = [0, 0, 0, 0, 0, 0, 0];
+  gunler.forEach((k, i) => { haftaGunu[(tarihOku(k).getDay() + 6) % 7] += puan[i]; });
+  const enCokHaftaGunu = haftaGunu.some(v => v > 0) ? ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"][haftaGunu.indexOf(Math.max(...haftaGunu))] : "—";
+  const sinavSayi = (S.sinavlar || []).filter(s => s.tarih.startsWith(buAy)).length;
+  const fark = (a, b) => b === 0 ? (a ? "yeni" : "") : `${a >= b ? "▲" : "▼"} %${Math.round(Math.abs(a - b) / b * 100)}`;
+  const saat = dk => dk >= 60 ? `${Math.floor(dk / 60)} sa ${dk % 60 ? (dk % 60) + " dk" : ""}`.trim() : `${dk} dk`;
+  if ($("raporBaslik")) $("raporBaslik").textContent = `${aylar[m]} ${y} Raporu`;
+  const enCok = Math.max(...puan, 1);
+  el.innerHTML = `
+    <div class="rapor-kartlar">
+      <div><span>Tamamlanan görev</span><b>${bu.length}</b><small class="${bu.length >= once.length ? "artis" : "azalis"}">${fark(bu.length, once.length)}</small></div>
+      <div><span>Odak süresi</span><b>${saat(odakBu)}</b><small class="${odakBu >= odakOnce ? "artis" : "azalis"}">${fark(odakBu, odakOnce)}</small></div>
+      <div><span>Aktif gün</span><b>${aktifSayi}<em>/${gunSayisi}</em></b></div>
+      <div><span>${S.mode === "work" ? "Toplantı" : "Sınav"}</span><b>${S.mode === "work" ? (S.toplantilar || []).filter(t => t.tarih.startsWith(buAy)).length : sinavSayi}</b></div>
+    </div>
+    <div class="rapor-grafik" aria-label="Günlere göre etkinlik">
+      ${gunler.map((k, i) => `<span title="${i + 1} ${aylar[m]}: ${gunGorev[i]} görev, ${gunOdak[i]} dk odak" style="height:${puan[i] ? Math.max(6, Math.round(puan[i] / enCok * 100)) : 2}%" class="${k === todayKey ? "bugun" : ""}"></span>`).join("")}
+    </div>
+    <ul class="rapor-notlar">
+      <li>📈 En verimli gün: <b>${enIyi >= 0 ? `${enIyi + 1} ${aylar[m]}` : "—"}</b>${enIyi >= 0 ? ` (${gunGorev[enIyi]} görev, ${gunOdak[enIyi]} dk odak)` : ""}</li>
+      <li>📆 En çok çalıştığın gün: <b>${enCokHaftaGunu}</b></li>
+      <li>🔥 En uzun serin: <b>${seriHesapla().enUzun} gün</b></li>
+      ${bu.length || odakBu ? "" : "<li>Bu ay için henüz kayıt yok. Görev tamamladıkça ve Pomodoro yaptıkça rapor dolacak.</li>"}
+    </ul>`;
+  document.querySelector('[data-rapor-ay="1"]').disabled = y > now.getFullYear() || (y === now.getFullYear() && m >= now.getMonth());
+}
+document.addEventListener("click", e => {
+  if (!S || !e.target.closest) return;
+  if (e.target.closest("#aylikRaporBtn")) {
+    raporAy = { y: now.getFullYear(), m: now.getMonth() };
+    aylikRaporCiz();
+    guvenliAc($("dlgRapor"));
+    return;
+  }
+  const ay = e.target.closest("[data-rapor-ay]");
+  if (ay && raporAy) {
+    const d = new Date(raporAy.y, raporAy.m + +ay.dataset.raporAy, 1);
+    raporAy = { y: d.getFullYear(), m: d.getMonth() };
+    aylikRaporCiz();
+  }
+});
+
+// ================= HIZLI EKLE (+) =================
+function hizliMenuAc(acik) {
+  const menu = $("hizliMenu"), btn = $("hizliBtn");
+  if (!menu || !btn) return;
+  menu.hidden = !acik;
+  btn.setAttribute("aria-expanded", String(acik));
+  btn.classList.toggle("acik", acik);
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest) return;
+  if (e.target.closest("#hizliBtn")) { hizliMenuAc($("hizliMenu").hidden); return; }
+  // Menüden bir şey seçilince ya da dışarı tıklanınca kapat (seçim, data-open ile pencereyi açar)
+  if (!e.target.closest("#hizliMenu") || e.target.closest("[data-open]")) hizliMenuAc(false);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") hizliMenuAc(false); });
+
 // ================= HAFTALIK ÖZET =================
 // Bu hafta (Pzt–Paz) tamamlanan görevler ve Pomodoro odak dakikaları, gün gün.
 function haftalikOzetCiz() {
@@ -2716,6 +2882,7 @@ function ciz() {
   rozetCiz();
   haftalikOzetCiz();
   geriSayimCiz();
+  bugunCiz();
 
   if ($("calTitle")) $("calTitle").textContent = `${aylar[view.m]} ${view.y}`;
   const cal = $("calendar");
@@ -3613,7 +3780,7 @@ document.addEventListener("close", e => {
   e.target.querySelectorAll('[aria-invalid="true"]').forEach(x => { x.setCustomValidity(""); x.removeAttribute("aria-invalid"); });
 }, true);
 
-const AUTOCLOSE = ["dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti","dlgSinav","dlgOdev","dlgYks","dlgBasvuru","dlgKurs","dlgKariyerHedef","dlgProje","dlgSprint"];
+const AUTOCLOSE = ["dlgGorev","dlgEvent","dlgLink","dlgCourse","dlgDeadline","dlgJob","dlgSkill","dlgNote","dlgDers","dlgHedef","pomodoroAyarDlg","dlgPlanItem","dlgToplanti","dlgSinav","dlgOdev","dlgYks","dlgBasvuru","dlgKurs","dlgKariyerHedef","dlgProje","dlgSprint"];
 document.addEventListener("submit", e => {
   e.preventDefault();
   if (!e.target.dataset || !e.target.dataset.form) return;

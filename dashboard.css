@@ -1620,3 +1620,112 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
   .task-pri-badge,.task-son,.ki-pri,.ki-btn,.pomo-stat-label,.is-bugun-stat-lbl,.nh-tablo th,.ozet-gun small{font-size:.72rem}
   .ki-btn{min-width:36px;display:inline-flex;align-items:center;justify-content:center}
 }
+
+/* ================================================================
+   ANA EKRAN: BUGÜN KARTI, HIZLI EKLE, AYLIK RAPOR
+   ================================================================ */
+.home-hero-row{grid-template-columns:1fr}
+.home-row-alt{grid-template-columns:1.25fr 1fr}
+.bugun-kart{
+  position:relative;overflow:hidden;color:#fff;border:0;
+  background:
+    radial-gradient(circle at 92% -10%,rgba(255,255,255,.16),transparent 42%),
+    radial-gradient(circle at 0% 120%,rgba(43,184,168,.35),transparent 50%),
+    linear-gradient(135deg,var(--navy-800),var(--navy-600));
+  box-shadow:var(--shadow-lg);
+  display:flex;flex-direction:column;gap:var(--s5);padding:var(--s6)
+}
+body[data-mode="work"] .bugun-kart{background:
+    radial-gradient(circle at 92% -10%,rgba(255,255,255,.14),transparent 42%),
+    radial-gradient(circle at 0% 120%,rgba(217,119,6,.32),transparent 50%),
+    linear-gradient(135deg,#1f2937,#334155)}
+.bugun-ust{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--s4)}
+.bugun-selam{min-width:0}
+.bugun-kart .welcome-date{margin:0 0 6px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.06em;font-size:.72rem}
+.bugun-kart h1{font-size:1.9rem;color:#fff;margin-bottom:4px;overflow-wrap:anywhere}
+.bugun-kart #helloSub{color:rgba(255,255,255,.8);font-size:.92rem}
+.bugun-rozetler{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin-top:var(--s3)}
+.bugun-rozetler .welcome-rozet{margin:0}
+.bugun-kart .rozet-badge{background:rgba(255,255,255,.12) !important;border-color:rgba(255,255,255,.18) !important;box-shadow:none}
+.bugun-kart .rozet-title{color:#fff !important}
+.bugun-kart .rozet-desc{color:rgba(255,255,255,.75) !important}
+.seri-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--r-full);background:linear-gradient(135deg,#ff8a3d,#ff5b5b);color:#fff;font-weight:800;font-size:.85rem;box-shadow:0 6px 18px rgba(255,91,91,.35)}
+.seri-chip.bekliyor{background:rgba(255,255,255,.14);box-shadow:none;border:1px dashed rgba(255,255,255,.45)}
+.seri-chip[hidden]{display:none}
+.bugun-kart .avatar-xl{flex-shrink:0;border:3px solid rgba(255,255,255,.25)}
+.bugun-statlar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3)}
+.bugun-stat{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:var(--s3) var(--s4);border-radius:var(--r-lg);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);color:#fff;text-align:left;transition:background var(--t-fast),transform var(--t-fast)}
+.bugun-stat[data-view]:hover{background:rgba(255,255,255,.18);transform:translateY(-1px)}
+.bugun-stat:not([data-view]){cursor:default}
+.bugun-stat .bs-ikon{font-size:1.05rem}
+.bugun-stat b{font-size:1.45rem;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums}
+.bugun-stat span:last-child{font-size:.74rem;color:rgba(255,255,255,.75)}
+.bugun-akis-bas{display:flex;justify-content:space-between;align-items:center;margin-bottom:calc(-1 * var(--s2))}
+.bugun-akis-bas h2{color:#fff;font-size:1rem}
+.bugun-akis-bas .chip{background:rgba(255,255,255,.14);color:#fff;border-color:transparent}
+.bugun-akis{list-style:none;display:flex;flex-direction:column;gap:6px;background:var(--surface);border-radius:var(--r-lg);padding:var(--s2);color:var(--ink)}
+.bugun-oge{display:grid;grid-template-columns:52px 28px minmax(0,1fr) auto;align-items:center;gap:var(--s3);padding:10px 12px;border-radius:var(--r-md);transition:background var(--t-fast)}
+.bugun-oge:hover{background:var(--surface-2)}
+.bugun-oge+.bugun-oge{border-top:1px solid var(--border-2)}
+.ba-saat{font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums;color:var(--ink-2);display:flex;flex-direction:column;line-height:1.2}
+.ba-saat small{font-size:.7rem;color:var(--ink-3);font-weight:600;opacity:1}
+.ba-ikon{font-size:1.2rem;display:grid;place-items:center}
+.bugun-oge input[type=checkbox]{width:22px;height:22px;accent-color:var(--teal);justify-self:center;cursor:pointer}
+.ba-metin{display:flex;flex-direction:column;min-width:0}
+.ba-metin b{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ba-metin small{font-size:.75rem;color:var(--ink-3);opacity:1}
+.bugun-oge.vurgu{background:var(--purple-soft)}
+.bugun-oge.vurgu .ba-metin b,.bugun-oge.vurgu .ba-saat{color:#3a2480}
+.bugun-oge.vurgu .ba-metin small{color:#6b4ba8}
+.bugun-oge.gecikti .ba-metin small{color:var(--coral);font-weight:700}
+.bugun-oge.gecti{opacity:.5}
+.bugun-oge.su-an{background:rgba(43,184,168,.12);box-shadow:inset 3px 0 0 var(--teal)}
+.ba-etiket{font-size:.68rem;font-weight:800;color:#fff;background:var(--teal);padding:3px 8px;border-radius:var(--r-full);text-transform:uppercase}
+.bugun-bos{display:flex;align-items:center;gap:var(--s3);padding:var(--s4)}
+.bugun-bos>span{font-size:1.8rem}
+.bugun-bos div{display:flex;flex-direction:column;gap:2px}
+.bugun-bos small{color:var(--ink-3);font-size:.82rem;opacity:1}
+.ozet-bas-sag{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap;justify-content:flex-end}
+
+/* Hızlı ekle */
+.hizli-ekle{position:fixed;right:24px;bottom:24px;z-index:80;display:flex;flex-direction:column;align-items:flex-end;gap:var(--s3)}
+body:not([data-logged-in="true"]) .hizli-ekle,body[data-paylasim="true"] .hizli-ekle{display:none}
+.hizli-btn{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--teal),var(--teal-dark));box-shadow:0 10px 28px rgba(31,154,140,.45);transition:transform var(--t)}
+.hizli-btn:hover{transform:scale(1.05)}
+.hizli-btn.acik{transform:rotate(45deg)}
+.hizli-menu{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s2);box-shadow:var(--shadow-lg);min-width:180px;animation:fadeUp .18s var(--t-slow)}
+.hizli-menu[hidden]{display:none}
+.hizli-menu button{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--r-md);font-weight:600;font-size:.92rem;color:var(--ink);text-align:left}
+.hizli-menu button:hover{background:var(--surface-2)}
+.hizli-menu button span{font-size:1.1rem}
+.toast{z-index:90}
+
+/* Aylık rapor */
+.rapor-gezinme{display:flex;justify-content:space-between;margin-bottom:var(--s4)}
+.rapor-gezinme button:disabled{opacity:.4;cursor:default}
+.rapor-kartlar{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--s3)}
+.rapor-kartlar>div{background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-md);padding:var(--s3) var(--s4);display:flex;flex-direction:column;gap:2px}
+.rapor-kartlar span{font-size:.74rem;color:var(--ink-3)}
+.rapor-kartlar b{font-size:1.4rem;font-weight:800;font-variant-numeric:tabular-nums}
+.rapor-kartlar b em{font-size:.85rem;font-style:normal;color:var(--ink-3);font-weight:600}
+.rapor-kartlar small{font-size:.74rem;font-weight:700;opacity:1}
+.rapor-kartlar small.artis{color:var(--green)}
+.rapor-kartlar small.azalis{color:var(--coral)}
+.rapor-grafik{display:flex;align-items:flex-end;gap:2px;height:90px;margin:var(--s5) 0 var(--s4);padding:6px;background:var(--surface-2);border-radius:var(--r-md)}
+.rapor-grafik span{flex:1;background:linear-gradient(180deg,var(--teal),var(--teal-dark));border-radius:3px 3px 0 0;min-height:2px}
+.rapor-grafik span.bugun{background:var(--coral)}
+.rapor-notlar{list-style:none;display:flex;flex-direction:column;gap:8px;font-size:.88rem;color:var(--ink-2)}
+
+@media(max-width:900px){
+  .home-row-alt{grid-template-columns:1fr}
+  .bugun-statlar{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .bugun-kart{padding:var(--s5);gap:var(--s4)}
+  .bugun-kart h1{font-size:1.45rem}
+  .bugun-oge{grid-template-columns:44px 26px minmax(0,1fr) auto;gap:var(--s2);padding:10px 8px}
+  .hizli-ekle{right:16px;bottom:calc(var(--mobile-nav-h) + 16px + env(safe-area-inset-bottom,0px))}
+  .hizli-btn{width:54px;height:54px}
+  .toast{bottom:calc(var(--mobile-nav-h) + 84px)}
+}
+.bugun-kart .welcome-summary[hidden]{display:none}
