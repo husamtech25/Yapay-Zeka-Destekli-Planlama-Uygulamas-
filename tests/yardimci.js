@@ -27,6 +27,7 @@ function uygulamaYukle({ mod = "student" } = {}) {
     if (!D.close) D.close = function () { this.removeAttribute("open"); this.dispatchEvent(new w.Event("close")); };
   }
   if (!w.Element.prototype.scrollIntoView) w.Element.prototype.scrollIntoView = () => {};
+  if (!w.TextEncoder) w.TextEncoder = require("node:util").TextEncoder; // takvim dosyası satır uzunluğu için
   if (!w.matchMedia) w.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
   w.scrollTo = () => {};
   w.alert = () => {};
