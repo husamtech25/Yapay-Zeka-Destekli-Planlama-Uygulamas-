@@ -1464,6 +1464,17 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
 :root[data-tema="koyu"] .sidebar-logo{filter:invert(1) hue-rotate(180deg);mix-blend-mode:screen}
 /* Giriş formu (sağ panel) koyu zeminde: yazı rengi açık olsun */
 :root[data-tema="koyu"] #auth .onboard-box{--ob-ink:var(--ink)}
+/* Formdaki seçili hesap türü (Öğrenci/Çalışan) ve odak halkaları açık pastel tonu kullanıyordu;
+   koyu modda açık zemin üzerinde açık yazı okunmuyordu. Formun içinde vurgu renginin koyu tonunu kullan
+   (soldaki tanıtım paneli açık renkli kaldığı için orada değişmez). */
+:root[data-tema="koyu"] #auth .onboard-box{
+  --ob-tint:rgba(31,157,85,.22);
+  --ob-tint-2:rgba(31,157,85,.30);
+}
+:root[data-tema="koyu"] #auth[data-tur="work"] .onboard-box{
+  --ob-tint:rgba(217,119,6,.22);
+  --ob-tint-2:rgba(217,119,6,.30);
+}
 :root[data-tema="koyu"] #auth .close{background:var(--ob-accent)}
 :root[data-tema="koyu"] input,:root[data-tema="koyu"] select,:root[data-tema="koyu"] textarea{color:var(--ink)}
 .mini-ders-grid.mdg-bos{display:block}
