@@ -7,9 +7,14 @@
 ## Özellikler
 
 - **İki mod:** Öğrenci (akademik, ders programı, kariyer) ve İş (projeler, sprint planı, toplantılar)
-- **Görevler:** öncelik, isteğe bağlı son tarih (geciken ve yaklaşan görevler renkli gösterilir, bildirim gelir), proje bağlantısı, Kanban görünümü, silinen kaydı "Geri al"
+- **Görevler:** öncelik, isteğe bağlı son tarih (geciken ve yaklaşan görevler renkli gösterilir, bildirim gelir), tekrarlama (her gün / hafta / ay; tamamlanınca bir sonraki otomatik eklenir), proje bağlantısı, Kanban görünümü, silinen kaydı "Geri al"
+- **Ana sayfa:** bu haftanın özeti (tamamlanan görevler, odak süresi, en verimli gün) ve sıradaki sınava geri sayım
+- **Not ortalaması hesaplayıcı** (Akademik): kredi, vize, final ve vize ağırlığına göre ders notu, harf notu ve 4'lük ortalama
+- **Takvime aktar:** sınav, ödev, toplantı, etkinlik, ders programı ve son tarihli görevler `.ics` dosyası olarak (Google / Outlook / Apple Takvim)
+- **Proje paylaşımı:** bir projenin salt okunur özetini bağlantıyla paylaşma (İş modu, bulut hesabı gerekir)
 - **Görünüm:** açık / koyu / sistem teması (Ayarlar > Görünüm)
-- **Uygulama olarak kurulum:** telefonda ve masaüstünde ana ekrana eklenebilir (`manifest.webmanifest`)
+- **Uygulama olarak kurulum ve çevrimdışı açılma:** telefonda ve masaüstünde ana ekrana eklenebilir (`manifest.webmanifest`); `sw.js` uygulama dosyalarını önbelleğe alır
+- **Cihaz bildirimleri:** Ayarlar > Bildirimler'den açılır; uygulama açıkken ya da arka planda çalışırken bildirim gösterir (sunucu olmadığı için uygulama tamamen kapalıyken bildirim gelmez)
 - **Takvim, sınav ve ödev takibi**, bildirimler
 - **Giriş:** Google hesabı veya e-posta + şifre (e-posta doğrulaması zorunlu)
 - **Bulut senkronizasyonu:** veriler Firebase Firestore'da saklanır, cihazlar arasında eşitlenir; çevrimdışıyken tarayıcıda (localStorage) tutulur
@@ -22,7 +27,9 @@
 | `dashboard.js` | Uygulamanın tüm mantığı (veri, çizim, formlar) |
 | `dashboard.css` | Stiller |
 | `bulut.js` | Firebase Auth + Firestore köprüsü |
-| `firestore.rules` | Firestore güvenlik kuralları |
+| `firestore.rules` | Firestore güvenlik kuralları (kullanıcı verisi + paylaşım bağlantıları); her değişiklikte Firebase konsoluna yeniden yapıştırılmalı |
+| `sw.js` | Service worker: çevrimdışı açılma ve bildirime tıklayınca uygulamayı açma |
+| `manifest.webmanifest` | Uygulama olarak kurulum bilgileri ve simgeler |
 
 Derleme adımı veya `npm` bağımlılığı yoktur; Firebase kütüphaneleri doğrudan CDN'den yüklenir.
 
