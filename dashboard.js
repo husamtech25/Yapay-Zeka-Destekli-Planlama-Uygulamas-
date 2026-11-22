@@ -240,9 +240,18 @@ function uzakVeriyiUygula(veriMetni) {
 }
 
 // Google girişinden sonra hesabı aç (gerekirse yerel veriyi aktarma seçeneği sun)
+// Google ya da e-posta girişinden sonra hesabı aç. E-posta hesabı doğrulanmadıysa
+// uygulamaya girilmez, doğrulama ekranı gösterilir (Firestore kuralları da bunu zorunlu kılar).
+let oturumAciliyor = false; // aynı anda iki akış (ör. form + onAuthStateChanged) hesabı açmasın
 async function googleOturumAc(sonuc) {
-  if (!sonuc || !sonuc.kullanici) return;
+  if (!sonuc || !sonuc.kullanici || oturumAciliyor || S) return;
+  oturumAciliyor = true;
+  try { await oturumAcIc(sonuc); } finally { oturumAciliyor = false; }
+}
+async function oturumAcIc(sonuc) {
   const { kullanici, uzak } = sonuc;
+  if (kullanici.saglayici === "password" && !kullanici.dogrulandi) { dogrulamaEkrani(kullanici); return; }
+  dogrulamaEkrani(null);
   const id = BULUT_ONEK + kullanici.uid;
   const msg = girisMesaji;
 
@@ -253,9 +262,14 @@ async function googleOturumAc(sonuc) {
     if (!gecerli(veri)) { msg("Buluttaki veri okunamadı. Yedekten geri yükleyebilirsin."); veri = yeniVeri(uzak.tur || "student", kullanici.ad); }
     sonBulutVerisi = uzak.veri;
   } else {
-    // İlk giriş: bu cihazdaki yerel hesaplardan biri aktarılabilir ya da sıfırdan başlanır
-    const secim = await aktarmaSec(kullanici);
-    if (!secim) { await window.AYVEX_BULUT.cikisYap(); msg("Google girişi iptal edildi."); return; }
+    // İlk giriş: bu cihazdaki yerel hesaplardan biri aktarılabilir ya da sıfırdan başlanır.
+    // E-posta ile kayıtta mod zaten seçildiyse ve aktarılacak yerel hesap yoksa tekrar sorulmaz.
+    let kayitTuru = null;
+    try { kayitTuru = localStorage.getItem("ayvex-kayit-tur:" + kullanici.uid); } catch (e) {}
+    const yerelVar = Object.keys(db.users).some(k => !bulutHesabiMi(k));
+    const secim = MODLAR[kayitTuru] && !yerelVar ? { tur: kayitTuru } : await aktarmaSec(kullanici);
+    try { localStorage.removeItem("ayvex-kayit-tur:" + kullanici.uid); } catch (e) {}
+    if (!secim) { await window.AYVEX_BULUT.cikisYap(); msg("Giriş iptal edildi."); return; }
     if (secim.yerelId) {
       veri = veriOnar(JSON.parse(JSON.stringify(db.users[secim.yerelId].data)), db.users[secim.yerelId].tur, db.users[secim.yerelId].ad);
     } else {
@@ -263,7 +277,7 @@ async function googleOturumAc(sonuc) {
     }
     sonBulutVerisi = null; // ilk kayıt hemen gönderilsin
   }
-  db.users[id] = { ad: kullanici.ad || veri.name, email: kullanici.email, tur: veri.mode, bulut: true, data: veri };
+  db.users[id] = { ad: kullanici.ad || veri.name, email: kullanici.email, saglayici: kullanici.saglayici, tur: veri.mode, bulut: true, data: veri };
   db.aktif = id;
   dbYaz();
   msg("");
@@ -314,18 +328,212 @@ window.AYVEX = {
         bulutKaydetPlanla();
       } else if (!kullanici) {
         // Oturum sona ermiş (ör. başka yerden çıkış yapıldı): önbellekteki hesabı kapat
-        cikis("Google oturumun sona erdi. Lütfen tekrar giriş yap.");
+        cikis("Oturumun sona erdi. Lütfen tekrar giriş yap.");
       }
+    } else if (kullanici && !S && kullanici.saglayici === "password") {
+      // E-posta hesabı açık ama uygulama açılmamış: doğrulama bağlantısından dönülmüş olabilir.
+      // Sunucudan güncel durumu al; doğrulandıysa devam et, değilse doğrulama ekranını göster.
+      window.AYVEX_BULUT.dogrulamaKontrol()
+        .then(k => k && k.dogrulandi ? window.AYVEX_BULUT.kullaniciVerisi({ uid: k.uid }).then(s => googleOturumAc({ ...s, kullanici: k })) : dogrulamaEkrani(k))
+        .catch(() => {});
     } else if (kullanici && !S && db.users[BULUT_ONEK + kullanici.uid]) {
       // Daha önce bu cihazda kullanılmış bir Google hesabı açık: otomatik devam et
       window.AYVEX_BULUT.kullaniciVerisi({ uid: kullanici.uid, displayName: kullanici.ad, email: kullanici.email })
-        .then(googleOturumAc).catch(() => {});
+        .then(s => googleOturumAc({ ...s, kullanici })).catch(() => {});
     }
   },
   googleGirisSonucu: sonuc => googleOturumAc(sonuc),
   uzakVeriGeldi: uzakVeriyiUygula,
   bulutDurum(d) { bulutDurumu = d || {}; bulutDurumCiz(); },
 };
+
+// ================= E-POSTA İLE GİRİŞ =================
+// Şifre kuralları Firebase'deki şifre politikasıyla aynı (sunucu da zorunlu tutuyor)
+const SIFRE_KURALLARI = [
+  [s => s.length >= 8, "En az 8 karakter"],
+  [s => /[A-ZÇĞİÖŞÜ]/.test(s), "Bir büyük harf"],
+  [s => /[a-zçğıöşü]/.test(s), "Bir küçük harf"],
+  [s => /\d/.test(s), "Bir rakam"],
+];
+const sifreEksikleri = s => SIFRE_KURALLARI.filter(([kural]) => !kural(s)).map(([, metin]) => metin);
+function sifreGucCiz(el, s) {
+  if (!el) return;
+  el.innerHTML = SIFRE_KURALLARI.map(([kural, metin]) =>
+    `<span class="${kural(s) ? "tamam" : ""}">${kural(s) ? "✓" : "○"} ${metin}</span>`).join("");
+}
+const epostaGecerli = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
+// Firebase hata kodlarını Türkçe, ipucu vermeyen mesajlara çevir
+// ("bu e-posta kayıtlı değil" gibi hesap varlığını ele veren ayrım yapılmaz)
+function authHataMetni(e, baglam) {
+  const kod = (e && e.code) || "";
+  const yanlis = baglam === "sifre" ? "Şifre hatalı." : "E-posta veya şifre hatalı.";
+  const SIFRE_KURAL = "Şifre kurallara uymuyor: en az 8 karakter, büyük harf, küçük harf ve rakam içermeli.";
+  const M = {
+    "auth/invalid-credential": yanlis, "auth/invalid-login-credentials": yanlis,
+    "auth/wrong-password": yanlis, "auth/user-not-found": yanlis,
+    "auth/invalid-email": "Geçerli bir e-posta adresi yaz.",
+    "auth/missing-password": "Şifreni yaz.",
+    "auth/email-already-in-use": "Bu e-posta ile zaten bir hesap var. Giriş yapmayı ya da Google ile devam etmeyi dene.",
+    "auth/password-does-not-meet-requirements": SIFRE_KURAL, "auth/weak-password": SIFRE_KURAL,
+    "auth/too-many-requests": "Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar dene.",
+    "auth/network-request-failed": "İnternet bağlantısı yok gibi görünüyor. Bağlantını kontrol edip tekrar dene.",
+    "auth/user-disabled": "Bu hesap devre dışı bırakılmış.",
+    "auth/requires-recent-login": "Güvenlik için çıkış yapıp tekrar giriş yapman gerekiyor.",
+    "auth/account-exists-with-different-credential": "Bu e-posta başka bir giriş yöntemiyle kayıtlı. Google ile devam etmeyi dene.",
+    "auth/operation-not-allowed": "E-posta ile giriş şu an kullanılamıyor.",
+  };
+  return M[kod] || `Bir sorun oluştu${kod ? ` (${kod})` : ""}. Lütfen tekrar dene.`;
+}
+
+// Doğrulanmamış e-posta hesabı için doğrulama ekranı (null ile kapatılır)
+function dogrulamaEkrani(k) {
+  const auth = $("auth");
+  if (!auth || !$("dogrulaKutu")) return;
+  auth.classList.toggle("dogrulama-modu", !!k);
+  $("dogrulaKutu").hidden = !k;
+  if (k) {
+    $("dogrulaMetin").textContent = `${k.email} adresine bir doğrulama bağlantısı gönderdik. E-postandaki bağlantıya tıkla, sonra aşağıdaki düğmeye bas. E-postayı göremiyorsan gereksiz (spam) klasörüne de bak.`;
+    $("dogrulaMsg").textContent = "";
+  }
+}
+
+const mesgul = async (btn, is) => { if (btn) btn.disabled = true; try { return await is(); } finally { if (btn) btn.disabled = false; } };
+
+if ($("epostaForm")) $("epostaForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = t => { $("epostaMsg").textContent = t; };
+  if (!bulutHazir()) { msg("Bulut bağlantısı yüklenemedi. İnternet bağlantını kontrol edip sayfayı yenile."); return; }
+  const email = $("eEposta").value.trim();
+  const sifre = $("eSifre").value;
+  if (!epostaGecerli(email)) { msg("Geçerli bir e-posta adresi yaz."); return; }
+  if (!sifre) { msg("Şifreni yaz."); return; }
+  msg("");
+  await mesgul($("epostaBtn"), async () => {
+    try {
+      if (sekme === "reg") {
+        const ad = $("eAd").value.trim().slice(0, 30);
+        if (!ad) { msg("Adını yaz."); return; }
+        const eksik = sifreEksikleri(sifre);
+        if (eksik.length) { msg("Şifre şunları içermeli: " + eksik.map(x => x.toLocaleLowerCase("tr")).join(", ") + "."); return; }
+        if (sifre !== $("eSifre2").value) { msg("Şifreler aynı değil."); return; }
+        const tur = (document.querySelector("#epostaForm input[name=eTur]:checked") || {}).value || "student";
+        const k = await window.AYVEX_BULUT.epostaKayit(ad, email, sifre);
+        try { localStorage.setItem("ayvex-kayit-tur:" + k.uid, tur); } catch (err) {}
+        $("epostaForm").reset();
+        dogrulamaEkrani(k);
+      } else {
+        const k = await window.AYVEX_BULUT.epostaGiris(email, sifre);
+        $("eSifre").value = "";
+        if (!k.dogrulandi) { dogrulamaEkrani(k); return; }
+        const s = await window.AYVEX_BULUT.kullaniciVerisi({ uid: k.uid });
+        await googleOturumAc({ ...s, kullanici: k });
+      }
+    } catch (err) { msg(authHataMetni(err)); }
+  });
+});
+if ($("eSifre")) $("eSifre").addEventListener("input", e => { if (sekme === "reg") sifreGucCiz($("sifreGuc"), e.target.value); });
+
+document.addEventListener("click", async e => {
+  if (e.target.closest("#sifremiUnuttum")) {
+    e.preventDefault();
+    const msg = t => { $("epostaMsg").textContent = t; };
+    const email = $("eEposta").value.trim();
+    if (!epostaGecerli(email)) { msg("Önce e-posta adresini yaz, sonra \"Şifremi unuttum\"a bas."); $("eEposta").focus(); return; }
+    if (!bulutHazir()) { msg("Bulut bağlantısı yüklenemedi."); return; }
+    await mesgul($("sifremiUnuttum"), async () => {
+      try {
+        await window.AYVEX_BULUT.sifreSifirla(email);
+        msg("Bu adrese kayıtlı bir hesap varsa şifre sıfırlama bağlantısı gönderildi. Gereksiz (spam) klasörünü de kontrol et.");
+      } catch (err) { msg(authHataMetni(err)); }
+    });
+  }
+  if (e.target.closest("#dogruladimBtn")) {
+    e.preventDefault();
+    const msg = t => { $("dogrulaMsg").textContent = t; };
+    await mesgul($("dogruladimBtn"), async () => {
+      try {
+        const k = await window.AYVEX_BULUT.dogrulamaKontrol();
+        if (!k) { dogrulamaEkrani(null); return; }
+        if (!k.dogrulandi) { msg("E-posta adresin henüz doğrulanmamış görünüyor. Bağlantıya tıkladıktan sonra tekrar dene."); return; }
+        const s = await window.AYVEX_BULUT.kullaniciVerisi({ uid: k.uid });
+        await googleOturumAc({ ...s, kullanici: k });
+      } catch (err) { msg(authHataMetni(err)); }
+    });
+  }
+  if (e.target.closest("#tekrarGonderBtn")) {
+    e.preventDefault();
+    const btn = $("tekrarGonderBtn");
+    try {
+      btn.disabled = true;
+      await window.AYVEX_BULUT.dogrulamaGonder();
+      $("dogrulaMsg").textContent = "Doğrulama e-postası tekrar gönderildi.";
+      setTimeout(() => { btn.disabled = false; }, 60000); // art arda gönderimi sınırla
+    } catch (err) { btn.disabled = false; $("dogrulaMsg").textContent = authHataMetni(err); }
+  }
+  if (e.target.closest("#dogrulaCikisBtn")) {
+    e.preventDefault();
+    try { await window.AYVEX_BULUT.cikisYap(); } catch (err) {}
+    dogrulamaEkrani(null);
+  }
+});
+
+// ----- Ayarlar: şifre değiştirme ve e-posta hesabını silme (mevcut şifre ile doğrulanır) -----
+function sifrePenceresi(amac) {
+  const dlg = $("dlgSifre");
+  $("sifreForm").reset();
+  $("sifreForm").dataset.amac = amac;
+  $("sifreMsg").textContent = "";
+  const sil = amac === "sil";
+  $("dlgSifreBaslik").textContent = sil ? "Hesabımı sil" : "Şifremi değiştir";
+  $("dlgSifreAciklama").textContent = sil
+    ? "Hesabın ve buluttaki tüm verilerin kalıcı olarak silinecek; bu işlem geri alınamaz. İstersen önce Ayarlar > \"Verilerimi indir\" ile yedek al. Onaylamak için şifreni yaz."
+    : "Güvenlik için önce mevcut şifreni yaz.";
+  dlg.querySelectorAll(".sifre-yeni").forEach(el => { el.hidden = sil; });
+  $("sifreOnayBtn").textContent = sil ? "Hesabımı kalıcı olarak sil" : "Şifreyi değiştir";
+  $("sifreOnayBtn").classList.toggle("btn-danger", sil);
+  $("sifreOnayBtn").classList.toggle("btn-primary", !sil);
+  sifreGucCiz($("sifreGuc2"), "");
+  if ($("settingsDlg").open) $("settingsDlg").close();
+  guvenliAc(dlg);
+}
+if ($("sYeni")) $("sYeni").addEventListener("input", e => sifreGucCiz($("sifreGuc2"), e.target.value));
+if ($("sifreDegistirBtn")) $("sifreDegistirBtn").onclick = () => sifrePenceresi("degistir");
+if ($("sifreForm")) $("sifreForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const msg = t => { $("sifreMsg").textContent = t; };
+  const amac = $("sifreForm").dataset.amac;
+  const mevcut = $("sMevcut").value;
+  if (!mevcut) { msg("Mevcut şifreni yaz."); return; }
+  if (!bulutHazir()) { msg("Bulut bağlantısı yok. İnternet bağlantını kontrol et."); return; }
+  if (amac === "degistir") {
+    const yeni = $("sYeni").value;
+    const eksik = sifreEksikleri(yeni);
+    if (eksik.length) { msg("Yeni şifre şunları içermeli: " + eksik.map(x => x.toLocaleLowerCase("tr")).join(", ") + "."); return; }
+    if (yeni !== $("sYeni2").value) { msg("Yeni şifreler aynı değil."); return; }
+    if (yeni === mevcut) { msg("Yeni şifre eskisiyle aynı olamaz."); return; }
+    await mesgul($("sifreOnayBtn"), async () => {
+      try {
+        await window.AYVEX_BULUT.sifreDegistir(mevcut, yeni);
+        $("dlgSifre").close();
+        alert("Şifren değiştirildi.");
+      } catch (err) { msg(authHataMetni(err, "sifre")); }
+    });
+  } else if (amac === "sil") {
+    const id = db.aktif;
+    await mesgul($("sifreOnayBtn"), async () => {
+      try {
+        clearTimeout(bulutZamani); bulutZamani = null;
+        await window.AYVEX_BULUT.hesabiTamamenSil(bulutUid(id), mevcut);
+        S = null;
+        delete db.users[id];
+        db.aktif = null; dbYaz();
+        location.reload();
+      } catch (err) { msg(authHataMetni(err, "sifre")); }
+    });
+  }
+}, true);
 
 async function hashle(sifre, tuz) {
   const metin = tuz + ":" + sifre;
@@ -2210,7 +2418,7 @@ function ciz() {
 // ================= Tıklama olayları =================
 document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
-  if (tab) { sekme = tab.dataset.tab; $("authMsg").textContent = ""; return authCiz(); }
+  if (tab) { sekme = tab.dataset.tab; $("authMsg").textContent = ""; if ($("epostaMsg")) $("epostaMsg").textContent = ""; return authCiz(); }
   const acc = e.target.closest("[data-acc]");
   if (acc) {
     const h = db.users[acc.dataset.acc];
@@ -2236,6 +2444,8 @@ document.addEventListener("click", e => {
   if (e.target.closest("[data-logout]")) { e.preventDefault(); cikis(); return; }
   if (e.target.closest("[data-delacc]")) {
     if (bulutHesabiMi(db.aktif)) {
+      // E-posta hesabı silinirken mevcut şifre istenir (hesap ve Firebase kaydı birlikte silinir)
+      if (db.users[db.aktif].saglayici === "password") { sifrePenceresi("sil"); return; }
       if (confirm("Buluttaki tüm verilerin kalıcı olarak silinecek ve bu işlem geri alınamaz.\n\nİstersen önce Ayarlar > \"Verilerimi indir\" ile yedek al. Devam edilsin mi?")) bulutHesabiSil();
       return;
     }
@@ -2699,9 +2909,11 @@ document.addEventListener("click", e => {
       $("setName").value = S.name;
       const h = db.users[db.aktif];
       const modAdi = S.mode === "work" ? "Çalışan" : "Öğrenci";
-      $("setAcc").textContent = bulutHesabiMi(db.aktif)
-        ? `Google hesabı · ${h.email || h.ad} · ${modAdi}`
-        : `Yerel hesap (sadece bu tarayıcı) · ${h.ad} · ${modAdi}`;
+      const epostaHesabi = bulutHesabiMi(db.aktif) && h.saglayici === "password";
+      $("setAcc").textContent = !bulutHesabiMi(db.aktif)
+        ? `Yerel hesap (sadece bu tarayıcı) · ${h.ad} · ${modAdi}`
+        : `${epostaHesabi ? "E-posta hesabı" : "Google hesabı"} · ${h.email || h.ad} · ${modAdi}`;
+      if ($("sifreDegistirBtn")) $("sifreDegistirBtn").hidden = !epostaHesabi;
       bulutDurumCiz();
     }
     return guvenliAc($(dlgBtn.dataset.dlg));
@@ -2842,7 +3054,7 @@ if ($("profileSave")) $("profileSave").onclick = () => {
 };
 
 document.addEventListener("change", e => {
-  if (e.target.matches && e.target.matches("#authForm input[name=tur]")) { girisModu(e.target.value); return; }
+  if (e.target.matches && e.target.matches("#authForm input[name=tur], #epostaForm input[name=eTur]")) { girisModu(e.target.value); return; }
   const act = e.target.dataset ? e.target.dataset.act : null;
   const id = e.target.dataset ? e.target.dataset.id : null;
   if (!act) return;
@@ -3082,8 +3294,7 @@ function girisModu(tur) {
     b.classList.toggle("on", b.dataset.obTur === tur);
     b.setAttribute("aria-pressed", String(b.dataset.obTur === tur));
   });
-  const radio = document.querySelector(`#authForm input[name=tur][value="${tur}"]`);
-  if (radio) radio.checked = true;
+  document.querySelectorAll(`#authForm input[name=tur][value="${tur}"], #epostaForm input[name=eTur][value="${tur}"]`).forEach(r => { r.checked = true; });
 }
 
 function authCiz() {
@@ -3095,6 +3306,15 @@ function authCiz() {
   if ($("regOnly")) $("regOnly").hidden = sekme !== "reg";
   if ($("authBtn")) $("authBtn").textContent = sekme === "reg" ? "Hesap oluştur" : "Giriş yap";
   if ($("aPass")) $("aPass").autocomplete = sekme === "reg" ? "new-password" : "current-password";
+  // E-posta formu: kayıtta ad, şifre tekrarı, şifre gücü ve mod seçimi; girişte "Şifremi unuttum"
+  document.querySelectorAll("#epostaForm .kayit-alan").forEach(el => { el.hidden = sekme !== "reg"; });
+  document.querySelectorAll("#epostaForm .giris-alan").forEach(el => { el.hidden = sekme === "reg"; });
+  if ($("epostaBtn")) $("epostaBtn").textContent = sekme === "reg" ? "Hesap oluştur" : "Giriş yap";
+  if ($("eSifre")) {
+    $("eSifre").autocomplete = sekme === "reg" ? "new-password" : "current-password";
+    $("eSifre").placeholder = sekme === "reg" ? "Şifre (en az 8 karakter, büyük/küçük harf ve rakam)" : "Şifre";
+    if (sekme === "reg") sifreGucCiz($("sifreGuc"), $("eSifre").value);
+  }
   // Bulut hesaplarının önbellek kopyaları listede gösterilmez; onlar Google ile açılır
   const ids = Object.keys(db.users).filter(id => !bulutHesabiMi(id));
   if ($("yerelGiris")) $("yerelGiris").hidden = !YEREL_GIRIS_AKTIF;

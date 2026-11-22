@@ -16,6 +16,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebas
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
   getRedirectResult, onAuthStateChanged, signOut,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification,
+  sendPasswordResetEmail, updateProfile, reauthenticateWithCredential, EmailAuthProvider,
+  updatePassword, deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
@@ -34,13 +37,21 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+// Doğrulama ve şifre sıfırlama e-postaları Türkçe gönderilsin
+auth.languageCode = "tr";
 // Kalıcı yerel önbellek: internetsiz yapılan yazmalar sıraya alınır ve
 // bağlantı gelince (sayfa kapatılıp açılsa bile) gönderilir.
 const fs = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
 
-const kullaniciBilgi = u => u && { uid: u.uid, ad: u.displayName || "", email: u.email || "" };
+// saglayici: "google.com" ya da "password" (e-posta/şifre). Google hesapları her zaman
+// doğrulanmış sayılır; e-posta hesapları doğrulanana kadar uygulamaya giremez.
+const kullaniciBilgi = u => u && {
+  uid: u.uid, ad: u.displayName || "", email: u.email || "",
+  saglayici: (u.providerData && u.providerData[0] && u.providerData[0].providerId) || "password",
+  dogrulandi: !!u.emailVerified,
+};
 const belge = uid => doc(fs, "users", uid);
 
 let aboneIptal = null;
@@ -79,6 +90,62 @@ async function girisYap() {
     if (e && (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request")) return null;
     throw e;
   }
+}
+
+// ---------- E-posta / şifre ----------
+// Doğrulama bağlantısına tıklandıktan sonra uygulamaya geri dönülsün
+const donusAdresi = () => ({ url: location.origin + location.pathname });
+
+async function epostaKayit(ad, email, sifre) {
+  const sonuc = await createUserWithEmailAndPassword(auth, email, sifre);
+  if (ad) await updateProfile(sonuc.user, { displayName: ad });
+  await sendEmailVerification(sonuc.user, donusAdresi());
+  return kullaniciBilgi(sonuc.user);
+}
+
+async function epostaGiris(email, sifre) {
+  const sonuc = await signInWithEmailAndPassword(auth, email, sifre);
+  return kullaniciBilgi(sonuc.user);
+}
+
+function dogrulamaGonder() {
+  if (!auth.currentUser) return Promise.reject(new Error("Oturum yok"));
+  return sendEmailVerification(auth.currentUser, donusAdresi());
+}
+
+// Kullanıcıyı sunucudan yeniden yükle; doğrulandıysa kimlik belirtecini yenile ki
+// Firestore kuralları email_verified bilgisini görsün
+async function dogrulamaKontrol() {
+  const u = auth.currentUser;
+  if (!u) return null;
+  await u.reload();
+  if (auth.currentUser.emailVerified) await auth.currentUser.getIdToken(true);
+  return kullaniciBilgi(auth.currentUser);
+}
+
+// Kayıtlı olmayan e-postada da hata vermeden başarılı döner (hangi e-postanın kayıtlı
+// olduğu bu yolla öğrenilemesin)
+async function sifreSifirla(email) {
+  try { await sendPasswordResetEmail(auth, email, donusAdresi()); }
+  catch (e) { if (e && e.code !== "auth/user-not-found") throw e; }
+}
+
+async function yenidenDogrula(sifre) {
+  const u = auth.currentUser;
+  await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, sifre));
+}
+
+async function sifreDegistir(eskiSifre, yeniSifre) {
+  await yenidenDogrula(eskiSifre);
+  await updatePassword(auth.currentUser, yeniSifre);
+}
+
+// E-posta hesabını tamamen sil: buluttaki veri + Firebase'deki kullanıcı kaydı
+async function hesabiTamamenSil(uid, sifre) {
+  await yenidenDogrula(sifre);
+  dinlemeyiBirak();
+  await deleteDoc(belge(uid));
+  await deleteUser(auth.currentUser);
 }
 
 function dinle(uid) {
@@ -134,10 +201,16 @@ async function cikisYap() {
 async function verimiSil(uid) {
   dinlemeyiBirak();
   await deleteDoc(belge(uid));
-  await signOut(auth);
+  // Google hesabında Firebase kullanıcı kaydını da silmeyi dene; yakın zamanda giriş
+  // yapılmadıysa Firebase izin vermez, o durumda sadece oturum kapatılır (veri zaten silindi)
+  try { await deleteUser(auth.currentUser); } catch (e) { await signOut(auth); }
 }
 
-window.AYVEX_BULUT = { girisYap, kullaniciVerisi, dinle, kaydet, bekleyenleriGonder, cikisYap, verimiSil, mevcutKullanici: () => kullaniciBilgi(auth.currentUser) };
+window.AYVEX_BULUT = {
+  girisYap, kullaniciVerisi, dinle, kaydet, bekleyenleriGonder, cikisYap, verimiSil,
+  epostaKayit, epostaGiris, dogrulamaGonder, dogrulamaKontrol, sifreSifirla, sifreDegistir, hesabiTamamenSil,
+  mevcutKullanici: () => kullaniciBilgi(auth.currentUser),
+};
 
 // Yönlendirmeyle yapılan girişin sonucu (açılır pencere engellendiyse)
 getRedirectResult(auth)

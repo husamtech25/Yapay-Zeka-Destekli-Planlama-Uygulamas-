@@ -2,13 +2,15 @@ rules_version = '2';
 
 // AYVEX Firestore güvenlik kuralları
 // Her kullanıcı yalnızca kendi belgesine (users/{uid}) erişebilir.
+// E-posta/şifre hesapları e-postalarını doğrulamadan erişemez (Google hesapları zaten doğrulanmış sayılır).
 // Bu dosya Firebase konsolundaki Firestore > Rules sekmesine yapıştırılarak yayınlanır.
 service cloud.firestore {
   match /databases/{database}/documents {
 
     match /users/{uid} {
       function sahibi() {
-        return request.auth != null && request.auth.uid == uid;
+        return request.auth != null && request.auth.uid == uid
+          && request.auth.token.email_verified == true;
       }
       function gecerliBelge() {
         let d = request.resource.data;
