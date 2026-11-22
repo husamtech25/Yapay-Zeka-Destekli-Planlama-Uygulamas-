@@ -1184,6 +1184,7 @@ body[data-mode="work"] .ca-mod-ogrenci{display:none !important}
 body:not([data-logged-in="true"]) .sidebar,
 body:not([data-logged-in="true"]) .topbar,
 body:not([data-logged-in="true"]) .mobile-nav{display:none !important}
+body:not([data-logged-in="true"]) .content{display:none !important} /* giriş yapılmadan arkadaki panel görünmesin, klavyeyle de ulaşılamasın */
 body:not([data-logged-in="true"]){padding-bottom:0}
 body:not([data-logged-in="true"]) .content{padding-top:var(--s5)}
 body:not([data-logged-in="true"]){grid-template-columns:1fr}
