@@ -1112,6 +1112,21 @@ body[data-mode="work"]{
 .ayrac{display:flex;align-items:center;gap:var(--s3);margin:var(--s4) 0 var(--s2);color:var(--ink-3);font-size:.75rem}
 .ayrac::before,.ayrac::after{content:"";flex:1;height:1px;background:var(--border)}
 
+/* E-posta ile giriş */
+#epostaForm [hidden],#dlgSifre [hidden],.dogrula-kutu[hidden]{display:none !important}
+#epostaForm .type-pick{margin:4px 0 2px}
+.sifre-guc{display:flex;flex-wrap:wrap;gap:4px 12px;margin:-4px 0 6px;font-size:.72rem;color:var(--ink-3)}
+.sifre-guc span.tamam{color:#15803d;font-weight:600}
+.link-btn{display:block;margin:10px auto 0;padding:4px 6px;font-size:.8rem;font-weight:600;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px}
+.link-btn:hover{color:var(--ob-accent,var(--teal))}
+.dogrula-kutu{margin-top:var(--s4);padding:var(--s5);border-radius:var(--r-lg);background:var(--surface-2);border:1px solid var(--border-2)}
+.dogrula-kutu h2{font-size:1.1rem;margin-bottom:6px;color:var(--ink)}
+.dogrula-kutu p{font-size:.85rem;color:var(--ink-2)}
+.dogrula-dugmeler{display:flex;flex-direction:column;gap:6px;margin-top:var(--s3)}
+.dogrula-dugmeler .reset{margin-top:0}
+/* Doğrulama beklerken diğer giriş seçenekleri gizlenir */
+#auth.dogrulama-modu #googleGiris,#auth.dogrulama-modu .google-not,#auth.dogrulama-modu #epostaBolum,#auth.dogrulama-modu #yerelBilgi{display:none !important}
+
 /* Ayarlar: bulut durumu ve yedekleme */
 .bulut-durum{margin-top:6px;padding:8px 12px;border-radius:var(--r-md);font-size:.8rem;font-weight:600;background:var(--surface-2);border:1px solid var(--border-2);color:var(--ink-2)}
 .bulut-durum[hidden]{display:none}
