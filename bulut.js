@@ -20,10 +20,8 @@ import {
   sendPasswordResetEmail, updateProfile, reauthenticateWithCredential, EmailAuthProvider,
   updatePassword, deleteUser,
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
-import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp, waitForPendingWrites,
-} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+// Firestore (en büyük kütüphane) giriş ekranında gerekmiyor: ilk ihtiyaçta yüklenir, bkz. firestore()
+const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
 // Bu değerler gizli değildir; her Firebase web uygulamasında istemci kodunda durur.
 const firebaseConfig = {
@@ -39,11 +37,21 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 // Doğrulama ve şifre sıfırlama e-postaları Türkçe gönderilsin
 auth.languageCode = "tr";
+// Firestore'u bir kez yükleyip başlatır; sonraki çağrılar aynı sözü (promise) döndürür.
 // Kalıcı yerel önbellek: internetsiz yapılan yazmalar sıraya alınır ve
 // bağlantı gelince (sayfa kapatılıp açılsa bile) gönderilir.
-const fs = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-});
+let firestoreSozu = null;
+function firestore() {
+  if (!firestoreSozu) {
+    firestoreSozu = import(FIRESTORE_URL).then(F => {
+      const fs = F.initializeFirestore(app, {
+        localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }),
+      });
+      return { fs, F };
+    }).catch(e => { firestoreSozu = null; throw e; }); // ağ hatasında sonra tekrar denenebilsin
+  }
+  return firestoreSozu;
+}
 
 // saglayici: "google.com" ya da "password" (e-posta/şifre). Google hesapları her zaman
 // doğrulanmış sayılır; e-posta hesapları doğrulanana kadar uygulamaya giremez.
@@ -52,7 +60,7 @@ const kullaniciBilgi = u => u && {
   saglayici: (u.providerData && u.providerData[0] && u.providerData[0].providerId) || "password",
   dogrulandi: !!u.emailVerified,
 };
-const belge = uid => doc(fs, "users", uid);
+const belge = ({ fs, F }, uid) => F.doc(fs, "users", uid);
 
 let aboneIptal = null;
 let dinlenenUid = null;
@@ -66,7 +74,8 @@ function durumBildir(durum) {
 async function kullaniciVerisi(user) {
   let snap;
   try {
-    snap = await getDoc(belge(user.uid));
+    const db = await firestore();
+    snap = await db.F.getDoc(belge(db, user.uid));
   } catch (e) {
     // İnternet yoksa sunucuya ulaşılamaz; önbellekte de yoksa yeni kullanıcı sanılmasın
     if (e && e.code === "unavailable") throw new Error("Bulut sunucusuna ulaşılamadı. İnternet bağlantını kontrol et.");
@@ -144,15 +153,24 @@ async function sifreDegistir(eskiSifre, yeniSifre) {
 async function hesabiTamamenSil(uid, sifre) {
   await yenidenDogrula(sifre);
   dinlemeyiBirak();
-  await deleteDoc(belge(uid));
+  const db = await firestore();
+  await db.F.deleteDoc(belge(db, uid));
   await deleteUser(auth.currentUser);
 }
 
-function dinle(uid) {
-  if (dinlenenUid === uid && aboneIptal) return;
+async function dinle(uid) {
+  if (dinlenenUid === uid) return;
   dinlemeyiBirak();
   dinlenenUid = uid;
-  aboneIptal = onSnapshot(belge(uid), { includeMetadataChanges: true }, snap => {
+  let db;
+  try { db = await firestore(); } catch (e) {
+    if (dinlenenUid === uid) dinlenenUid = null;
+    durumBildir({ hata: "Bulut bağlantısında sorun var." });
+    return;
+  }
+  // Yükleme sürerken çıkış yapıldıysa ya da başka hesaba geçildiyse dinlemeye başlama
+  if (dinlenenUid !== uid || aboneIptal) return;
+  aboneIptal = db.F.onSnapshot(belge(db, uid), { includeMetadataChanges: true }, snap => {
     durumBildir({
       bekleyen: snap.metadata.hasPendingWrites,
       cevrimdisi: snap.metadata.fromCache && !navigator.onLine,
@@ -178,7 +196,8 @@ function dinlemeyiBirak() {
 // Arayüz bu promise'i beklemez.
 function kaydet(uid, { veri, ad, tur }) {
   sonYazilan = veri;
-  return setDoc(belge(uid), { veri, ad: String(ad || "").slice(0, 80), tur, surum: 1, guncelleme: serverTimestamp() })
+  return firestore()
+    .then(db => db.F.setDoc(belge(db, uid), { veri, ad: String(ad || "").slice(0, 80), tur, surum: 1, guncelleme: db.F.serverTimestamp() }))
     .catch(e => {
       console.error("[AYVEX] bulut kayıt hatası:", e);
       durumBildir({ hata: e.code === "permission-denied" ? "Buluta kaydetme izni reddedildi." : "Buluta kaydedilemedi." });
@@ -187,8 +206,11 @@ function kaydet(uid, { veri, ad, tur }) {
 
 // Bekleyen yazmaların gönderilmesini en fazla `ms` kadar bekle
 async function bekleyenleriGonder(ms = 4000) {
+  // Firestore hiç yüklenmediyse gönderilmeyi bekleyen yazma da yoktur
+  if (!firestoreSozu) return true;
   try {
-    await Promise.race([waitForPendingWrites(fs), new Promise((_, r) => setTimeout(() => r(new Error("zaman aşımı")), ms))]);
+    const db = await firestoreSozu;
+    await Promise.race([db.F.waitForPendingWrites(db.fs), new Promise((_, r) => setTimeout(() => r(new Error("zaman aşımı")), ms))]);
     return true;
   } catch (e) { return false; }
 }
@@ -200,7 +222,8 @@ async function cikisYap() {
 
 async function verimiSil(uid) {
   dinlemeyiBirak();
-  await deleteDoc(belge(uid));
+  const db = await firestore();
+  await db.F.deleteDoc(belge(db, uid));
   // Google hesabında Firebase kullanıcı kaydını da silmeyi dene; yakın zamanda giriş
   // yapılmadıysa Firebase izin vermez, o durumda sadece oturum kapatılır (veri zaten silindi)
   try { await deleteUser(auth.currentUser); } catch (e) { await signOut(auth); }
@@ -218,6 +241,8 @@ getRedirectResult(auth)
   .catch(e => console.error("[AYVEX] yönlendirme sonucu hatası:", e));
 
 onAuthStateChanged(auth, user => {
+  // Oturum açıksa veritabanı kütüphanesini hemen yüklemeye başla (veri okunurken beklenmesin)
+  if (user) firestore().catch(() => {});
   if (window.AYVEX && window.AYVEX.authDegisti) window.AYVEX.authDegisti(kullaniciBilgi(user));
 });
 
