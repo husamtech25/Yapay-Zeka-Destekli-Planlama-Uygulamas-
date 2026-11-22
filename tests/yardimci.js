@@ -2,6 +2,7 @@
 // yerel bir test hesabıyla oturum açar. Firebase (bulut.js) yüklenmez; ağ kullanılmaz.
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const { JSDOM } = require("jsdom");
 
 const KOK = path.join(__dirname, "..");
@@ -34,13 +35,16 @@ function uygulamaYukle({ mod = "student" } = {}) {
   w.addEventListener("error", e => hatalar.push(e.error || e.message));
   w.console.error = (...a) => hatalar.push(a.join(" "));
 
-  w.eval(oku("dashboard.js"));
+  // Kodu sayfanın kendi çalışma ortamında normal bir <script> gibi çalıştır.
+  // (eval kullanılamaz: eval içindeki let/const tanımları, ör. "db" ve "S", dışarıdan görünmez.)
+  const ortam = dom.getInternalVMContext();
+  const js = kod => vm.runInContext(kod, ortam);
+  js(oku("dashboard.js"));
 
   // Yerel test hesabıyla oturum aç (sadece bu sanal tarayıcıda; buluta bir şey gitmez)
-  w.eval(`db.users["test"] = { ad: "Test Kullanıcı", tur: ${JSON.stringify(mod)}, data: null }; db.aktif = "test"; basla();`);
+  js(`db.users["test"] = { ad: "Test Kullanıcı", tur: ${JSON.stringify(mod)}, data: null }; db.aktif = "test"; basla();`);
 
   // Yardımcılar: uygulamanın global değişkenlerine erişim
-  const js = kod => w.eval(kod);
   const gunEkle = n => js(`(() => { const d = new Date(); d.setDate(d.getDate() + (${n})); return tarihKey(d); })()`);
   return { dom, w, js, gunEkle, hatalar, belge: w.document };
 }
