@@ -1,0 +1,11 @@
+{
+  "name": "ayvex",
+  "private": true,
+  "description": "AYVEX planlama uygulaması — otomatik testler (uygulamanın kendisi derleme gerektirmez)",
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}
