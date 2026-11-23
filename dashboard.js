@@ -19,7 +19,15 @@ const pad = n => String(n).padStart(2, "0");
 const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const uid = () => Math.random().toString(36).slice(2, 9);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const gunEtiket = k => { const [y, m, d] = k.split("-"); return `${+d} ${aylar[+m - 1]} ${y}`; };
+// "YYYY-MM-DD" biçiminde mi? (Tarihler HTML'e kaçışsız yazılıyor; başka bir şey asla geçmemeli.)
+const tarihGecerli = k => typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k);
+// Geçersiz tarih için boş metin döner: paylaşılan projede başkasının yazdığı bir "tarih"
+// eskiden sayfaya HTML olarak ekleniyordu.
+const gunEtiket = k => { if (!tarihGecerli(k)) return ""; const [y, m, d] = k.split("-"); return `${+d} ${aylar[+m - 1] || ""} ${y}`; };
+// Ders renkleri ve bildirim türleri CSS sınıfı olarak niteliğe yazılır: sadece bilinen değerler kullanılır
+const DERS_RENKLERI = ["blue", "green", "yellow", "purple", "red", "orange", "pink", "teal"];
+const dersRenk = d => DERS_RENKLERI.includes(d.renk) ? d.renk : "teal";
+const BILDIRIM_TIPLERI = ["warn", "info", "success", "purple"];
 const saatDk = s => { const [h, m] = (s || "00:00").split(":"); return (+h || 0) * 60 + (+m || 0); };
 // Kayıt kimliği: sadece harf, rakam, - ve _ (HTML niteliklerine güvenle yazılabilsin)
 const guvenliId = id => typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id);
@@ -130,6 +138,21 @@ function veriOnar(v, tur, ad) {
   ["sinavlar", "odevler", "yksDenemeleri", "toplantilar"].forEach(k => { v[k] = v[k].filter(x => tarihMi(x.tarih)); });
   v.deadlines = v.deadlines.filter(x => tarihMi(x.d));
   v.dersler = v.dersler.filter(x => saatMi(x.bas) && saatMi(x.bit));
+  // Sayı ve seçenek alanları HTML'e kaçışsız yazılıyor: elle değiştirilmiş bir yedekte metin olsa
+  // sayfaya HTML olarak eklenirdi. Sadece geçerli değerler kalır.
+  const sayi = (x, alan, min, max, varsayilan) => { const n = +x[alan]; x[alan] = x[alan] !== "" && x[alan] != null && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : varsayilan; };
+  v.dersler.forEach(d => {
+    if (!DERS_RENKLERI.includes(d.renk)) d.renk = "blue";
+    if (!/^[0-6]$/.test(String(d.gun))) d.gun = "1";
+  });
+  v.notifications.forEach(n => { if (!BILDIRIM_TIPLERI.includes(n.tip)) n.tip = "info"; });
+  v.hedefler.forEach(h => {
+    sayi(h, "hedef", 1, 1e6, 1);
+    sayi(h, "mevcut", 0, h.hedef, 0);
+    if (h.gecen != null) sayi(h, "gecen", 0, 1e6, 0);
+  });
+  v.skills.forEach(s => sayi(s, "p", 0, 100, 50));
+  v.yksDenemeleri.forEach(d => { sayi(d, "tyt", -1000, 1000, 0); sayi(d, "ayt", -1000, 1000, 0); });
   // Ekranda gösterilen metin alanları eksikse "undefined" yazmasın
   const METIN_ALANLARI = {
     tasks: ["t"], courses: ["n"], deadlines: ["t"], jobs: ["n"], skills: ["n"], dersler: ["ad"],
@@ -323,6 +346,13 @@ async function paylasimSayfasiAc(id) {
     const kayit = await window.AYVEX_BULUT.paylasimOku(id);
     if (!kayit) { el.innerHTML = `<h1>Bağlantı bulunamadı</h1><p>Bu paylaşım kaldırılmış ya da bağlantı hatalı olabilir.</p>`; return; }
     const p = JSON.parse(kayit.veri);
+    // Paylaşım verisini başkası yazdı: listeler dizi, tarihler gerçek tarih olmalı (aksi halde boş)
+    ["gorevler", "isler", "toplantilar"].forEach(k => {
+      p[k] = Array.isArray(p[k]) ? p[k].filter(x => x && typeof x === "object") : [];
+    });
+    if (!tarihGecerli(p.bitis)) p.bitis = "";
+    p.gorevler.forEach(g => { if (!tarihGecerli(g.son)) g.son = ""; });
+    p.toplantilar.forEach(t => { if (!tarihGecerli(t.tarih)) t.tarih = ""; });
     document.title = `${p.ad} — AYVEX`;
     const kalan = p.bitis ? gunFarki(p.bitis) : NaN;
     const teslim = !p.bitis ? "Teslim tarihi yok" : p.durum === "tamam" ? `Teslim: ${gunEtiket(p.bitis)}`
@@ -1123,7 +1153,7 @@ function bildirimCiz() {
         const ikonMap = { warn: "#i-bell", info: "#i-clock", success: "#i-check", purple: "#i-target" };
         return `<div class="notif-item ${n.okundu ? "read" : "unread"}">
           <span class="notif-dot"></span>
-          <div class="notif-icon ${n.tip}"><svg width="16" height="16"><use href="${ikonMap[n.tip] || "#i-bell"}"/></svg></div>
+          <div class="notif-icon ${BILDIRIM_TIPLERI.includes(n.tip) ? n.tip : "info"}"><svg width="16" height="16"><use href="${ikonMap[n.tip] || "#i-bell"}"/></svg></div>
           <div class="notif-body">
             <div class="notif-title">${esc(n.baslik)}</div>
             <div class="notif-meta">${esc(n.mesaj)} · ${saat}</div>
@@ -1496,7 +1526,7 @@ function haftalikGridCiz() {
     const sure = Math.min(SAATLER.length - basIdx, Math.max(1, bitSaatEtkin - basSaat));
     const row = basIdx + 2;
     const col = gunSirasi.indexOf(+d.gun) + 2;
-    html += `<div class="hg-ders ${d.renk || "teal"}"
+    html += `<div class="hg-ders ${dersRenk(d)}"
       data-act="ders-edit" data-id="${d.id}"
       style="grid-row:${row} / span ${sure};grid-column:${col}"
       title="${esc(d.ad)} (${esc(d.bas)}-${esc(d.bit)})">
@@ -1563,7 +1593,7 @@ function miniDersGridCiz() {
     else etiket = `Sıradaki · ${s.ileri === 1 ? "Yarın" : GUNLER[+d.gun]}`;
     const yuzde = s.devam ? Math.round((simdiDk - saatDk(d.bas)) / Math.max(1, dersSuresi(d)) * 100) : 0;
     const detay = [`${esc(d.bas)}–${esc(d.bit)}`, d.sinif ? esc(d.sinif) : "", d.hoca ? esc(d.hoca) : ""].filter(Boolean).join(" · ");
-    sira = `<div class="mdg-sira ${d.renk || "teal"}${s.devam ? " simdi" : ""}" data-act="ders-edit" data-id="${d.id}" role="button" tabindex="0">
+    sira = `<div class="mdg-sira ${dersRenk(d)}${s.devam ? " simdi" : ""}" data-act="ders-edit" data-id="${d.id}" role="button" tabindex="0">
       <span class="mdg-sira-etiket">${etiket}</span>
       <span class="mdg-sira-ad">${esc(d.ad)}</span>
       <span class="mdg-sira-detay">${detay}</span>
@@ -1580,7 +1610,7 @@ function miniDersGridCiz() {
       const durum = !bugun ? "" : saatDk(d.bit) <= simdiDk ? " gecti" : saatDk(d.bas) <= simdiDk ? " simdi" : "";
       const baslik = [`${d.ad}${d.kod ? " (" + d.kod + ")" : ""}`, `${d.bas}–${d.bit} · ${dersSureMetni(dersSuresi(d))}`,
         d.sinif && `Yer: ${d.sinif}`, d.hoca && `Hoca: ${d.hoca}`, d.notlar && `Not: ${d.notlar}`].filter(Boolean).join("\n");
-      return `<div class="mdg-ders ${d.renk || "teal"}${durum}" data-act="ders-edit" data-id="${d.id}" role="button" tabindex="0" title="${esc(baslik)}">
+      return `<div class="mdg-ders ${dersRenk(d)}${durum}" data-act="ders-edit" data-id="${d.id}" role="button" tabindex="0" title="${esc(baslik)}">
         <span class="mdg-saat">${esc(d.bas)}–${esc(d.bit)}${durum === " simdi" ? ` <em>Şimdi</em>` : ""}</span>
         <span class="mdg-ad">${esc(d.ad)}${d.notlar ? ` <span class="mdg-not" aria-label="Notu var">📝</span>` : ""}</span>
         ${d.sinif || d.hoca ? `<span class="mdg-yer">${d.sinif ? `<svg width="10" height="10"><use href="#i-map-pin"/></svg> ${esc(d.sinif)}` : ""}${d.sinif && d.hoca ? " · " : ""}${d.hoca ? esc(d.hoca) : ""}</span>` : ""}
