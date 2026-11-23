@@ -135,3 +135,46 @@ test("görev formu: boş ad eklenmez, dolu ad eklenir", () => {
   assert.equal(js("S.tasks[S.tasks.length - 1].t"), "Yeni görev ğüşıöç");
   assert.equal(js("S.tasks[S.tasks.length - 1].son"), "2030-01-01");
 });
+
+test("güvenlik: tırnak içeren kimlikler veri onarmada yenisiyle değiştirilir", () => {
+  const { js } = uygulamaYukle();
+  const v = JSON.parse(js(`JSON.stringify(veriOnar({
+    mode: "student", events: { "2030-01-01": [{ id: 'x" onmouseover="alert(1)', t: "e", time: "10:00", type: "Etkinlik" }] },
+    tasks: [{ id: 'k"><img src=x onerror=alert(1)>', t: "a", proje: 'p"x', alt: [{ id: '"', t: "s" }] }],
+    projeler: [{ id: "temiz_id-1", ad: "P" }]
+  }, "student", "Test"))`));
+  const guvenli = id => /^[A-Za-z0-9_-]+$/.test(id);
+  assert.ok(guvenli(v.tasks[0].id)); assert.ok(guvenli(v.tasks[0].alt[0].id)); assert.ok(guvenli(v.events["2030-01-01"][0].id));
+  assert.equal(v.tasks[0].proje, "");
+  assert.equal(v.projeler[0].id, "temiz_id-1", "Geçerli kimlik değişmemeli");
+});
+
+test("bugünün akışı: saatler dakikaya göre, gecikmiş görevler en eskiden sıralanır", () => {
+  const { js, gunEkle } = uygulamaYukle();
+  js(`S.events[todayKey] = [{ id: "e1", t: "Onda", time: "10:00", type: "Etkinlik" }, { id: "e2", t: "Dokuzda", time: "9:00", type: "Etkinlik" }];
+      S.tasks.push({ id: "y1", t: "Yeni gecikme", done: false, p: "mid", son: "${gunEkle(-1)}" },
+                   { id: "y2", t: "Eski gecikme", done: false, p: "mid", son: "${gunEkle(-20)}" });`);
+  assert.deepEqual(JSON.parse(js(`JSON.stringify(bugunAkisi().map(o => o.baslik))`)), ["Dokuzda", "Onda", "Eski gecikme", "Yeni gecikme"]);
+});
+
+test("Pomodoro: turun gerçek süresi kaydedilir ve göreve yazılır", () => {
+  const { js } = uygulamaYukle();
+  js(`S.tasks.push({ id: "pg", t: "Odak görevi", done: false, p: "mid" }); S.pomo.bind = { tip: "gorev", id: "pg" };
+      S.pomo.focus = 25; pomo.toplam = 50 * 60; pomoKaydet("focus");`);
+  assert.equal(js(`S.tasks.find(t => t.id === "pg").odakDk`), 50, "Ayardaki 25 değil, turun 50 dakikası yazılmalı");
+  assert.equal(js(`S.pomo.stats[tarihKey(new Date())].dk`), 50);
+});
+
+test("hızlı etkinlik: seçilen tarihe ve 'Etkinlik' türüyle eklenir", () => {
+  const { js, belge, gunEkle } = uygulamaYukle();
+  const w = belge.defaultView;
+  belge.querySelector('#hizliMenu [data-open="dlgEvent"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  const f = belge.querySelector("#dlgEvent form");
+  const alan = ad => f.querySelector(`[name="${ad}"]`);
+  assert.ok(alan("gun"), "Etkinlik penceresinde tarih alanı olmalı");
+  assert.equal(alan("gun").value, js("todayKey"), "Hızlı eklemeden açılınca tarih bugün olmalı");
+  assert.equal(alan("type").value, "Etkinlik");
+  alan("t").value = "Konser"; alan("time").value = "20:00"; alan("gun").value = gunEkle(3);
+  f.dispatchEvent(new w.Event("submit", { cancelable: true, bubbles: true }));
+  assert.equal(js(`(S.events["${gunEkle(3)}"] || []).map(e => e.t + "/" + e.type).join()`), "Konser/Etkinlik");
+});
