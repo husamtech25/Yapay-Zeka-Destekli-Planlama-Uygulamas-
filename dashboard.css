@@ -267,30 +267,63 @@ p{line-height:1.55}
 .rozet-badge.rozet-saat .rozet-desc{color:#1a6d8c}
 
 /* ============ MİNİ DERS GRID ============ */
+/* Ana sayfadaki haftalık ders programı: üstte şu anki/sıradaki ders, altında gün gün ders listesi.
+   Ders rengi --c değişkeniyle gelir; zemin bu rengin açık tonu, yazı var(--ink) olduğu için iki temada da okunur. */
 .mini-ders-card{display:flex;flex-direction:column}
-.mini-ders-grid{
-  display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
-  grid-auto-rows:32px;
-  gap:3px;flex:1;
+.mini-ders-grid{display:flex;flex-direction:column;gap:var(--s3);flex:1}
+.mini-ders-grid .blue{--c:#3b82f6}
+.mini-ders-grid .green{--c:#22c55e}
+.mini-ders-grid .yellow{--c:#eab308}
+.mini-ders-grid .purple{--c:#a855f7}
+.mini-ders-grid .red{--c:#ef4444}
+.mini-ders-grid .orange{--c:#f97316}
+.mini-ders-grid .pink{--c:#ec4899}
+.mini-ders-grid .teal{--c:#14b8a6}
+
+.mdg-sira{
+  display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px var(--s3);
+  padding:10px 14px;border-radius:var(--r-md);cursor:pointer;
+  background:color-mix(in srgb,var(--c,var(--teal)) 14%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--c,var(--teal)) 35%,transparent);
+  border-left:4px solid var(--c,var(--teal));
 }
-.mini-ders-grid .mdg-head{font-size:.65rem;font-weight:700;text-align:center;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;padding:2px 0}
-.mini-ders-grid .mdg-head.bugun{color:var(--teal)}
-.mini-ders-grid .mdg-cell{background:var(--surface-2);border-radius:4px;border:1px solid var(--border-2)}
-.mini-ders-grid .mdg-ders{
-  background:linear-gradient(135deg,var(--teal),var(--teal-dark));
-  border-radius:4px;color:#fff;font-size:.6rem;font-weight:700;
-  display:flex;align-items:center;justify-content:center;
-  padding:2px;overflow:hidden;cursor:pointer;text-align:center;line-height:1.1;
+.mdg-sira:hover{background:color-mix(in srgb,var(--c,var(--teal)) 20%,var(--surface))}
+.mdg-sira-etiket{grid-column:1 / -1;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2)}
+.mdg-sira.simdi .mdg-sira-etiket::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--coral);margin-right:6px;vertical-align:1px;animation:mdgNabiz 1.6s ease-in-out infinite}
+.mdg-sira-ad{font-weight:800;font-size:1rem;color:var(--ink)}
+.mdg-sira-detay{font-size:.8rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mdg-sira-bar{grid-column:1 / -1;height:4px;border-radius:var(--r-full);background:color-mix(in srgb,var(--c,var(--teal)) 18%,transparent);margin-top:6px;overflow:hidden}
+.mdg-sira-bar span{display:block;height:100%;background:var(--c,var(--teal));border-radius:inherit}
+@keyframes mdgNabiz{50%{opacity:.35}}
+
+/* Her gün en az 140px; sığmazsa kart içinde yatay kaydırılır (ad kelime ortasından bölünmesin diye) */
+.mdg-hafta{display:grid;grid-template-columns:repeat(var(--gun-sayi,5),minmax(140px,1fr));gap:var(--s2);overflow-x:auto;scroll-snap-type:x proximity}
+.mdg-gun{scroll-snap-align:start}
+.mdg-gun{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--border-2);min-width:0}
+.mdg-gun.bugun{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal)}
+.mdg-head{display:flex;align-items:baseline;gap:4px;padding:0 2px 4px;font-size:.7rem;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em}
+.mdg-head b{font-size:.95rem;color:var(--ink);letter-spacing:0}
+.mdg-head small{margin-left:auto;white-space:nowrap;font-size:.65rem;font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink-3)}
+.mdg-gun.bugun .mdg-head,.mdg-gun.bugun .mdg-head b{color:var(--teal)}
+.mdg-ders{
+  display:flex;flex-direction:column;gap:1px;padding:6px 8px;border-radius:var(--r-sm);cursor:pointer;min-width:0;
+  background:color-mix(in srgb,var(--c,var(--teal)) 16%,var(--surface));
+  border-left:3px solid var(--c,var(--teal));
+  transition:transform var(--t-fast,.15s),box-shadow var(--t-fast,.15s);
 }
-.mini-ders-grid .mdg-ders.blue{background:linear-gradient(135deg,#3b82f6,#2563eb)}
-.mini-ders-grid .mdg-ders.green{background:linear-gradient(135deg,#22c55e,#16a34a)}
-.mini-ders-grid .mdg-ders.yellow{background:linear-gradient(135deg,#eab308,#ca8a04);color:#2a1f00}
-.mini-ders-grid .mdg-ders.purple{background:linear-gradient(135deg,#a855f7,#7e22ce)}
-.mini-ders-grid .mdg-ders.red{background:linear-gradient(135deg,#ef4444,#dc2626)}
-.mini-ders-grid .mdg-ders.orange{background:linear-gradient(135deg,#f97316,#ea580c)}
-.mini-ders-grid .mdg-ders.pink{background:linear-gradient(135deg,#ec4899,#db2777)}
-.mini-ders-grid .mdg-ders.teal{background:linear-gradient(135deg,#14b8a6,#0d9488)}
+.mdg-ders:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.mdg-ders:focus-visible,.mdg-sira:focus-visible{outline:2px solid var(--c,var(--teal));outline-offset:2px}
+.mdg-ders.gecti{opacity:.55}
+.mdg-ders.simdi{box-shadow:0 0 0 2px var(--c,var(--teal))}
+.mdg-saat{font-size:.68rem;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mdg-saat em{font-style:normal;margin-left:4px;padding:0 5px;border-radius:var(--r-full);background:var(--coral);color:#fff;font-size:.6rem}
+.mdg-ad{font-size:.82rem;font-weight:700;color:var(--ink);line-height:1.25;overflow-wrap:break-word;hyphens:auto}
+.mdg-not{font-size:.7rem}
+.mdg-yer{font-size:.68rem;color:var(--ink-3);display:flex;align-items:center;gap:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mdg-yer svg{flex:none}
+.mdg-gun-bos{font-size:.72rem;color:var(--ink-3);text-align:center;padding:10px 0;border:1px dashed var(--border);border-radius:var(--r-sm)}
+.mdg-alt{font-size:.78rem;color:var(--ink-3)}
+.mdg-alt b{color:var(--ink-2)}
 
 /* ============ İŞ MODU: BUGÜNÜN ÖZETİ ============ */
 .is-bugun-card{display:flex;flex-direction:column;background:linear-gradient(135deg,var(--surface),#fff8f0)}
@@ -1259,9 +1292,9 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
   .hg-ders{padding:4px 6px;font-size:.62rem}
   .hg-ders .hg-ders-ad{font-size:.65rem}
   .hg-ders .hg-ders-kod,.hg-ders .hg-ders-yer{font-size:.55rem}
-  .mini-ders-grid{grid-auto-rows:28px;grid-template-columns:repeat(5,minmax(0,1fr)) !important}
-  .mini-ders-grid .mdg-head{font-size:.6rem}
-  .mini-ders-grid .mdg-ders{font-size:.55rem}
+  /* Telefonda günler yan yana kaydırılır; her gün okunabilir genişlikte kalır */
+  .mdg-hafta{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(150px,46%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px;margin:0 calc(-1 * var(--s4));padding-left:var(--s4);padding-right:var(--s4);scroll-padding:0 var(--s4)}
+  .mdg-gun{scroll-snap-align:start}
   .tasks-head,.ders-head,.plan-head{flex-direction:column;gap:var(--s3)}
   .tasks-stats,.ders-stats{width:100%}
   .tasks-stats .stat,.ders-stats .stat{flex:1;min-width:0;padding:8px 12px}

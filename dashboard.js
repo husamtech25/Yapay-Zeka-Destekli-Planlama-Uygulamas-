@@ -1508,52 +1508,97 @@ function haftalikGridCiz() {
   grid.innerHTML = html;
 }
 
+// "1 sa 40 dk" biçiminde süre metni
+function dersSureMetni(dk) {
+  if (dk < 60) return `${dk} dk`;
+  return `${Math.floor(dk / 60)} sa${dk % 60 ? " " + (dk % 60) + " dk" : ""}`;
+}
+// Bir dersin dakika cinsinden süresi (bitiş başlangıçtan önceyse 0)
+function dersSuresi(d) { return Math.max(0, saatDk(d.bit) - saatDk(d.bas)); }
+
+// Şu anki ya da sıradaki ders (bugünden başlayıp bir hafta ileriye bakar)
+function siradakiDers(dersler, simdi) {
+  const simdiDk = simdi.getHours() * 60 + simdi.getMinutes();
+  for (let ileri = 0; ileri < 8; ileri++) {
+    const gun = (simdi.getDay() + ileri) % 7;
+    const aday = dersler.filter(d => +d.gun === gun).sort(dersSirala)
+      .find(d => ileri > 0 || saatDk(d.bit) > simdiDk);
+    if (aday) return { ders: aday, ileri, devam: ileri === 0 && saatDk(aday.bas) <= simdiDk };
+  }
+  return null;
+}
+
+// Ana sayfadaki haftalık ders programı kartı: üstte şu anki / sıradaki ders,
+// altında her gün için saatleri, yeri ve hocasıyla ders listesi.
 function miniDersGridCiz() {
   const el = $("miniDersGrid");
   if (!el || !S) return;
-  // Hafta içi her zaman; Cumartesi/Pazar sadece o güne ders varsa gösterilir.
-  // Arama yapılıyorsa sadece eşleşen dersler yerleştirilir.
   const tumDersler = S.dersler || [];
-  const gunSirasi = [1, 2, 3, 4, 5, 6, 0].filter(g => g >= 1 && g <= 5 || tumDersler.some(d => +d.gun === g));
-  const gorunen = tumDersler.filter(d => eslesir(d.ad) || eslesir(d.kod));
-  const miniSaatler = [9, 11, 13, 15, 17];
-  // Hiç ders yoksa boş gri tablo yerine ne yapılacağını söyleyen bir mesaj göster
   el.classList.toggle("mdg-bos", !tumDersler.length);
+  // Hiç ders yoksa boş gri tablo yerine ne yapılacağını söyleyen bir mesaj göster
   if (!tumDersler.length) {
-    el.style.gridTemplateColumns = "";
-    el.style.gridAutoRows = "";
     el.innerHTML = `<div class="mdg-bos-mesaj">
       <p>Henüz ders eklemedin. Haftalık programın burada görünecek.</p>
       <button type="button" class="btn-primary" data-open="dlgDers"><svg width="16" height="16"><use href="#i-plus"/></svg> İlk dersini ekle</button>
     </div>`;
     return;
   }
-  el.style.gridTemplateColumns = `repeat(${gunSirasi.length}, minmax(0, 1fr))`;
-  el.style.gridAutoRows = "32px";
-  let html = "";
-  gunSirasi.forEach(g => {
-    const bugun = g === bugunGunNo;
-    html += `<div class="mdg-head ${bugun ? "bugun" : ""}">${GUNLER_KISA[g]}</div>`;
-  });
-  // Her satır iki saatlik bir dilimi temsil eder (09-11, 11-13, ...); dilimin dışında kalan
-  // erken/geç dersler ilk/son satıra yerleşir. Eskiden sadece tam 9/11/13/15/17'de
-  // başlayan dersler görünüyordu.
-  const dilim = d => Math.min(miniSaatler.length - 1, Math.max(0, Math.floor((saatDk(d.bas) / 60 - 9) / 2)));
-  miniSaatler.forEach((saat, satir) => {
-    gunSirasi.forEach(gunNo => {
-      const hucre = gorunen.filter(d => +d.gun === gunNo && dilim(d) === satir).sort(dersSirala);
-      const ders = hucre[0];
-      if (ders) {
-        const ek = hucre.length > 1 ? ` +${hucre.length - 1}` : "";
-        const baslik = hucre.map(d => `${d.ad} (${d.bas})`).join(", ");
-        html += `<div class="mdg-ders ${ders.renk || "teal"}" data-act="ders-edit" data-id="${ders.id}" title="${esc(baslik)}">${esc(ders.ad.slice(0, 8))}${ek}</div>`;
-      } else {
-        html += `<div class="mdg-cell"></div>`;
-      }
-    });
-  });
-  el.innerHTML = html;
+  const simdi = new Date();
+  const simdiGun = simdi.getDay();
+  const simdiDk = simdi.getHours() * 60 + simdi.getMinutes();
+  // Hafta içi her zaman; Cumartesi/Pazar sadece o güne ders varsa gösterilir.
+  const gunSirasi = [1, 2, 3, 4, 5, 6, 0].filter(g => g >= 1 && g <= 5 || tumDersler.some(d => +d.gun === g));
+  // Arama yapılıyorsa sadece eşleşen dersler listelenir
+  const gorunen = tumDersler.filter(d => eslesir(d.ad) || eslesir(d.kod) || eslesir(d.hoca) || eslesir(d.sinif));
+  const pazartesi = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate() - (simdiGun + 6) % 7);
+
+  // Üst şerit: şu an derste miyiz, değilse sıradaki ders ne zaman?
+  let sira = "";
+  const s = siradakiDers(tumDersler, simdi);
+  if (s) {
+    const d = s.ders;
+    let etiket;
+    if (s.devam) etiket = `Şu an · ${dersSureMetni(saatDk(d.bit) - simdiDk)} kaldı`;
+    else if (s.ileri === 0) etiket = `Sıradaki · ${dersSureMetni(saatDk(d.bas) - simdiDk)} sonra`;
+    else etiket = `Sıradaki · ${s.ileri === 1 ? "Yarın" : GUNLER[+d.gun]}`;
+    const yuzde = s.devam ? Math.round((simdiDk - saatDk(d.bas)) / Math.max(1, dersSuresi(d)) * 100) : 0;
+    const detay = [`${esc(d.bas)}–${esc(d.bit)}`, d.sinif ? esc(d.sinif) : "", d.hoca ? esc(d.hoca) : ""].filter(Boolean).join(" · ");
+    sira = `<div class="mdg-sira ${d.renk || "teal"}${s.devam ? " simdi" : ""}" data-act="ders-edit" data-id="${d.id}" role="button" tabindex="0">
+      <span class="mdg-sira-etiket">${etiket}</span>
+      <span class="mdg-sira-ad">${esc(d.ad)}</span>
+      <span class="mdg-sira-detay">${detay}</span>
+      ${s.devam ? `<span class="mdg-sira-bar"><span style="width:${Math.min(100, Math.max(0, yuzde))}%"></span></span>` : ""}
+    </div>`;
+  }
+
+  const gunler = gunSirasi.map((g, i) => {
+    const tarih = new Date(pazartesi.getFullYear(), pazartesi.getMonth(), pazartesi.getDate() + (g + 6) % 7);
+    const liste = gorunen.filter(d => +d.gun === g).sort(dersSirala);
+    const bugun = g === simdiGun;
+    const toplam = tumDersler.filter(d => +d.gun === g).reduce((t, d) => t + dersSuresi(d), 0);
+    const dersHtml = liste.map(d => {
+      const durum = !bugun ? "" : saatDk(d.bit) <= simdiDk ? " gecti" : saatDk(d.bas) <= simdiDk ? " simdi" : "";
+      const baslik = [`${d.ad}${d.kod ? " (" + d.kod + ")" : ""}`, `${d.bas}–${d.bit} · ${dersSureMetni(dersSuresi(d))}`,
+        d.sinif && `Yer: ${d.sinif}`, d.hoca && `Hoca: ${d.hoca}`, d.notlar && `Not: ${d.notlar}`].filter(Boolean).join("\n");
+      return `<div class="mdg-ders ${d.renk || "teal"}${durum}" data-act="ders-edit" data-id="${d.id}" role="button" tabindex="0" title="${esc(baslik)}">
+        <span class="mdg-saat">${esc(d.bas)}–${esc(d.bit)}${durum === " simdi" ? ` <em>Şimdi</em>` : ""}</span>
+        <span class="mdg-ad">${esc(d.ad)}${d.notlar ? ` <span class="mdg-not" aria-label="Notu var">📝</span>` : ""}</span>
+        ${d.sinif || d.hoca ? `<span class="mdg-yer">${d.sinif ? `<svg width="10" height="10"><use href="#i-map-pin"/></svg> ${esc(d.sinif)}` : ""}${d.sinif && d.hoca ? " · " : ""}${d.hoca ? esc(d.hoca) : ""}</span>` : ""}
+      </div>`;
+    }).join("");
+    return `<div class="mdg-gun${bugun ? " bugun" : ""}">
+      <div class="mdg-head"><span>${GUNLER_KISA[g]}</span> <b>${tarih.getDate()}</b>${toplam ? `<small>${dersSureMetni(toplam)}</small>` : ""}</div>
+      ${dersHtml || `<div class="mdg-gun-bos">Ders yok</div>`}
+    </div>`;
+  }).join("");
+
+  const haftalikDk = tumDersler.reduce((t, d) => t + dersSuresi(d), 0);
+  el.innerHTML = `${sira}
+    <div class="mdg-hafta" style="--gun-sayi:${gunSirasi.length}">${gunler}</div>
+    <div class="mdg-alt">Bu hafta <b>${tumDersler.length} ders</b> · <b>${dersSureMetni(haftalikDk)}</b></div>`;
 }
+// Ana sayfa açıkken "şu an / sıradaki ders" bilgisi dakikada bir tazelenir
+setInterval(() => { if (S && aktifView === "home" && !document.hidden) miniDersGridCiz(); }, 60 * 1000);
 
 // ================= AKADEMİK =================
 function sinavRenkSinif(tarih) {
