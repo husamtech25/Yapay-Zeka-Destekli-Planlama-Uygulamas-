@@ -1823,3 +1823,12 @@ body.kanban-surukle *{cursor:grabbing !important}
 /* Kapalı bildirim paneli klavyeyle (Tab) de ulaşılamaz olsun */
 .notif-panel:not(.on){visibility:hidden;transition:opacity var(--t),transform var(--t),visibility 0s linear .25s}
 .notif-panel.on{visibility:visible;transition:opacity var(--t),transform var(--t),visibility 0s}
+
+/* Telefonda Bugün kartının üst kısmı simetrik: profil simgesi (üst çubukta zaten var) gizlenir,
+   tarih, selam, alt yazı ve rozetler ortalanır; selam tüm genişliği kullanır */
+@media(max-width:560px){
+  .bugun-kart .avatar-xl{display:none}
+  .bugun-ust{justify-content:center}
+  .bugun-selam{flex:1;text-align:center}
+  .bugun-rozetler{justify-content:center}
+}
