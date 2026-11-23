@@ -4,6 +4,8 @@
 
 **Canlı site:** https://ayvex-7697a.firebaseapp.com (Firebase Hosting). Eski GitHub Pages adresi ve ayvex-7697a.web.app buraya yönlendirilir.
 
+**Projeye yeni mi katılıyorsun?** Mimari, veri modeli, kodun nerede ne yaptığı, yayın süreci ve dikkat edilmesi gerekenler için: [docs/GELISTIRICI-REHBERI.md](docs/GELISTIRICI-REHBERI.md)
+
 > **Not:** "Yapay Zeka Destekli" ifadesi, bu uygulamanın yapay zeka yardımıyla **geliştirildiğini** anlatır. Uygulamanın içinde bir yapay zeka özelliği veya yapay zeka servisine bağlantı yoktur.
 
 ## Özellikler
