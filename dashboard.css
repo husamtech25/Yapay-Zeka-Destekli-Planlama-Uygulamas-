@@ -1874,3 +1874,22 @@ body.kanban-surukle *{cursor:grabbing !important}
 /* Koyu modda giriş ekranının sol tanıtım paneli açık renkli kalır: içindeki yazılar da açık temanın
    koyu tonlarını kullansın (pasif "Çalışan/Öğrenci" düğmesi açık zeminde açık gri kalıyordu, 1.9:1) */
 :root[data-tema="koyu"] .onboard-brand{--ink:#0e2630;--ink-2:#3b5663;--ink-3:#587180}
+
+/* ================================================================
+   ONAY PENCERESİ (confirm() yerine) ve dokunma alanları
+   ================================================================ */
+.onay-dlg{width:min(400px,92vw)}
+.onay-dlg h2{font-size:1.15rem;margin-bottom:var(--s2)}
+.onay-mesaj{color:var(--ink-2);font-size:.92rem;line-height:1.5;white-space:pre-line;margin-bottom:var(--s4)}
+.onay-mesaj[hidden]{display:none}
+.onay-dlg .dialog-actions{position:static;margin:0;padding:0;background:transparent;display:flex;justify-content:flex-end;gap:var(--s2)}
+/* Tehlikeli işlemde onay düğmesi dolu kırmızı (düzenleme pencerelerindeki "Sil" gibi sola yaslanmaz) */
+.onay-dlg .btn-danger{margin-right:0;background:#d63b2b;border-color:#d63b2b;color:#fff}
+.onay-dlg .btn-danger:hover{background:#b92f21;color:#fff}
+@media(max-width:560px){
+  .onay-dlg .dialog-actions button{flex:1;min-height:44px}
+  /* Haftalık hedeflerdeki −1 / +1 / sil düğmeleri telefonda en az ~40px dokunma alanı */
+  .hedef-actions{gap:8px}
+  .hedef-btn{min-height:40px;min-width:44px;padding:8px 12px;font-size:.85rem}
+  .hedef-btn.del{padding:8px 10px}
+}

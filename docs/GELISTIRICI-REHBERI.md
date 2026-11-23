@@ -59,7 +59,7 @@ npx serve .                 # ya da: python -m http.server 8000
 
 # Testler
 npm install
-npm test                    # 24 test, ~2 sn
+npm test                    # 46 test, ~3 sn
 
 # Firebase'e yayın (önce bir kez: npx firebase-tools login)
 npx firebase-tools deploy --only hosting --project ayvex-7697a
@@ -204,7 +204,10 @@ Dosyanın en sonundaki `try { ... }` bloğu: giriş ekranını hazırlar; `?payl
 | `bul(liste, id)` | `S[liste]` içinde kimliğe göre kayıt bulur. |
 | `kaydet()`, `ciz()` | Kaydet ve yeniden çiz. |
 | `goView(v)`, `modUygula()` | Sayfa değiştir; moda göre etiketleri ayarla. |
-| `bilgiGoster(mesaj)`, `geriAlGoster(...)` | Alttaki kısa bildirim (toast); silmede "Geri al". |
+| `bilgiGoster(mesaj)`, `geriAlGoster(...)` | Alttaki kısa bildirim (toast); silmede "Geri al". Uzun mesaj daha uzun kalır. |
+| `kayitSilGeriAl(liste, id)` | Kaydı siler ve "Geri al" bildirimini gösterir. Tek kayıt silmede onay yerine bunu kullanın. |
+| `await onayIste({ baslik, mesaj, onay, tehlikeli })` | Uygulama içi onay penceresi (`#dlgOnay`); `true`/`false` döner. `confirm()` yerine. |
+| `tarihGecerli(k)`, `dersRenk(d)` | Tarih biçimi kontrolü; ders rengini izinli listeden (`DERS_RENKLERI`) verir. |
 | `alanHatasi(form, alanAdi, mesaj)` | Form hatasını alanın altında gösterir (`alert()` kullanılmaz). |
 | `guvenliAc(dialog)` | `<dialog>`'u güvenle açar. |
 | `bildirimEkle(tip, baslik, mesaj, ozelId)` | Uygulama içi bildirim (+ açıksa cihaz bildirimi); `ozelId` aynı bildirimi tekrarlamaz. |
@@ -339,8 +342,12 @@ npm test              # node --test tests/
 ### 14.4 Kendi tıklama işleyicisi olan bir düğme eklemek
 `document.addEventListener("click", e => { const b = e.target.closest('[data-act="benim-eylem"]'); ... })` yazın ve `"benim-eylem"`'i genel `[data-act]` işleyicisinin istisna listesine ekleyin (bkz. [7.3](#73-olay-sistemi-en-önemli-kısım)).
 
-### 14.5 Kısa bir bildirim göstermek
-`bilgiGoster("Kaydedildi.")`. Form hatası için `alanHatasi(form, "alanAdi", "Mesaj")` kullanın. Yeni kodda `alert()` / `confirm()` / `prompt()` kullanmayın: bazı ortamlarda (uygulama içi tarayıcılar, kurulu uygulama) engellenir ve telefonda kötü görünür. Eski koddan kalan kullanımlar var: silme ve sıfırlama onayları (`confirm`), yedekten geri yükleme hataları, şifre değişikliği ve "Silinecek tamamlanmış görev yok" mesajı (`alert`). Bunları uygulama içi pencere ve bildirimlere çevirmek açık bir iyileştirme fırsatıdır.
+### 14.5 Kısa bir bildirim göstermek, onay istemek
+`bilgiGoster("Kaydedildi.")`. Form hatası için `alanHatasi(form, "alanAdi", "Mesaj")` kullanın.
+
+- **Tek kayıt silme:** Onay sormayın; `kayitSilGeriAl(liste, id)` ile silin, kullanıcı "Geri al" ile geri getirebilir. Yeni liste eklerseniz `SILME_ADI`'na adını yazın.
+- **Geri alınamayan işlemler** (toplu silme, sıfırlama, hesap silme, yedekten geri yükleme): `if (!await onayIste({ baslik: "…silinsin mi?", mesaj: "…", onay: "Sil", tehlikeli: true })) return;`. Beklerken veri değişmiş olabilir; devam etmeden önce `S` ve `db.aktif`'in hâlâ aynı olduğunu kontrol edin.
+- `alert()` / `confirm()` / `prompt()` **kullanmayın**: bazı ortamlarda (uygulama içi tarayıcılar, kurulu uygulama) engellenip hemen "hayır" döner ve işlem sessizce durur. `tests/onay.test.js` kodda bunların olmadığını kontrol eder.
 
 ### 14.6 Renk ya da stil değiştirmek
 Önce `:root` değişkenlerine bakın. Değişkeni değiştirmek tüm uygulamayı etkiler; tek bir bileşen için sınıfına kural yazın. Koyu modu ve mobil genişliği (375 ve 320 px) de kontrol edin.

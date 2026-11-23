@@ -42,7 +42,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"></noscript>
   <!-- SÜRÜM: CSS/JS dosyaları her değiştiğinde buradaki ve sayfa sonundaki ?v= değerini
        (tarih.sıra biçiminde) birlikte artır. Tarayıcılar yeni dosyaları önbelleğe takılmadan indirir. -->
-  <link rel="stylesheet" href="dashboard.css?v=20261123.5">
+  <link rel="stylesheet" href="dashboard.css?v=20261123.6">
 </head>
 <body>
   <!-- ============ SVG İKON SPRITE ============ -->
@@ -1570,12 +1570,24 @@
   </dialog>
 
   <!-- Silme sonrası "Geri al" bildirimi -->
+  <!-- MODAL: Onay (tarayıcının confirm() kutusu yerine; bazı ortamlarda o kutu engelleniyor) -->
+  <dialog id="dlgOnay" class="onay-dlg" aria-labelledby="onayBaslik" aria-describedby="onayMesaj">
+    <div class="onay-icerik">
+      <h2 id="onayBaslik">Emin misin?</h2>
+      <p id="onayMesaj" class="onay-mesaj"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn-ghost" id="onayIptal">Vazgeç</button>
+        <button type="button" class="btn-primary" id="onayEvet">Devam et</button>
+      </div>
+    </div>
+  </dialog>
+
   <div class="toast" id="toast" role="status" aria-live="polite" popover="manual" hidden>
     <span id="toastMetin"></span>
     <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
   </div>
 
-  <script src="dashboard.js?v=20261123.5" defer></script>
-  <script type="module" src="bulut.js?v=20261123.5"></script>
+  <script src="dashboard.js?v=20261123.6" defer></script>
+  <script type="module" src="bulut.js?v=20261123.6"></script>
 </body>
 </html>

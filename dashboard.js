@@ -711,7 +711,7 @@ if ($("sifreForm")) $("sifreForm").addEventListener("submit", async e => {
       try {
         await window.AYVEX_BULUT.sifreDegistir(mevcut, yeni);
         $("dlgSifre").close();
-        alert("Şifren değiştirildi.");
+        bilgiGoster("Şifren değiştirildi.");
       } catch (err) { msg(authHataMetni(err, "sifre")); }
     });
   } else if (amac === "sil") {
@@ -783,6 +783,7 @@ const SILME_ADI = {
   tasks: "Görev", events: "Etkinlik", courses: "Kayıt", deadlines: "Teslim", jobs: "İş ilanı", skills: "Beceri",
   hedefler: "Hedef", planItems: "Plan işi", toplantilar: "Toplantı", sprintIsleri: "Sprint işi",
   kariyerHedefler: "Kariyer hedefi", yksDenemeleri: "Deneme", projeler: "Proje",
+  dersler: "Ders", sinavlar: "Sınav", odevler: "Ödev", basvurular: "Başvuru", kurslar: "Kurs",
 };
 let geriAlZamani = null;
 let geriAlVerisi = null;
@@ -846,8 +847,49 @@ function bilgiGoster(mesaj) {
   if ($("toastGeriAl")) $("toastGeriAl").hidden = true;
   toastAc(t);
   clearTimeout(geriAlZamani);
-  geriAlZamani = setTimeout(geriAlKapat, 3000);
+  // Uzun mesajlar (ör. hata açıklamaları) okunabilsin diye daha uzun kalır
+  geriAlZamani = setTimeout(geriAlKapat, Math.min(8000, 3000 + String(mesaj).length * 40));
 }
+// Bir kaydı siler ve "Geri al" bildirimini gösterir. Tek kayıt silmede onay sorulmaz: yanlışlıkla
+// silineni geri almak, her seferinde onay vermekten kolay (görevler zaten böyle çalışıyordu).
+function kayitSilGeriAl(list, id) {
+  const yedek = silmeYedegi(list, id);
+  if (!yedek) return false;
+  sil(list, id);
+  geriAlGoster(SILME_ADI[list] ? `${SILME_ADI[list]} silindi` : "Silindi", yedek, yedek.kayit);
+  return true;
+}
+
+// ================= ONAY PENCERESİ =================
+// confirm() yerine uygulama içi pencere. confirm() bazı ortamlarda (uygulama içi tarayıcılar,
+// kurulu uygulama) engellenip hemen "hayır" döndüğü için silme/sıfırlama sessizce çalışmıyordu.
+// Kullanım: if (await onayIste({ baslik, mesaj, onay: "Sil", tehlikeli: true })) { ... }
+let onayCoz = null;
+function onayIste({ baslik = "Emin misin?", mesaj = "", onay = "Devam et", tehlikeli = false } = {}) {
+  const d = $("dlgOnay");
+  if (!d) return Promise.resolve(false);
+  if (onayCoz) onayCoz(false); // açık kalmış eski bir soru varsa "hayır" say
+  $("onayBaslik").textContent = baslik;
+  $("onayMesaj").textContent = mesaj;
+  $("onayMesaj").hidden = !mesaj;
+  const evet = $("onayEvet");
+  evet.textContent = onay;
+  evet.className = tehlikeli ? "btn-danger" : "btn-primary";
+  return new Promise(coz => {
+    onayCoz = sonuc => { onayCoz = null; if (d.open) d.close(); coz(sonuc); };
+    guvenliAc(d);
+    // Tehlikeli işlemde odak "Vazgeç"te: yanlışlıkla Enter'a basmak bir şey silmesin
+    setTimeout(() => (tehlikeli ? $("onayIptal") : evet).focus(), 0);
+  });
+}
+document.addEventListener("click", e => {
+  if (!onayCoz) return;
+  if (e.target.closest("#onayEvet")) { e.preventDefault(); onayCoz(true); }
+  else if (e.target.closest("#onayIptal")) { e.preventDefault(); onayCoz(false); }
+});
+// Esc ile ya da başka bir yolla kapanırsa "hayır"
+if ($("dlgOnay")) $("dlgOnay").addEventListener("close", () => { if (onayCoz) onayCoz(false); });
+
 // Boş görev gönderilince tarayıcının kendi uyarısına ek olarak açık bir mesaj göster
 document.addEventListener("invalid", e => {
   const f = e.target.closest && e.target.closest('form[data-form="task"], form[data-form="task-quick"]');
@@ -2280,11 +2322,12 @@ function velocityCiz() {
 }
 
 // Sprinti kapatır: tamamlanan puanı geçmişe yazar, bitmeyen işleri yeni sprinte taşır
-function sprintBitir() {
+async function sprintBitir() {
   const sp = S.sprint;
   const p = sprintPuanlari();
   const bitmeyen = aktifSprintIsleri().filter(s => s.durum !== "done").length;
-  if (!confirm(`"${sp.ad}" bitirilsin mi?\n\nTamamlanan: ${p.biten}/${p.toplam} puan\n${bitmeyen} bitmemiş iş yeni sprinte taşınacak.`)) return;
+  if (!await onayIste({ baslik: `"${sp.ad}" bitirilsin mi?`, mesaj: `Tamamlanan: ${p.biten}/${p.toplam} puan\n${bitmeyen} bitmemiş iş yeni sprinte taşınacak.`, onay: "Sprinti bitir" })) return;
+  if (S.sprint !== sp) return; // beklerken başka cihazdan değişmiş
   S.sprintGecmis.push({ ad: sp.ad, bas: sp.bas, bit: sp.bit, biten: p.biten, toplam: p.toplam });
   if (S.sprintGecmis.length > 20) S.sprintGecmis.splice(0, S.sprintGecmis.length - 20);
   S.sprintIsleri.forEach(s => { if (!s.arsiv && s.durum === "done") s.arsiv = sp.ad; });
@@ -3433,10 +3476,13 @@ document.addEventListener("click", e => {
     if (bulutHesabiMi(db.aktif)) {
       // E-posta hesabı silinirken mevcut şifre istenir (hesap ve Firebase kaydı birlikte silinir)
       if (db.users[db.aktif].saglayici === "password") { sifrePenceresi("sil"); return; }
-      if (confirm("Buluttaki tüm verilerin kalıcı olarak silinecek ve bu işlem geri alınamaz.\n\nİstersen önce Ayarlar > \"Verilerimi indir\" ile yedek al. Devam edilsin mi?")) bulutHesabiSil();
+      onayIste({ baslik: "Hesabın silinsin mi?", mesaj: "Buluttaki tüm verilerin kalıcı olarak silinecek ve bu işlem geri alınamaz.\n\nİstersen önce Ayarlar > \"Verilerimi indir\" ile yedek al.", onay: "Hesabı sil", tehlikeli: true })
+        .then(ok => { if (ok) bulutHesabiSil(); });
       return;
     }
-    if (confirm("Hesabın ve tüm verilerin kalıcı olarak silinecek. Devam edilsin mi?")) { delete db.users[db.aktif]; cikis(); }
+    const silinecek = db.aktif;
+    onayIste({ baslik: "Hesabın silinsin mi?", mesaj: "Hesabın ve tüm verilerin kalıcı olarak silinecek.", onay: "Hesabı sil", tehlikeli: true })
+      .then(ok => { if (ok && db.aktif === silinecek) { delete db.users[db.aktif]; cikis(); } });
     return;
   }
 
@@ -3458,9 +3504,9 @@ document.addEventListener("click", e => {
     return;
   }
   if (e.target.closest("#notifClear")) {
-    if (confirm("Tüm bildirimleri silmek istediğine emin misin?")) {
-      S.notifications = []; bildirimCiz(); bildirimRozetiGuncelle(); kaydet();
-    }
+    onayIste({ baslik: "Tüm bildirimler silinsin mi?", onay: "Temizle", tehlikeli: true }).then(ok => {
+      if (ok && S) { S.notifications = []; bildirimCiz(); bildirimRozetiGuncelle(); kaydet(); }
+    });
     return;
   }
 
@@ -3468,8 +3514,10 @@ document.addEventListener("click", e => {
   const pomoTab = e.target.closest(".pomo-tab");
   if (pomoTab) {
     e.preventDefault();
-    if (pomo.calisiyor && !confirm("Çalışan pomodoro durdurulacak. Devam edilsin mi?")) return;
-    pomoModDegistir(pomoTab.dataset.mode);
+    const yeniMod = pomoTab.dataset.mode;
+    if (!pomo.calisiyor) { pomoModDegistir(yeniMod); return; }
+    onayIste({ baslik: "Pomodoro durdurulsun mu?", mesaj: "Çalışan sayaç durdurulup seçtiğin moda geçilecek.", onay: "Durdur ve geç" })
+      .then(ok => { if (ok) pomoModDegistir(yeniMod); });
     return;
   }
   if (e.target.closest("#pomoStart")) {
@@ -3510,11 +3558,12 @@ document.addEventListener("click", e => {
   }
   if (e.target.closest("#pomoResetStats")) {
     e.preventDefault();
-    if (confirm("Tüm pomodoro istatistikleri silinecek. Emin misin?")) {
+    onayIste({ baslik: "İstatistikler sıfırlansın mı?", mesaj: "Tüm pomodoro istatistikleri silinecek.", onay: "Sıfırla", tehlikeli: true }).then(ok => {
+      if (!ok || !S) return;
       if (S.pomo) S.pomo.stats = {};
       pomoStatsGuncelle();
       kaydet();
-    }
+    });
     return;
   }
 
@@ -3534,11 +3583,9 @@ document.addEventListener("click", e => {
     if (!id) { $("dlgDers").close(); return; }
     const d = bul("dersler", id);
     if (!d) { $("dlgDers").close(); return; }
-    if (confirm(`"${d.ad}" dersini silmek istediğine emin misin?`)) {
-      sil("dersler", id);
-      $("dlgDers").close();
-      ciz();
-    }
+    kayitSilGeriAl("dersler", id);
+    $("dlgDers").close();
+    ciz();
     return;
   }
 
@@ -3550,11 +3597,9 @@ document.addEventListener("click", e => {
     if (!id) { $("dlgSinav").close(); return; }
     const s = bul("sinavlar", id);
     if (!s) { $("dlgSinav").close(); return; }
-    if (confirm(`"${s.ad}" sınavını silmek istediğine emin misin?`)) {
-      sil("sinavlar", id);
-      $("dlgSinav").close();
-      ciz();
-    }
+    kayitSilGeriAl("sinavlar", id);
+    $("dlgSinav").close();
+    ciz();
     return;
   }
 
@@ -3566,11 +3611,9 @@ document.addEventListener("click", e => {
     if (!id) { $("dlgOdev").close(); return; }
     const o = bul("odevler", id);
     if (!o) { $("dlgOdev").close(); return; }
-    if (confirm(`"${o.ad}" ödevini silmek istediğine emin misin?`)) {
-      sil("odevler", id);
-      $("dlgOdev").close();
-      ciz();
-    }
+    kayitSilGeriAl("odevler", id);
+    $("dlgOdev").close();
+    ciz();
     return;
   }
 
@@ -3582,12 +3625,9 @@ document.addEventListener("click", e => {
     if (!id) { $("dlgYks").close(); return; }
     const d = bul("yksDenemeleri", id);
     if (!d) { $("dlgYks").close(); return; }
-    if (confirm(`"${d.ad}" denemesini silmek istediğine emin misin?`)) {
-      sil("yksDenemeleri", id);
-      $("dlgYks").close();
-      ciz();
-      kaydet();
-    }
+    kayitSilGeriAl("yksDenemeleri", id);
+    $("dlgYks").close();
+    ciz();
     return;
   }
 
@@ -3598,8 +3638,8 @@ document.addEventListener("click", e => {
     if (e.target.closest("#" + c.sil)) {
       e.preventDefault();
       const id = $(c.dlg).querySelector("[name=id]").value;
-      if (id && bul(c.list, id) && confirm("Bu kaydı silmek istediğine emin misin?")) {
-        sil(c.list, id);
+      if (id && bul(c.list, id)) {
+        kayitSilGeriAl(c.list, id);
         $(c.dlg).close();
         ciz();
       }
@@ -3658,11 +3698,8 @@ document.addEventListener("click", e => {
     e.stopPropagation();
     const d = bul("yksDenemeleri", yksDel.dataset.id);
     if (!d) return;
-    if (confirm(`"${d.ad}" denemesini silmek istediğine emin misin?`)) {
-      sil("yksDenemeleri", yksDel.dataset.id);
-      ciz();
-      kaydet();
-    }
+    kayitSilGeriAl("yksDenemeleri", yksDel.dataset.id);
+    ciz();
     return;
   }
 
@@ -3770,11 +3807,12 @@ document.addEventListener("click", e => {
   }
   if (e.target.closest("#btnClearDone")) {
     const sayi = (S.tasks || []).filter(t => t.done).length;
-    if (sayi === 0) { alert("Silinecek tamamlanmış görev yok."); return; }
-    if (confirm(`${sayi} tamamlanmış görev silinecek. Emin misin?`)) {
+    if (sayi === 0) { bilgiGoster("Silinecek tamamlanmış görev yok."); return; }
+    onayIste({ baslik: "Tamamlanan görevler silinsin mi?", mesaj: `${sayi} tamamlanmış görev silinecek.`, onay: "Sil", tehlikeli: true }).then(ok => {
+      if (!ok || !S) return;
       S.tasks = S.tasks.filter(t => !t.done);
       gorevlerCiz(); kanbanCiz(); kaydet();
-    }
+    });
     return;
   }
 
@@ -3998,12 +4036,13 @@ document.addEventListener("click", e => {
 temaUygula();
 
 if ($("setName")) $("setName").onchange =e => { const ad = e.target.value.trim().slice(0, 30); if (ad && S) { S.name = ad; ciz(); } };
-if ($("reset")) $("reset").onclick = () => {
-  if (confirm("Bu hesabın tüm verileri silinecek. Devam edilsin mi?")) {
-    db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
-    $("settingsDlg").close();
-    ciz();
-  }
+if ($("reset")) $("reset").onclick = async () => {
+  const hesap = db.aktif;
+  if (!await onayIste({ baslik: "Tüm veriler sıfırlansın mı?", mesaj: "Bu hesabın tüm verileri silinecek. Bu işlem geri alınamaz.", onay: "Sıfırla", tehlikeli: true })) return;
+  if (!S || db.aktif !== hesap) return;
+  db.users[db.aktif].data = S = yeniVeri(S.mode, S.name);
+  $("settingsDlg").close();
+  ciz();
 };
 // ================= YEDEKLE / GERİ YÜKLE =================
 // Tüm hesap verisini bir JSON dosyası olarak indirir; aynı dosyadan geri yüklenebilir.
@@ -4084,15 +4123,17 @@ if ($("yedekYukle")) $("yedekYukle").onclick =() => { if ($("yedekDosya")) { $("
 if ($("yedekDosya")) $("yedekDosya").onchange = async e => {
   const dosya = e.target.files && e.target.files[0];
   if (!dosya || !S) return;
-  if (dosya.size > 5 * 1024 * 1024) { alert("Dosya çok büyük; bu bir AYVEX yedeği değil gibi görünüyor."); return; }
+  if (dosya.size > 5 * 1024 * 1024) { bilgiGoster("Dosya çok büyük; bu bir AYVEX yedeği değil gibi görünüyor."); return; }
   let icerik;
-  try { icerik = JSON.parse(await dosya.text()); } catch (err) { alert("Dosya okunamadı: geçerli bir yedek dosyası değil."); return; }
-  if (!icerik || icerik.uygulama !== "AYVEX" || !icerik.veri) { alert("Bu dosya bir AYVEX yedeği değil."); return; }
+  try { icerik = JSON.parse(await dosya.text()); } catch (err) { bilgiGoster("Dosya okunamadı: geçerli bir yedek dosyası değil."); return; }
+  if (!icerik || icerik.uygulama !== "AYVEX" || !icerik.veri) { bilgiGoster("Bu dosya bir AYVEX yedeği değil."); return; }
   const v = veriOnar(icerik.veri, S.mode, S.name);
-  if (!gecerli(v)) { alert("Yedek dosyasındaki veri bozuk ya da eksik."); return; }
+  if (!gecerli(v)) { bilgiGoster("Yedek dosyasındaki veri bozuk ya da eksik."); return; }
   const tarih = icerik.tarih ? new Date(icerik.tarih).toLocaleString("tr-TR") : "bilinmiyor";
   const modUyari = v.mode !== S.mode ? `\n\nDikkat: yedek ${v.mode === "work" ? "Çalışan" : "Öğrenci"} modunda; hesabın bu moda geçecek.` : "";
-  if (!confirm(`Yedek tarihi: ${tarih}\n\nMevcut tüm verilerin bu yedektekilerle değiştirilecek.${modUyari}\n\nDevam edilsin mi?`)) return;
+  const hesap = db.aktif;
+  if (!await onayIste({ baslik: "Yedek geri yüklensin mi?", mesaj: `Yedek tarihi: ${tarih}\n\nMevcut tüm verilerin bu yedektekilerle değiştirilecek.${modUyari}`, onay: "Geri yükle", tehlikeli: true })) return;
+  if (!S || db.aktif !== hesap) return;
   const h = db.users[db.aktif];
   const eski = h.data, eskiTur = h.tur;
   $("settingsDlg").close();
@@ -4109,11 +4150,11 @@ if ($("yedekDosya")) $("yedekDosya").onchange = async e => {
     clearTimeout(kaydetZamani); clearTimeout(bulutZamani); bulutZamani = null;
     h.data = eski; h.tur = eskiTur; S = eski;
     modUygula(); goView("home"); ciz();
-    alert("Yedek dosyasındaki veri bozuk olduğu için yüklenemedi. Mevcut verilerin değişmedi.");
+    bilgiGoster("Yedek dosyasındaki veri bozuk olduğu için yüklenemedi. Mevcut verilerin değişmedi.");
     return;
   }
   dbYaz();
-  alert("Yedek geri yüklendi.");
+  bilgiGoster("Yedek geri yüklendi.");
 };
 
 if ($("userBox")) $("userBox").onclick = () => acProfil();
@@ -4488,7 +4529,7 @@ async function cikis(mesaj) {
     bulutKaydetHemen();
     if (bulutHazir() && !mesaj) {
       const gitti = await window.AYVEX_BULUT.bekleyenleriGonder();
-      if (!gitti && !confirm("Bazı değişiklikler henüz buluta gönderilemedi (internet bağlantısı olmayabilir).\n\nYine de çıkılsın mı? Gönderilmemiş değişiklikler kaybolabilir.")) return;
+      if (!gitti && !await onayIste({ baslik: "Yine de çıkılsın mı?", mesaj: "Bazı değişiklikler henüz buluta gönderilemedi (internet bağlantısı olmayabilir). Gönderilmemiş değişiklikler kaybolabilir.", onay: "Çıkış yap", tehlikeli: true })) return;
     }
   }
   document.body.removeAttribute("data-logged-in");
@@ -4508,7 +4549,7 @@ async function cikis(mesaj) {
 
 async function bulutHesabiSil() {
   const id = db.aktif;
-  if (!bulutHazir()) { alert("Bulut bağlantısı yok. İnternet bağlantını kontrol edip tekrar dene."); return; }
+  if (!bulutHazir()) { bilgiGoster("Bulut bağlantısı yok. İnternet bağlantını kontrol edip tekrar dene."); return; }
   try {
     clearTimeout(bulutZamani); bulutZamani = null;
     S = null;
@@ -4517,7 +4558,7 @@ async function bulutHesabiSil() {
     db.aktif = null; dbYaz();
     location.reload();
   } catch (e) {
-    alert("Bulut verilerin silinemedi: " + (e.message || e));
+    bilgiGoster("Bulut verilerin silinemedi: " + (e.message || e));
     location.reload();
   }
 }
