@@ -21,6 +21,8 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const gunEtiket = k => { const [y, m, d] = k.split("-"); return `${+d} ${aylar[+m - 1]} ${y}`; };
 const saatDk = s => { const [h, m] = (s || "00:00").split(":"); return (+h || 0) * 60 + (+m || 0); };
+// Kayıt kimliği: sadece harf, rakam, - ve _ (HTML niteliklerine güvenle yazılabilsin)
+const guvenliId = id => typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id);
 // "YYYY-MM-DD" metnini YEREL gece yarısı olarak okur. (new Date("2026-01-05") UTC olarak okunur
 // ve bazı saat dilimlerinde bir gün kaymaya yol açar.)
 const tarihOku = s => {
@@ -115,8 +117,13 @@ function veriOnar(v, tur, ad) {
   // eksik sınav) çizimi çökertip hesabı kalıcı olarak bozuyordu.
   DIZI.forEach(k => {
     v[k] = Array.isArray(v[k]) ? v[k].filter(x => x && typeof x === "object" && !Array.isArray(x)) : [];
-    if (k !== "notifications") v[k].forEach(x => { if (typeof x.id !== "string" || !x.id) x.id = uid(); });
+    if (k !== "notifications") v[k].forEach(x => { if (!guvenliId(x.id)) x.id = uid(); });
   });
+  // Kayıtlar arası bağlantılar da güvenli kimlik olmalı (kimlikler HTML niteliklerine kaçışsız yazılıyor;
+  // elle değiştirilmiş bir yedekteki tırnak işaretli bir kimlik sayfaya kod sızdırabilirdi)
+  ["tasks", "sprintIsleri", "toplantilar"].forEach(k => v[k].forEach(x => { if (x.proje && !guvenliId(x.proje)) x.proje = ""; }));
+  v.tasks.forEach(t => { if (t.sonraki != null && !guvenliId(t.sonraki)) delete t.sonraki; });
+  if (v.pomo && v.pomo.bind && !guvenliId(v.pomo.bind.id)) v.pomo.bind = null;
   const tarihMi = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
   const saatMi = s => typeof s === "string" && /^\d{1,2}:\d{2}$/.test(s);
   const metin = (x, alan) => { if (typeof x[alan] !== "string") x[alan] = x[alan] == null ? "" : String(x[alan]); };
@@ -141,7 +148,7 @@ function veriOnar(v, tur, ad) {
       metin(e, "t");
       if (!saatMi(e.time)) e.time = "00:00";
       if (typeof e.type !== "string" || !e.type) e.type = "Etkinlik";
-      if (typeof e.id !== "string") e.id = uid();
+      if (!guvenliId(e.id)) e.id = uid();
     });
   });
   if (typeof v.avatar !== "number") v.avatar = 0;
@@ -165,7 +172,7 @@ function veriOnar(v, tur, ad) {
     if (t.tekrarGun != null && !(+t.tekrarGun >= 1 && +t.tekrarGun <= 31)) delete t.tekrarGun;
     if (t.alt != null) {
       t.alt = Array.isArray(t.alt) ? t.alt.filter(a => a && typeof a === "object") : [];
-      t.alt.forEach(a => { metin(a, "t"); a.done = !!a.done; if (typeof a.id !== "string" || !a.id) a.id = uid(); });
+      t.alt.forEach(a => { metin(a, "t"); a.done = !!a.done; if (!guvenliId(a.id)) a.id = uid(); });
     }
     if (t.odakDk != null && !(+t.odakDk >= 0)) delete t.odakDk;
   });
@@ -755,6 +762,19 @@ function silmeYedegi(list, id) {
   }
   return yedek;
 }
+// Bildirimi göster ve ekranın en üst katmanına al: açık bir pencere (dialog) varken bile onun
+// üstünde görünsün (eskiden pencerenin arkasında kalıyordu). popover desteklenmeyen eski
+// tarayıcılarda normal sabit konumlu kutu olarak kalır.
+function toastAc(t) {
+  t.hidden = false;
+  if (t.showPopover) {
+    try { if (t.matches(":popover-open")) t.hidePopover(); t.showPopover(); } catch (e) {}
+  }
+}
+function toastKapat(t) {
+  if (t.hidePopover) { try { if (t.matches(":popover-open")) t.hidePopover(); } catch (e) {} }
+  t.hidden = true;
+}
 function geriAlGoster(mesaj, yedek, kayit) {
   const t = $("toast");
   if (!t || !yedek) return;
@@ -762,14 +782,14 @@ function geriAlGoster(mesaj, yedek, kayit) {
   const ad = kayit && (kayit.t || kayit.baslik || kayit.ad || kayit.n);
   $("toastMetin").textContent = ad ? `${mesaj}: ${String(ad).slice(0, 40)}` : mesaj;
   if ($("toastGeriAl")) $("toastGeriAl").hidden = false;
-  t.hidden = false;
+  toastAc(t);
   clearTimeout(geriAlZamani);
   geriAlZamani = setTimeout(geriAlKapat, 6000);
 }
 function geriAlKapat() {
   clearTimeout(geriAlZamani);
   geriAlVerisi = null;
-  if ($("toast")) $("toast").hidden = true;
+  if ($("toast")) toastKapat($("toast"));
 }
 // Geri al düğmesi olmadan kısa bilgi mesajı (ör. "Görev eklendi", "Görev adı boş olamaz")
 function bilgiGoster(mesaj) {
@@ -778,7 +798,7 @@ function bilgiGoster(mesaj) {
   geriAlVerisi = null;
   $("toastMetin").textContent = mesaj;
   if ($("toastGeriAl")) $("toastGeriAl").hidden = true;
-  t.hidden = false;
+  toastAc(t);
   clearTimeout(geriAlZamani);
   geriAlZamani = setTimeout(geriAlKapat, 3000);
 }
@@ -1217,18 +1237,21 @@ function pomoKaydet(tamamlananMod) {
   if (!S.pomo) S.pomo = { ...POMO_DEFAULTS, stats: {}, bind: null };
   if (!S.pomo.stats) S.pomo.stats = {};
   if (tamamlananMod === "focus") {
-    const b = S.pomo.stats[todayKey] || { sayi: 0, dk: 0 };
+    // Turun bittiği günün anahtarı (sayfa gece yarısından önce açıldıysa todayKey eski kalır)
+    const gun = tarihKey(new Date());
+    const b = S.pomo.stats[gun] || { sayi: 0, dk: 0 };
     b.sayi += 1;
-    const dk = (+pomoAyarlari().focus || 25);
+    // Ayardaki değil, bu turun başladığı andaki gerçek süre (tur sırasında ayar değişebilir)
+    const dk = Math.max(1, Math.round((+pomo.toplam || 0) / 60)) || (+pomoAyarlari().focus || 25);
     b.dk += dk;
-    S.pomo.stats[todayKey] = b;
+    S.pomo.stats[gun] = b;
     // Pomodoro bir göreve bağlıysa, odak süresini o göreve de yaz (görev başına toplam çalışma)
     if (S.pomo.bind && S.pomo.bind.tip === "gorev") {
       const g = (S.tasks || []).find(t => t.id === S.pomo.bind.id);
       if (g) { g.odakDk = (+g.odakDk || 0) + dk; g.pomo = (+g.pomo || 0) + 1; }
     }
     pomo.tur += 1;
-    bildirimEkle("success", "Pomodoro tamamlandı 🍅", `Bir odak turu bitti. Toplam: ${b.sayi}`, "pomo-" + todayKey + "-" + b.sayi);
+    bildirimEkle("success", "Pomodoro tamamlandı 🍅", `Bir odak turu bitti. Toplam: ${b.sayi}`, "pomo-" + gun + "-" + b.sayi);
   }
   kaydet();
 }
@@ -1333,6 +1356,8 @@ function pomoBitti(tamamlandi) {
   }
   if (tamamlandi && a.auto === "on") setTimeout(() => pomoBaslat(), 600);
   document.title = SAYFA_BASLIGI;
+  // Odak süresi, görevin ⏱️ süresi, seri ve aylık rapor hemen güncellensin
+  if (tamamlandi && S) ciz();
 }
 function pomoBindRender() {
   const btn = document.querySelector(".pomo-bind-btn");
@@ -2602,7 +2627,7 @@ function gorevlerCiz() {
     liste.innerHTML = gosterilecek.map(t => {
       const p = gorevOncelik(t.p);
       return `<li class="task-item pri-${p} ${t.done ? "done" : ""}" data-task-id="${t.id}">
-        <input type="checkbox" ${t.done ? "checked" : ""} data-act="task-toggle" data-id="${t.id}" aria-label="Tamamla">
+        <input type="checkbox" ${t.done ? "checked" : ""} data-act="task-toggle" data-id="${t.id}" aria-label="${esc(t.done ? "Tamamlanmadı olarak işaretle: " : "Tamamla: ")}${esc(t.t)}">
         <div class="task-body">
           <div class="task-text" data-rename data-list="tasks" data-id="${t.id}" data-field="t" title="Çift tıkla: düzenle">${esc(t.t)}</div>
           <div class="task-meta">
@@ -2898,7 +2923,7 @@ function yksKonuCiz() {
       </button>
       ${acik ? `<div class="yk-konular">${YKS_KONULAR[ykSinav][d].map(k => {
         const durum = (S.yksKonu || {})[ykAnahtar(ykSinav, d, k)] || "";
-        return `<button type="button" class="yk-konu yk-${durum || "bos"}" data-yk-konu="${esc(k)}" data-yk-d="${esc(d)}" title="${YK_ETIKET[durum]}: dokununca değişir">${esc(k)}</button>`;
+        return `<button type="button" class="yk-konu yk-${durum || "bos"}" data-yk-konu="${esc(k)}" data-yk-d="${esc(d)}" title="${YK_ETIKET[durum]}: dokununca değişir" aria-label="${esc(k)}: ${YK_ETIKET[durum]}">${esc(k)}</button>`;
       }).join("")}</div>` : ""}
     </div>`;
   }).join("");
@@ -2970,8 +2995,11 @@ function bugunAkisi() {
     saat: "", ikon: "", baslik: t.t, alt: t.son < todayKey ? `Gecikti · ${gunEtiket(t.son)}` : "Son gün bugün",
     tur: "gorev", gorev: t, gecikti: t.son < todayKey,
   }));
-  // Saatliler saat sırasıyla önce, saatsizler (görev, teslim) sonra
-  return ogeler.sort((a, b) => (a.saat ? 0 : 1) - (b.saat ? 0 : 1) || (a.saat || "").localeCompare(b.saat || ""));
+  // Saatliler saat sırasıyla önce (dakikaya çevrilerek: "9:00" metin olarak "10:00"dan sonra gelirdi),
+  // saatsizler sonra; görevlerde en eski son tarih (en çok gecikmiş) önce
+  return ogeler.sort((a, b) => (a.saat ? 0 : 1) - (b.saat ? 0 : 1)
+    || (a.saat && b.saat ? saatDk(a.saat) - saatDk(b.saat) : 0)
+    || ((a.gorev && a.gorev.son) || "").localeCompare((b.gorev && b.gorev.son) || ""));
 }
 function bugunCiz() {
   const akisEl = $("bugunAkis");
@@ -3004,7 +3032,7 @@ function bugunCiz() {
     const gecti = o.saat && (o.bitis ? saatDk(o.bitis) : saatDk(o.saat) + 60) < simdiDk;
     const suAn = o.saat && o.bitis && saatDk(o.saat) <= simdiDk && simdiDk < saatDk(o.bitis);
     const sol = o.tur === "gorev"
-      ? `<input type="checkbox" data-act="task-toggle" data-id="${o.gorev.id}" aria-label="Tamamla">`
+      ? `<input type="checkbox" data-act="task-toggle" data-id="${o.gorev.id}" aria-label="Tamamla: ${esc(o.baslik)}">`
       : `<span class="ba-ikon">${o.ikon}</span>`;
     return `<li class="bugun-oge tur-${o.tur} ${o.vurgu ? "vurgu" : ""} ${o.gecikti ? "gecikti" : ""} ${gecti ? "gecti" : ""} ${suAn ? "su-an" : ""}">
       <span class="ba-saat">${o.saat ? esc(o.saat) + (o.bitis ? `<small>${esc(o.bitis)}</small>` : "") : "—"}</span>
@@ -3760,6 +3788,13 @@ document.addEventListener("click", e => {
       if (opener.dataset.open === "dlgEvent") form.dataset.day = opener.dataset.day || "today";
       const selEl = form.querySelector("select[name=type]");
       if (selEl) selEl.innerHTML = M().tur.map(t => `<option>${t}</option>`).join("");
+      if (opener.dataset.open === "dlgEvent") {
+        // Tarih alanı: takvimden açıldıysa seçili gün, başka yerden (ör. hızlı ekle) açıldıysa bugün
+        const gunEl = form.querySelector("[name=gun]");
+        if (gunEl) gunEl.value = form.dataset.day === "sel" ? sel : todayKey;
+        // Tür varsayılanı "Etkinlik" (eskiden listedeki ilk seçenek "Ders" / "Toplantı" geliyordu)
+        if (selEl && [...selEl.options].some(o => o.value === "Etkinlik")) selEl.value = "Etkinlik";
+      }
     }
     if (opener.dataset.open === "pomodoroAyarDlg") pomoAyarFormDoldur();
     guvenliAc(dlg);
@@ -4026,17 +4061,47 @@ document.addEventListener("input", e => {
   kaydet();
 });
 
+// Çift tıklayınca yerinde düzenleme: metin bir giriş kutusuna dönüşür. Enter ya da dışarı tıklama
+// kaydeder, Esc vazgeçer. (Eskiden tarayıcının prompt() kutusu kullanılıyordu; bazı ortamlarda
+// engelleniyor ve telefonda kullanışsızdı.)
 function adDegistir(e) {
-  const el = e.target.closest("[data-rename]");
-  if (!el) return;
+  const el = e.target.closest && e.target.closest("[data-rename]");
+  if (!el || el.querySelector(".yerinde-duzenle")) return;
   const item = bul(el.dataset.list, el.dataset.id);
   if (!item) return;
-  const yeni = prompt("Yeni metin:", item[el.dataset.field]);
-  if (yeni && yeni.trim()) {
-    item[el.dataset.field] = yeni.trim();
-    ciz();
-    if (el.dataset.list === "tasks") { gorevlerCiz(); kanbanCiz(); }
-  }
+  const alan = el.dataset.field;
+  const giris = document.createElement("input");
+  giris.type = "text";
+  giris.className = "yerinde-duzenle";
+  giris.value = item[alan] || "";
+  giris.maxLength = 200;
+  giris.setAttribute("aria-label", "Yeni ad");
+  const eski = el.innerHTML;
+  el.innerHTML = "";
+  el.appendChild(giris);
+  giris.focus();
+  giris.select();
+  let bitti = false;
+  const bitir = kaydetsin => {
+    if (bitti) return;
+    bitti = true;
+    const yeni = giris.value.trim();
+    if (kaydetsin && yeni && yeni !== item[alan]) {
+      item[alan] = yeni;
+      kaydet();
+      ciz();
+      if (el.dataset.list === "tasks") { gorevlerCiz(); kanbanCiz(); }
+    } else {
+      el.innerHTML = eski;
+    }
+  };
+  giris.addEventListener("keydown", ev => {
+    if (ev.key === "Enter") { ev.preventDefault(); bitir(true); }
+    else if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); bitir(false); }
+  });
+  giris.addEventListener("blur", () => bitir(true));
+  // Kutunun içindeki tıklamalar satırın kendi davranışlarını (seçme, sürükleme) tetiklemesin
+  giris.addEventListener("click", ev => ev.stopPropagation());
 }
 document.addEventListener("dblclick", adDegistir);
 
@@ -4085,7 +4150,7 @@ document.addEventListener("submit", e => {
 
   switch (f.dataset.form) {
     case "ev": {
-      const k = (f.dataset.day === "today") ? todayKey : sel;
+      const k = /^\d{4}-\d{2}-\d{2}$/.test(v.gun || "") ? v.gun : (f.dataset.day === "today") ? todayKey : sel;
       (S.events[k] = S.events[k] || []).push({ id, t: v.t.trim(), time: v.time, type: v.type });
       break;
     }

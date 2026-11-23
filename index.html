@@ -40,7 +40,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- SÜRÜM: CSS/JS dosyaları her değiştiğinde buradaki ve sayfa sonundaki ?v= değerini
        (tarih.sıra biçiminde) birlikte artır. Tarayıcılar yeni dosyaları önbelleğe takılmadan indirir. -->
-  <link rel="stylesheet" href="dashboard.css?v=20261122.15">
+  <link rel="stylesheet" href="dashboard.css?v=20261123.1">
 </head>
 <body>
   <!-- ============ SVG İKON SPRITE ============ -->
@@ -1333,7 +1333,10 @@
     <div class="dlg-head"><h2>Etkinlik Ekle</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
     <form data-form="ev" data-day="today" class="dialog-form">
       <label class="fld">Başlık<input name="t" placeholder="Örn: Fizik dersi" required></label>
-      <label class="fld">Saat<input type="time" name="time" required></label>
+      <div class="fld-row">
+        <label class="fld">Tarih<input type="date" name="gun" required></label>
+        <label class="fld">Saat<input type="time" name="time" required></label>
+      </div>
       <label class="fld">Tür<select name="type"></select></label>
       <div class="dialog-actions">
         <button type="button" class="btn-ghost" data-dialog-close>İptal</button>
@@ -1565,12 +1568,12 @@
   </dialog>
 
   <!-- Silme sonrası "Geri al" bildirimi -->
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+  <div class="toast" id="toast" role="status" aria-live="polite" popover="manual" hidden>
     <span id="toastMetin"></span>
     <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
   </div>
 
-  <script src="dashboard.js?v=20261122.15"></script>
-  <script type="module" src="bulut.js?v=20261122.15"></script>
+  <script src="dashboard.js?v=20261123.1"></script>
+  <script type="module" src="bulut.js?v=20261123.1"></script>
 </body>
 </html>

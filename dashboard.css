@@ -26,7 +26,7 @@
 
   --ink:#0e2630;
   --ink-2:#3b5663;
-  --ink-3:#7c96a2;
+  --ink-3:#587180; /* AA 4.5:1 üstü (eski #7c96a2 beyaz üstünde 3.1:1 idi) */
 
   --shadow-sm:0 1px 2px rgba(10,42,53,.06),0 1px 3px rgba(10,42,53,.04);
   --shadow-md:0 2px 6px rgba(10,42,53,.06),0 8px 24px rgba(10,42,53,.06);
@@ -1813,3 +1813,13 @@ body.kanban-surukle *{cursor:grabbing !important}
   .yk-ders-bas{grid-template-columns:minmax(0,1fr) auto 16px;row-gap:6px}
   .yk-ders-bar{grid-column:1 / -1;grid-row:2}
 }
+/* Bildirim üst katmanda (popover) açılınca tarayıcının varsayılan popover stilleri (inset:0, kenarlık) devreye girmesin */
+.toast[popover]{top:auto;border:0;overflow:visible;color:#fff}
+/* Çift tıklayınca yerinde ad düzenleme */
+.yerinde-duzenle{width:100%;font:inherit;color:var(--ink);background:var(--surface);border:2px solid var(--teal);border-radius:var(--r-sm);padding:4px 8px;outline:none}
+/* "Gecikti" yazısı küçük metin için yeterince koyu kırmızı (AA) */
+.bugun-oge.gecikti .ba-metin small{color:#c0392b}
+:root[data-tema="koyu"] .bugun-oge.gecikti .ba-metin small{color:#ff8a7a}
+/* Kapalı bildirim paneli klavyeyle (Tab) de ulaşılamaz olsun */
+.notif-panel:not(.on){visibility:hidden;transition:opacity var(--t),transform var(--t),visibility 0s linear .25s}
+.notif-panel.on{visibility:visible;transition:opacity var(--t),transform var(--t),visibility 0s}
