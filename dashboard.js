@@ -387,10 +387,24 @@ function uzakVeriyiUygula(veriMetni) {
 // Google ya da e-posta girişinden sonra hesabı aç. E-posta hesabı doğrulanmadıysa
 // uygulamaya girilmez, doğrulama ekranı gösterilir (Firestore kuralları da bunu zorunlu kılar).
 let oturumAciliyor = false; // aynı anda iki akış (ör. form + onAuthStateChanged) hesabı açmasın
+// "Google ile devam et" düğmesinde bekleme durumu: Google penceresi ve veri yüklenirken
+// kullanıcı bir şeylerin olduğunu görsün (eskiden 2–3 sn hiçbir şey olmuyormuş gibi duruyordu).
+function googleBekliyor(acik) {
+  const b = $("googleGiris");
+  if (!b) return;
+  const yazi = b.querySelector("span");
+  if (yazi && !b.dataset.metin) b.dataset.metin = yazi.textContent;
+  b.disabled = acik;
+  b.classList.toggle("bekliyor", acik);
+  b.setAttribute("aria-busy", String(acik));
+  if (yazi) yazi.textContent = acik ? "Giriş yapılıyor…" : b.dataset.metin;
+  if (!acik) { try { sessionStorage.removeItem("ayvex-giris-yonlendirme"); } catch (e) {} }
+}
 async function googleOturumAc(sonuc) {
   if (!sonuc || !sonuc.kullanici || oturumAciliyor || S) return;
   oturumAciliyor = true;
-  try { await oturumAcIc(sonuc); } finally { oturumAciliyor = false; }
+  googleBekliyor(true);
+  try { await oturumAcIc(sonuc); } finally { oturumAciliyor = false; googleBekliyor(false); }
 }
 async function oturumAcIc(sonuc) {
   const { kullanici, uzak } = sonuc;
@@ -488,6 +502,8 @@ window.AYVEX = {
     }
   },
   googleGirisSonucu: sonuc => { if (!PAYLASIM_ID) googleOturumAc(sonuc); },
+  // Yönlendirmeli girişten kullanıcı olmadan dönüldüyse (vazgeçti / hata) bekleme göstergesini kapat
+  googleBeklemeBitti: () => googleBekliyor(false),
   uzakVeriGeldi: veri => { if (!PAYLASIM_ID) uzakVeriyiUygula(veri); },
   bulutDurum(d) { bulutDurumu = d || {}; bulutDurumCiz(); },
 };
@@ -3328,11 +3344,12 @@ document.addEventListener("click", e => {
     e.preventDefault();
     const msg = girisMesaji;
     if (!bulutHazir()) { msg("Bulut bağlantısı yüklenemedi. İnternet bağlantını kontrol edip sayfayı yenile."); return; }
-    gBtn.disabled = true; msg("");
+    msg("");
+    googleBekliyor(true);
     window.AYVEX_BULUT.girisYap()
       .then(googleOturumAc)
       .catch(err => { console.warn("[AYVEX] Google girişi:", err); msg(authHataMetni(err)); })
-      .finally(() => { gBtn.disabled = false; });
+      .finally(() => googleBekliyor(false));
     return;
   }
 
@@ -4448,6 +4465,8 @@ async function bulutHesabiSil() {
 try {
   girisModu("student");
   authCiz();
+  // Google'dan yönlendirmeyle dönüldüyse giriş tamamlanana kadar düğmede "Giriş yapılıyor…" göster
+  try { if (sessionStorage.getItem("ayvex-giris-yonlendirme") === "1") googleBekliyor(true); } catch (e) {}
   try {
     const m = sessionStorage.getItem("ayvex-giris-mesaji");
     if (m) { girisMesaji(m); sessionStorage.removeItem("ayvex-giris-mesaji"); }

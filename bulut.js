@@ -93,6 +93,8 @@ async function kullaniciVerisi(user) {
 async function girisYap() {
   const saglayici = new GoogleAuthProvider();
   saglayici.setCustomParameters({ prompt: "select_account" });
+  // Kullanıcı Google penceresindeyken veritabanı kütüphanesini paralel indir (dönüşte beklenmesin)
+  firestore().catch(() => {});
   try {
     const sonuc = await signInWithPopup(auth, saglayici);
     return await kullaniciVerisi(sonuc.user);
@@ -103,6 +105,8 @@ async function girisYap() {
     // için tarayıcılar depolamayı ayırmaz. Başka bir alan adında (eski github.io) yönlendirme dönüşünde
     // oturum sessizce kaybolduğu için orada hata çağırana iletilir ve kullanıcıya ne yapacağı söylenir.
     if (AYNI_ALAN_ADI_GIRIS && e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
+      // Dönüşte sayfa yeniden açılınca "giriş sürüyor" göstermek ve kütüphaneyi hemen indirmek için işaret
+      try { sessionStorage.setItem("ayvex-giris-yonlendirme", "1"); } catch (err) {}
       await signInWithRedirect(auth, saglayici);
       return null;
     }
@@ -277,9 +281,30 @@ window.AYVEX_BULUT = {
 window.dispatchEvent(new Event("ayvex-bulut-hazir"));
 
 // Yönlendirmeyle yapılan girişin sonucu (açılır pencere engellendiyse)
+const beklemeBitti = () => { if (window.AYVEX && window.AYVEX.googleBeklemeBitti) window.AYVEX.googleBeklemeBitti(); };
 getRedirectResult(auth)
-  .then(async sonuc => { if (sonuc && sonuc.user && window.AYVEX) window.AYVEX.googleGirisSonucu(await kullaniciVerisi(sonuc.user)); })
-  .catch(e => console.error("[AYVEX] yönlendirme sonucu hatası:", e));
+  .then(async sonuc => {
+    if (sonuc && sonuc.user && window.AYVEX) window.AYVEX.googleGirisSonucu(await kullaniciVerisi(sonuc.user));
+    else beklemeBitti();
+  })
+  .catch(e => { console.error("[AYVEX] yönlendirme sonucu hatası:", e); beklemeBitti(); });
+
+// Veritabanı kütüphanesini (~440 KB) ne zaman indirelim?
+// - Yönlendirmeli girişten dönülüyorsa ya da bu cihazda bulut hesabı açıksa: hemen (auth ile paralel).
+// - Aksi halde: giriş ekranı çizildikten sonra tarayıcı boşta kalınca. İlk ekranın hızı etkilenmez,
+//   ama kullanıcı "Google ile devam et"e bastığında kütüphane çoğunlukla hazır olur (eskiden giriş
+//   dönüşünde indirilmeye başlıyordu ve telefonda 2–3 sn bekletiyordu).
+(function veritabaniOnYukle() {
+  let hemen = false;
+  try {
+    hemen = sessionStorage.getItem("ayvex-giris-yonlendirme") === "1" ||
+      // dashboard.js'in yerel kaydı (DB_KEY = "planla-v3"); bulut hesapları "g:" ile başlar
+      String((JSON.parse(localStorage.getItem("planla-v3") || "{}") || {}).aktif || "").startsWith("g:");
+  } catch (e) {}
+  if (hemen) { firestore().catch(() => {}); return; }
+  const bostaYukle = () => (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => firestore().catch(() => {}), { timeout: 4000 });
+  if (document.readyState === "complete") bostaYukle(); else addEventListener("load", bostaYukle, { once: true });
+})();
 
 onAuthStateChanged(auth, user => {
   // Oturum açıksa veritabanı kütüphanesini hemen yüklemeye başla (veri okunurken beklenmesin)

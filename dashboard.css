@@ -1076,12 +1076,12 @@ body[data-mode="work"]{
 
 /* ============ GİRİŞ EKRANI (tanıtım paneli + moda göre renk) ============ */
 #auth{
-  --ob-accent:#1f9d55; --ob-accent-dark:#0f5136; --ob-tint:#e7f6ec; --ob-tint-2:#d3eedc;
+  --ob-accent:#18804a; --ob-accent-dark:#0f5136; --ob-tint:#e7f6ec; --ob-tint-2:#d3eedc;
   --ob-ink:#0b1d26;
   background:radial-gradient(circle at 15% 20%,var(--ob-tint-2),transparent 55%),radial-gradient(circle at 85% 85%,var(--ob-tint),transparent 50%),var(--bg);
   transition:background-color var(--t-slow);
 }
-#auth[data-tur="work"]{--ob-accent:#d97706; --ob-accent-dark:#92400e; --ob-tint:#fdf1e1; --ob-tint-2:#fbe3c2}
+#auth[data-tur="work"]{--ob-accent:#b45309; --ob-accent-dark:#92400e; --ob-tint:#fdf1e1; --ob-tint-2:#fbe3c2}
 .onboard-shell{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);width:min(980px,100%);background:var(--surface);border-radius:var(--r-xl);box-shadow:var(--shadow-lg);border:1px solid var(--border-2);overflow:hidden}
 .onboard-brand{background:var(--ob-tint);padding:var(--s8);display:flex;flex-direction:column;gap:var(--s5);transition:background-color var(--t-slow);position:relative}
 .onboard-brand .brand-logo{width:min(220px,70%)}
@@ -1832,3 +1832,12 @@ body.kanban-surukle *{cursor:grabbing !important}
   .bugun-selam{flex:1;text-align:center}
   .bugun-rozetler{justify-content:center}
 }
+
+/* Google ile giriş beklerken: düğmede dönen gösterge */
+.google-btn.bekliyor{cursor:progress;opacity:.85}
+.google-btn.bekliyor svg{animation:googleDon 1s linear infinite}
+@keyframes googleDon{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.google-btn.bekliyor svg{animation:none}}
+/* Koyu modda giriş ekranının sol tanıtım paneli açık renkli kalır: içindeki yazılar da açık temanın
+   koyu tonlarını kullansın (pasif "Çalışan/Öğrenci" düğmesi açık zeminde açık gri kalıyordu, 1.9:1) */
+:root[data-tema="koyu"] .onboard-brand{--ink:#0e2630;--ink-2:#3b5663;--ink-3:#587180}
