@@ -852,25 +852,56 @@ p{line-height:1.55}
 .stat-label{font-size:.72rem;color:var(--ink-3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 
 .haftalik-grid-wrap{overflow-x:auto;border:1px solid var(--border-2);border-radius:var(--r-lg);background:var(--surface);padding:var(--s3)}
-.haftalik-grid{display:grid;grid-template-columns:60px repeat(7,minmax(120px,1fr));gap:4px;min-width:900px}
+/* Haftalık tablo: her satır 5 dakika (satır aralığı yok), saat çizgileri hücrelerin üst kenarı */
+.haftalik-grid{display:grid;grid-template-columns:60px repeat(7,minmax(120px,1fr));column-gap:4px;row-gap:0;min-width:900px}
 .hg-bos{background:transparent}
-.hg-gun-head{text-align:center;font-weight:700;font-size:.78rem;padding:8px 4px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border)}
-.hg-gun-head.bugun{color:var(--teal);border-bottom-color:var(--teal)}
-.hg-saat{font-size:.72rem;font-weight:600;color:var(--ink-3);text-align:right;padding:6px 8px;display:flex;align-items:flex-start;justify-content:flex-end;font-variant-numeric:tabular-nums}
-.hg-hucre{min-height:60px;border-radius:var(--r-sm);background:var(--surface-2);border:1px solid var(--border-2)}
-.hg-ders{border-radius:var(--r-sm);padding:6px 8px;font-size:.72rem;font-weight:600;color:#fff;cursor:pointer;display:flex;flex-direction:column;gap:2px;overflow:hidden}
-.hg-ders:hover{transform:scale(1.02);box-shadow:var(--shadow-md)}
-.hg-ders .hg-ders-ad{font-weight:700;font-size:.75rem;line-height:1.2;overflow-wrap:anywhere}
-.hg-ders .hg-ders-kod{font-size:.65rem;opacity:.9;font-weight:500}
-.hg-ders .hg-ders-yer{font-size:.65rem;opacity:.85;margin-top:auto;display:flex;align-items:center;gap:3px}
-.hg-ders.blue{background:linear-gradient(135deg,#3b82f6,#2563eb)}
-.hg-ders.green{background:linear-gradient(135deg,#22c55e,#16a34a)}
-.hg-ders.yellow{background:linear-gradient(135deg,#eab308,#ca8a04);color:#2a1f00}
-.hg-ders.purple{background:linear-gradient(135deg,#a855f7,#7e22ce)}
-.hg-ders.red{background:linear-gradient(135deg,#ef4444,#dc2626)}
-.hg-ders.orange{background:linear-gradient(135deg,#f97316,#ea580c)}
-.hg-ders.pink{background:linear-gradient(135deg,#ec4899,#db2777)}
-.hg-ders.teal{background:linear-gradient(135deg,#14b8a6,#0d9488)}
+.hg-gun-head{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-weight:700;font-size:.78rem;padding:6px 4px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border)}
+.hg-gun-head b{font-size:.95rem;color:var(--ink);letter-spacing:0}
+.hg-gun-head small{font-size:.66rem;font-weight:600;color:var(--ink-3);text-transform:none;letter-spacing:0}
+.hg-gun-head.bugun,.hg-gun-head.bugun b{color:var(--teal)}
+.hg-gun-head.bugun{border-bottom-color:var(--teal)}
+.hg-saat{font-size:.72rem;font-weight:600;color:var(--ink-3);text-align:right;padding:0 8px;display:flex;align-items:flex-start;justify-content:flex-end;font-variant-numeric:tabular-nums;transform:translateY(-.5em)}
+.hg-hucre{border-top:1px solid var(--border-2);background:linear-gradient(to bottom,transparent calc(50% - .5px),color-mix(in srgb,var(--border-2) 60%,transparent) calc(50% - .5px),color-mix(in srgb,var(--border-2) 60%,transparent) calc(50% + .5px),transparent calc(50% + .5px))}
+.hg-hucre.bugun{background-color:color-mix(in srgb,var(--teal) 5%,transparent)}
+.hg-ders{
+  --c:var(--teal);position:relative;z-index:1;
+  width:calc(100% / var(--serit-sayi,1) - 2px);margin-left:calc(100% * var(--serit,0) / var(--serit-sayi,1));justify-self:start;
+  margin-top:1px;margin-bottom:1px;border-radius:var(--r-sm);padding:4px 7px;cursor:pointer;
+  display:flex;flex-direction:column;gap:1px;overflow:hidden;min-width:0;
+  background:color-mix(in srgb,var(--c) 18%,var(--surface));border-left:3px solid var(--c);color:var(--ink);
+  transition:box-shadow var(--t-fast,.15s),transform var(--t-fast,.15s)
+}
+.hg-ders:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);z-index:2}
+.hg-ders:focus-visible{outline:2px solid var(--c);outline-offset:1px}
+.hg-ders.gecti{opacity:.55}
+.hg-ders.simdi{box-shadow:0 0 0 2px var(--c)}
+.hg-ders .hg-ders-saat{font-size:.66rem;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hg-ders .hg-ders-ad{font-weight:700;font-size:.76rem;line-height:1.2;overflow-wrap:break-word}
+.hg-ders .hg-ders-kod{font-size:.65rem;color:var(--ink-3);font-weight:600}
+.hg-ders .hg-ders-yer{font-size:.65rem;color:var(--ink-3);margin-top:auto;display:flex;align-items:center;gap:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hg-ders .hg-ders-yer svg{flex:none}
+/* Kısa derslerde sadece saat ve ad; ad tek satır */
+.hg-ders.kisa{padding:2px 6px;gap:0}
+.hg-ders.kisa .hg-ders-kod,.hg-ders.kisa .hg-ders-yer{display:none}
+.hg-ders.kisa .hg-ders-ad{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hg-ders.orta .hg-ders-kod{display:none}
+/* Çakışan derslerin dar şeritlerinde metin kelime ortasından bölünmesin, "…" ile kısalsın (tamamı title'da) */
+#statDersHafta{white-space:nowrap}
+@media(max-width:560px){#statDersHafta{font-size:1.15rem}}
+.hg-ders.dar{padding:3px 5px}
+.hg-ders.dar .hg-ders-saat,.hg-ders.dar .hg-ders-ad{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hg-ders.dar .hg-ders-kod{display:none}
+.hg-ders.blue{--c:#3b82f6}
+.hg-ders.green{--c:#22c55e}
+.hg-ders.yellow{--c:#eab308}
+.hg-ders.purple{--c:#a855f7}
+.hg-ders.red{--c:#ef4444}
+.hg-ders.orange{--c:#f97316}
+.hg-ders.pink{--c:#ec4899}
+.hg-ders.teal{--c:#14b8a6}
+/* Şimdiki zaman çizgisi (bugünün sütununda) */
+.hg-simdi{position:relative;z-index:3;align-self:start;height:2px;background:var(--coral);pointer-events:none}
+.hg-simdi::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--coral)}
 .ders-empty{text-align:center;padding:40px 20px;color:var(--ink-3);font-size:.9rem}
 
 /* ============ İŞ PLANI ============ */

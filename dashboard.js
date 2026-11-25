@@ -1520,15 +1520,49 @@ function dersSaatleri(dersler) {
   return Array.from({ length: son - ilk + 1 }, (_, i) => ilk + i);
 }
 
+// Aynı gün çakışan dersleri yan yana şeritlere dağıtır: { id: { serit, seritSayi } }
+function dersSeritleri(gunDersleri) {
+  const sonuc = {};
+  let grup = [], grupBit = -1;
+  const grubuKapat = () => {
+    const seritBit = [];
+    grup.forEach(d => {
+      let s = seritBit.findIndex(b => b <= saatDk(d.bas));
+      if (s < 0) { s = seritBit.length; seritBit.push(0); }
+      seritBit[s] = saatDk(d.bit);
+      sonuc[d.id] = { serit: s };
+    });
+    grup.forEach(d => { sonuc[d.id].seritSayi = seritBit.length; });
+    grup = []; grupBit = -1;
+  };
+  gunDersleri.slice().sort(dersSirala).forEach(d => {
+    if (grup.length && saatDk(d.bas) >= grupBit) grubuKapat();
+    grup.push(d);
+    grupBit = Math.max(grupBit, saatDk(d.bit));
+  });
+  if (grup.length) grubuKapat();
+  return sonuc;
+}
+
+// Tablodaki her satır 5 dakika: dersler dakikası dakikasına yerleşir. (Eskiden tam saate
+// yuvarlanıyordu; 13:30 dersi 13:00'te başlıyor, 09:50 dersi 09:00 dersinin üstüne biniyordu.)
+const DERS_SATIR_DK = 5;
+
 function haftalikGridCiz() {
   const grid = $("haftalikGrid");
   if (!grid || !S) return;
   const empty = $("dersEmpty");
   const dersler = S.dersler || [];
-  if ($("statDersSayi")) $("statDersSayi").textContent = dersler.length;
-  if ($("statDersBugun")) $("statDersBugun").textContent = bugunDersler().length;
-  // "Bu hafta": haftanın 7 günündeki tüm ders saatleri (eskiden hafta sonu sayılmıyordu)
-  if ($("statDersHafta")) $("statDersHafta").textContent = dersler.filter(d => +d.gun >= 0 && +d.gun <= 6).length;
+  const simdi = new Date();
+  const simdiGun = simdi.getDay();
+  const simdiDk = simdi.getHours() * 60 + simdi.getMinutes();
+  // İstatistikler: farklı ders sayısı (haftada iki kez olan ders bir kez), bugünkü ders, haftalık ders süresi
+  // (eskiden "Toplam Ders" ile "Bu Hafta" her zaman aynı sayıydı)
+  const farkliDers = new Set(dersler.map(d => (d.ad || "").trim().toLocaleLowerCase("tr"))).size;
+  const haftalikDk = dersler.reduce((t, d) => t + dersSuresi(d), 0);
+  if ($("statDersSayi")) $("statDersSayi").textContent = farkliDers;
+  if ($("statDersBugun")) $("statDersBugun").textContent = dersler.filter(d => +d.gun === simdiGun).length;
+  if ($("statDersHafta")) $("statDersHafta").textContent = dersSureMetni(haftalikDk);
   const cerceve = grid.closest(".haftalik-grid-wrap");
   if (!dersler.length) {
     grid.innerHTML = "";
@@ -1541,44 +1575,61 @@ function haftalikGridCiz() {
   if (cerceve) cerceve.hidden = false;
   const gunSirasi = [1, 2, 3, 4, 5, 6, 0];
   const SAATLER = dersSaatleri(dersler);
-  grid.style.gridTemplateRows = `40px repeat(${SAATLER.length}, 60px)`;
-  let html = "";
-  html += `<div class="hg-bos" style="grid-row:1;grid-column:1"></div>`;
+  const ilkDk = SAATLER[0] * 60;
+  const sonDk = (SAATLER[SAATLER.length - 1] + 1) * 60;
+  const saatSatir = 60 / DERS_SATIR_DK;
+  const satir = dk => 2 + Math.round((Math.min(sonDk, Math.max(ilkDk, dk)) - ilkDk) / DERS_SATIR_DK);
+  grid.style.gridTemplateRows = `52px repeat(${SAATLER.length * saatSatir}, 5px)`;
+  // Bu haftanın Pazartesisi (başlıklarda tarih göstermek için)
+  const pazartesi = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate() - (simdiGun + 6) % 7);
+  let html = `<div class="hg-bos" style="grid-row:1;grid-column:1"></div>`;
   gunSirasi.forEach((g, idx) => {
-    const bugun = g === bugunGunNo;
-    const col = idx + 2;
-    html += `<div class="hg-gun-head ${bugun ? "bugun" : ""}" style="grid-row:1;grid-column:${col}">${GUNLER_KISA[g]}</div>`;
+    const tarih = new Date(pazartesi.getFullYear(), pazartesi.getMonth(), pazartesi.getDate() + idx);
+    const gunDk = dersler.filter(d => +d.gun === g).reduce((t, d) => t + dersSuresi(d), 0);
+    html += `<div class="hg-gun-head ${g === simdiGun ? "bugun" : ""}" style="grid-row:1;grid-column:${idx + 2}">
+      <span>${GUNLER_KISA[g]} <b>${tarih.getDate()}</b></span>
+      <small>${gunDk ? dersSureMetni(gunDk) : "&nbsp;"}</small>
+    </div>`;
   });
-  SAATLER.forEach((saat, satirIdx) => {
-    const row = satirIdx + 2;
-    html += `<div class="hg-saat" style="grid-row:${row};grid-column:1">${pad(saat)}:00</div>`;
-    gunSirasi.forEach((gunNo, gunIdx) => {
-      const col = gunIdx + 2;
-      html += `<div class="hg-hucre" style="grid-row:${row};grid-column:${col}"></div>`;
+  SAATLER.forEach((saat, i) => {
+    const row = 2 + i * saatSatir;
+    html += `<div class="hg-saat" style="grid-row:${row} / span ${saatSatir};grid-column:1">${pad(saat)}:00</div>`;
+    gunSirasi.forEach((g, gunIdx) => {
+      html += `<div class="hg-hucre${g === simdiGun ? " bugun" : ""}" style="grid-row:${row} / span ${saatSatir};grid-column:${gunIdx + 2}"></div>`;
     });
   });
   // Arama yapılıyorsa sadece eşleşen dersler çizilir (istatistikler tüm dersleri sayar)
-  dersler.filter(d => eslesir(d.ad) || eslesir(d.kod)).forEach(d => {
-    const basSaat = +d.bas.split(":")[0];
-    const bitSaat = +d.bit.split(":")[0];
-    const bitDk = +d.bit.split(":")[1] || 0;
-    const basIdx = SAATLER.indexOf(basSaat);
-    if (basIdx < 0) return;
-    const bitSaatEtkin = bitDk > 0 ? bitSaat + 1 : bitSaat;
-    const sure = Math.min(SAATLER.length - basIdx, Math.max(1, bitSaatEtkin - basSaat));
-    const row = basIdx + 2;
-    const col = gunSirasi.indexOf(+d.gun) + 2;
-    html += `<div class="hg-ders ${dersRenk(d)}"
-      data-act="ders-edit" data-id="${d.id}"
-      style="grid-row:${row} / span ${sure};grid-column:${col}"
-      title="${esc(d.ad)} (${esc(d.bas)}-${esc(d.bit)})">
-      <div class="hg-ders-ad">${esc(d.ad)}</div>
-      ${d.kod ? `<div class="hg-ders-kod">${esc(d.kod)}</div>` : ""}
-      ${d.sinif ? `<div class="hg-ders-yer"><svg width="10" height="10"><use href="#i-map-pin"/></svg> ${esc(d.sinif)}</div>` : ""}
-    </div>`;
+  const gorunen = dersler.filter(d => eslesir(d.ad) || eslesir(d.kod) || eslesir(d.hoca) || eslesir(d.sinif));
+  gunSirasi.forEach((g, gunIdx) => {
+    const gunDersleri = gorunen.filter(d => +d.gun === g);
+    const seritler = dersSeritleri(gunDersleri);
+    gunDersleri.forEach(d => {
+      const bas = saatDk(d.bas), bit = saatDk(d.bit), sure = dersSuresi(d);
+      const r1 = satir(bas);
+      const span = Math.max(4, satir(Math.max(bit, bas + 20)) - r1); // çok kısa ders de okunabilsin
+      const { serit = 0, seritSayi = 1 } = seritler[d.id] || {};
+      const boy = (sure < 45 ? " kisa" : sure < 80 ? " orta" : "") + (seritSayi > 1 ? " dar" : "");
+      const durum = g !== simdiGun ? "" : bit <= simdiDk ? " gecti" : bas <= simdiDk ? " simdi" : "";
+      const baslik = [`${d.ad}${d.kod ? " (" + d.kod + ")" : ""}`, `${GUNLER[g]} ${d.bas}–${d.bit} · ${dersSureMetni(sure)}`,
+        d.sinif && `Yer: ${d.sinif}`, d.hoca && `Hoca: ${d.hoca}`, d.notlar && `Not: ${d.notlar}`].filter(Boolean).join("\n");
+      html += `<div class="hg-ders ${dersRenk(d)}${boy}${durum}" role="button" tabindex="0" data-act="ders-edit" data-id="${d.id}"
+        style="grid-row:${r1} / span ${span};grid-column:${gunIdx + 2};--serit:${serit};--serit-sayi:${seritSayi}"
+        title="${esc(baslik)}">
+        <div class="hg-ders-saat">${esc(d.bas)}–${esc(d.bit)}</div>
+        <div class="hg-ders-ad">${esc(d.ad)}</div>
+        ${d.kod ? `<div class="hg-ders-kod">${esc(d.kod)}</div>` : ""}
+        ${d.sinif || d.hoca ? `<div class="hg-ders-yer">${d.sinif ? `<svg width="10" height="10"><use href="#i-map-pin"/></svg> ${esc(d.sinif)}` : ""}${d.sinif && d.hoca ? " · " : ""}${d.hoca ? esc(d.hoca) : ""}</div>` : ""}
+      </div>`;
+    });
   });
+  // Bugünün sütununda şimdiki zamanı gösteren çizgi
+  if (simdiDk >= ilkDk && simdiDk < sonDk) {
+    html += `<div class="hg-simdi" style="grid-row:${satir(simdiDk)};grid-column:${gunSirasi.indexOf(simdiGun) + 2}" aria-hidden="true"></div>`;
+  }
   grid.innerHTML = html;
 }
+// Ders programı açıkken "şimdi" çizgisi dakikada bir tazelenir
+setInterval(() => { if (S && aktifView === "ders" && !document.hidden) haftalikGridCiz(); }, 60 * 1000);
 
 // "1 sa 40 dk" biçiminde süre metni
 function dersSureMetni(dk) {
@@ -1835,11 +1886,7 @@ function yksOzetCiz() {
 function acOzetCiz() {
   if (!S) return;
   const courses = S.courses || [];
-  const ort = courses.length ? courses.reduce((t, c) => t + c.g, 0) / courses.length : 0;
-  const ortEl = $("acOrtalama");
-  const ortSubEl = $("acOrtalamaSub");
-  if (ortEl) ortEl.textContent = courses.length ? ort.toFixed(1) : "—";
-  if (ortSubEl) ortSubEl.textContent = courses.length ? `${courses.length} ders üzerinden` : "Henüz not girilmedi";
+  acOrtalamaCiz();
 
   // Ders sayısı: ders programındaki ve not girilen derslerin (aynı adlar bir kez) toplamı.
   // Eskiden sadece not girilenleri sayıyordu; programda 4 ders varken 0 görünüyordu.
@@ -2875,19 +2922,27 @@ function ozetCiz() {
   const el = $("welcomeSummary");
   if (!el || !S) return;
   const bugunEtkinlik = (S.events[todayKey] || []).length;
-  const bekleyenGorev = (S.tasks || []).filter(t => !t.done).length;
+  const bekleyen = (S.tasks || []).filter(t => !t.done);
+  // Bugüne düşen ya da gecikmiş görevler önce; yoksa tüm bekleyenler ("12 görev" bugünle ilgili sanılmasın)
+  const bugunGorev = bekleyen.filter(t => t.son && t.son <= todayKey).length;
   const bugunDers = bugunDersler().length;
   const bugunPlan = (S.planItems || []).filter(p => +p.gun === bugunGunNo).length;
   const parcalar = [];
   if (S.mode === "student") {
+    // Sınav ve teslim günü gelen ödevler de sayılır (eskiden sınav günü "Bugün için plan yok" yazıyordu)
+    const bugunSinav = (S.sinavlar || []).filter(s => s.tarih === todayKey).length;
+    const bugunOdev = (S.odevler || []).filter(o => !o.done && o.tarih === todayKey).length;
+    if (bugunSinav) parcalar.push(`<div class="ws-item"><b>${bugunSinav}</b> sınav</div>`);
     if (bugunDers) parcalar.push(`<div class="ws-item"><b>${bugunDers}</b> ders</div>`);
+    if (bugunOdev) parcalar.push(`<div class="ws-item"><b>${bugunOdev}</b> ödev teslimi</div>`);
   } else {
     const bugunToplanti = (S.toplantilar || []).filter(t => t.tarih === todayKey).length;
     if (bugunToplanti) parcalar.push(`<div class="ws-item"><b>${bugunToplanti}</b> toplantı</div>`);
     if (bugunPlan) parcalar.push(`<div class="ws-item"><b>${bugunPlan}</b> iş</div>`);
   }
   if (bugunEtkinlik) parcalar.push(`<div class="ws-item"><b>${bugunEtkinlik}</b> etkinlik</div>`);
-  if (bekleyenGorev) parcalar.push(`<div class="ws-item"><b>${bekleyenGorev}</b> görev</div>`);
+  if (bugunGorev) parcalar.push(`<div class="ws-item"><b>${bugunGorev}</b> görev bugün</div>`);
+  else if (bekleyen.length) parcalar.push(`<div class="ws-item"><b>${bekleyen.length}</b> bekleyen görev</div>`);
   el.innerHTML = parcalar.length ? parcalar.join("") : `<div class="ws-item">Bugün için plan yok 😌</div>`;
 }
 
@@ -2903,10 +2958,39 @@ function nhDersNotu(n) {
   return (n.vize === "" ? 0 : +n.vize) * oran + (+n.final) * (1 - oran);
 }
 const nhHarf = not => HARF_TABLOSU.find(([alt]) => not >= alt - 0.0001);
+// Not hesaplayıcıdaki kredili ve final notu girilmiş derslerden 4'lük ağırlıklı ortalama
+function nhOrtalama() {
+  let krediTop = 0, puanTop = 0, sayi = 0;
+  ((S && S.notHesap) || []).forEach(n => {
+    const not = nhDersNotu(n);
+    if (not == null || !(n.kredi > 0)) return;
+    krediTop += n.kredi; puanTop += nhHarf(Math.round(not))[2] * n.kredi; sayi++;
+  });
+  return { krediTop, puanTop, sayi, gpa: sayi ? puanTop / krediTop : null };
+}
+// Akademik sayfanın üstündeki "Dönem Ortalaması". Önce not hesaplayıcı (kredili, 4'lük);
+// orada hesaplanabilir ders yoksa "Ders Notları" kartındaki notların basit ortalaması (100'lük).
+// (Eskiden sadece "Ders Notları"na bakıyordu; hesaplayıcıya not giren "Henüz not girilmedi" görüyordu.)
+function acOrtalamaCiz() {
+  const ortEl = $("acOrtalama"), altEl = $("acOrtalamaSub");
+  if (!S || (!ortEl && !altEl)) return;
+  const nh = nhOrtalama();
+  const courses = S.courses || [];
+  let deger = "—", alt = "Henüz not girilmedi";
+  if (nh.sayi) {
+    deger = nh.gpa.toFixed(2);
+    alt = `4'lük · ${nh.sayi} ders, ${nh.krediTop} kredi`;
+  } else if (courses.length) {
+    deger = (courses.reduce((t, c) => t + (+c.g || 0), 0) / courses.length).toFixed(1);
+    alt = `100'lük · ${courses.length} ders üzerinden`;
+  }
+  if (ortEl) ortEl.textContent = deger;
+  if (altEl) altEl.textContent = alt;
+}
 function nhSonucCiz() {
   const el = $("nhSonuc");
   if (!el || !S) return;
-  let krediTop = 0, puanTop = 0, sayi = 0;
+  const { krediTop, puanTop, sayi } = nhOrtalama();
   (S.notHesap || []).forEach(n => {
     const not = nhDersNotu(n);
     const satir = document.querySelector(`#nhSatirlar tr[data-id="${n.id}"]`);
@@ -2917,9 +3001,8 @@ function nhSonucCiz() {
       harfEl.textContent = h ? h[1] : "–";
       harfEl.className = "nh-harf" + (h ? (h[2] >= 2 ? " gecti" : h[2] >= 1 ? " sartli" : " kaldi") : "");
     }
-    if (not == null || !(n.kredi > 0)) return;
-    krediTop += n.kredi; puanTop += nhHarf(Math.round(not))[2] * n.kredi; sayi++;
   });
+  acOrtalamaCiz(); // Akademik sayfanın üstündeki "Dönem Ortalaması" da yazarken güncellensin
   el.innerHTML = sayi
     ? `<div><span>Dönem ortalaması</span><b>${(puanTop / krediTop).toFixed(2)}</b><small>/ 4.00</small></div>
        <div><span>Hesaba katılan</span><b>${sayi}</b><small>ders · ${krediTop} kredi</small></div>`
