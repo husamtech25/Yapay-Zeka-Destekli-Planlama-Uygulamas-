@@ -89,3 +89,40 @@ test("dönem ortalaması: not hesaplayıcıyı kullanır, yazarken güncellenir;
   assert.notEqual(ort()[0], "4.00");
   assert.match(ort()[1], /2 ders, 6 kredi/);
 });
+
+test("sınav listesi: geçmiş sınavlar ayrı başlık altında, 'N gün önce' yazar", () => {
+  const { js, belge, gunEkle } = uygulamaYukle();
+  js(`S.sinavlar = [{ id: "g", ad: "Eski", tur: "Vize", tarih: "${gunEkle(-4)}", saat: "", yer: "", notlar: "" },
+                    { id: "d", ad: "Dünkü", tur: "Vize", tarih: "${gunEkle(-1)}", saat: "", yer: "", notlar: "" },
+                    { id: "y", ad: "Yeni", tur: "Final", tarih: "${gunEkle(3)}", saat: "", yer: "", notlar: "" }]; goView("ac"); ciz();`);
+  const ogeler = [...belge.querySelectorAll("#sinavList > li")].map(li => li.className.split(" ")[0] + ":" + (li.dataset.id || li.textContent.trim()));
+  assert.deepEqual(ogeler, ["sinav-item:y", "sinav-ayrac:Geçmiş sınavlar", "sinav-item:d", "sinav-item:g"]);
+  const geri = id => belge.querySelector(`#sinavList [data-id="${id}"] .sinav-geri`).textContent;
+  assert.equal(geri("y"), "3 gün kaldı");
+  assert.equal(geri("d"), "Dün");
+  assert.equal(geri("g"), "4 gün önce");
+  // Sadece geçmiş sınav varsa "Yaklaşan sınav yok" yazar, geçmişler yine erişilebilir
+  js(`S.sinavlar = S.sinavlar.filter(s => s.id !== "y"); ciz();`);
+  assert.match(belge.querySelector("#sinavList > li").textContent, /Yaklaşan sınav yok/);
+  assert.equal(belge.querySelectorAll("#sinavList .sinav-item").length, 2);
+});
+
+test("ödev listesi: geciken ödevde kaç gün geciktiği yazar", () => {
+  const { js, belge, gunEkle } = uygulamaYukle();
+  js(`S.odevler = [{ id: "o1", ad: "Rapor", ders: "", tarih: "${gunEkle(-3)}", aciklama: "", done: false },
+                   { id: "o2", ad: "Özet", ders: "", tarih: "${gunEkle(1)}", aciklama: "", done: false }]; goView("ac"); ciz();`);
+  const geri = id => belge.querySelector(`#odevList [data-id="${id}"] .sinav-geri`).textContent;
+  assert.equal(geri("o1"), "3 gün gecikti");
+  assert.equal(geri("o2"), "Yarın");
+});
+
+test("ödev listesi: geciken ödev kırmızı (odev-acil), yakın sarı, uzak yeşil sınıf alır", () => {
+  const { js, belge, gunEkle } = uygulamaYukle();
+  js(`S.odevler = [{ id: "a", ad: "A", ders: "", tarih: "${gunEkle(-2)}", aciklama: "", done: false },
+                   { id: "b", ad: "B", ders: "", tarih: "${gunEkle(5)}", aciklama: "", done: false },
+                   { id: "c", ad: "C", ders: "", tarih: "${gunEkle(20)}", aciklama: "", done: false }]; goView("ac"); ciz();`);
+  const sinif = id => belge.querySelector(`#odevList [data-id="${id}"]`).className;
+  assert.match(sinif("a"), /odev-acil/);
+  assert.match(sinif("b"), /odev-yakin/);
+  assert.match(sinif("c"), /odev-uzak/);
+});

@@ -1734,10 +1734,18 @@ function sinavRenkSinif(tarih) {
 function sinavGeriSayim(tarih) {
   const fark = gunFarki(tarih);
   if (isNaN(fark)) return "";
-  if (fark < 0) return "Geçti";
+  if (fark === -1) return "Dün";
+  if (fark < 0) return `${-fark} gün önce`;
   if (fark === 0) return "Bugün!";
   if (fark === 1) return "Yarın";
   return `${fark} gün kaldı`;
+}
+// Teslim tarihi olan işler (ödev, kariyer hedefi) için: geçtiyse ne kadar geciktiği
+// (eskiden sadece "Geçti" yazıyordu; 1 gün mü 3 hafta mı belli değildi)
+function teslimGeriSayim(tarih) {
+  const fark = gunFarki(tarih);
+  if (fark < 0) return `${-fark} gün gecikti`;
+  return sinavGeriSayim(tarih);
 }
 
 function sinavlarCiz() {
@@ -1748,12 +1756,12 @@ function sinavlarCiz() {
   // (eskiden tarihi geçen sınav listeden kayboluyor, bir daha erişilemiyordu)
   const yaklasan = tum.filter(s => s.tarih >= todayKey).sort((a, b) => a.tarih.localeCompare(b.tarih)).slice(0, 6);
   const gecmis = tum.filter(s => s.tarih < todayKey).sort((a, b) => b.tarih.localeCompare(a.tarih)).slice(0, 3);
-  const sinavlar = [...yaklasan, ...gecmis];
-  if (!sinavlar.length) {
+  if (!yaklasan.length && !gecmis.length) {
     el.innerHTML = `<li class="sinav-empty">${q && (S.sinavlar || []).length ? "Aramaya uyan sınav yok." : "Yaklaşan sınav yok. + butonuyla ekle."}</li>`;
     return;
   }
-  el.innerHTML = sinavlar.map(s => {
+  // Geçmiş sınavlar "Yaklaşan" başlığının altında karışık durmasın: ayrı bir başlık altında gösterilir
+  const satir = s => {
     const [, m, d] = s.tarih.split("-");
     const ayKisa = aylar[+m - 1].slice(0, 3);
     const renkSinif = s.tarih < todayKey ? "sinav-gecmis" : sinavRenkSinif(s.tarih);
@@ -1772,7 +1780,9 @@ function sinavlarCiz() {
       </div>
       <span class="sinav-geri">${sinavGeriSayim(s.tarih)}</span>
     </li>`;
-  }).join("");
+  };
+  el.innerHTML = (yaklasan.length ? yaklasan.map(satir).join("") : `<li class="sinav-empty">Yaklaşan sınav yok.</li>`)
+    + (gecmis.length ? `<li class="sinav-ayrac" aria-hidden="true">Geçmiş sınavlar</li>${gecmis.map(satir).join("")}` : "");
 }
 
 function odevlerCiz() {
@@ -1790,7 +1800,8 @@ function odevlerCiz() {
   }
   el.innerHTML = odevler.slice(0, 8).map(o => {
     // Teslim tarihi geçmiş, bitmemiş ödev acil (kırmızı) görünsün
-    const renkSinif = o.done ? "" : o.tarih < todayKey ? "sinav-acil" : sinavRenkSinif(o.tarih);
+    // (CSS'teki adlar odev-acil/yakin/uzak; eskiden sinav-* verildiği için ödevler hiç renklenmiyordu)
+    const renkSinif = o.done ? "" : (o.tarih < todayKey ? "sinav-acil" : sinavRenkSinif(o.tarih)).replace("sinav-", "odev-");
     return `<li class="odev-item ${o.done ? "odev-done" : renkSinif}" data-act="odev-edit" data-id="${o.id}">
       <input type="checkbox" class="odev-check" data-act="odev-toggle" data-id="${o.id}" ${o.done ? "checked" : ""} onclick="event.stopPropagation()">
       <div class="odev-body">
@@ -1800,7 +1811,7 @@ function odevlerCiz() {
           <span><svg width="11" height="11"><use href="#i-clock"/></svg> ${gunEtiket(o.tarih)}</span>
         </div>
       </div>
-      ${!o.done ? `<span class="sinav-geri">${sinavGeriSayim(o.tarih)}</span>` : ""}
+      ${!o.done ? `<span class="sinav-geri">${teslimGeriSayim(o.tarih)}</span>` : ""}
     </li>`;
   }).join("");
 }
@@ -1979,7 +1990,7 @@ function kariyerCiz() {
           <div class="kh-baslik">${esc(h.baslik)}</div>
           <div class="kh-meta">
             <span class="kh-kategori">${KH_KATEGORI[h.kategori] || "Diğer"}</span>
-            ${h.tarih ? `<span>${gunEtiket(h.tarih)}${!h.done ? " · " + sinavGeriSayim(h.tarih) : ""}</span>` : ""}
+            ${h.tarih ? `<span>${gunEtiket(h.tarih)}${!h.done ? " · " + teslimGeriSayim(h.tarih) : ""}</span>` : ""}
           </div>
         </div>
         <button type="button" class="kh-del" data-act="del" data-list="kariyerHedefler" data-id="${h.id}" aria-label="Sil"><svg width="14" height="14"><use href="#i-trash"/></svg></button>

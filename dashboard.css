@@ -476,6 +476,7 @@ p{line-height:1.55}
 .odev-item.odev-acil{border-left-color:var(--coral)}
 .odev-item.odev-yakin{border-left-color:var(--yellow)}
 .odev-item.odev-uzak{border-left-color:var(--green)}
+.odev-item.odev-acil .sinav-geri{color:var(--coral)}
 .odev-check{width:20px;height:20px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;margin-top:2px}
 .odev-body{flex:1;min-width:0}
 .odev-body .odev-ad{font-weight:700;font-size:.88rem;color:var(--ink);margin-bottom:3px;overflow-wrap:anywhere}
@@ -1483,6 +1484,11 @@ body:not([data-logged-in="true"]){grid-template-columns:1fr}
 .kanban-more button:hover{border-color:var(--teal);color:var(--teal)}
 /* Geçmiş sınavlar soluk; uzun kullanıcı adı üst çubuğu itmesin */
 .sinav-item.sinav-gecmis{opacity:.55}
+.sinav-item.sinav-gecmis .sinav-geri{background:var(--surface-2);color:var(--ink-3)}
+/* Yaklaşan ve geçmiş sınavları ayıran başlık */
+.sinav-ayrac{display:flex;align-items:center;gap:8px;margin-top:var(--s2);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+.sinav-ayrac::after{content:"";flex:1;height:1px;background:var(--border-2)}
+.sinav-list .sinav-empty+.sinav-ayrac{margin-top:0}
 .profile-info strong{display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .toplanti-item[data-act]:hover{background:var(--border-2)}
 
