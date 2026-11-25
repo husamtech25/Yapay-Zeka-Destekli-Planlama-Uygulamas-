@@ -126,3 +126,61 @@ test("ödev listesi: geciken ödev kırmızı (odev-acil), yakın sarı, uzak ye
   assert.match(sinif("b"), /odev-yakin/);
   assert.match(sinif("c"), /odev-uzak/);
 });
+
+// ---- Test ajanının bulguları ----
+
+test("iş modu: adı olmayan eski sprint kaydı uygulamanın açılmasını engellemez", () => {
+  const { js, belge, hatalar } = uygulamaYukle({ mod: "work" });
+  js(`db.users["test"].data = { mode: "work", name: "X", events: {}, sprintGecmis: [{ biten: 3, toplam: 5 }, {}, { ad: 7, biten: "x" }] }; basla(); goView("sprint"); ciz();`);
+  assert.deepEqual(JSON.parse(js(`JSON.stringify(S.sprintGecmis.map(s => [s.ad, s.biten, s.toplam]))`)),
+    [["Sprint 1", 3, 5], ["Sprint 2", 0, 0], ["7", 0, 0]]);
+  assert.deepEqual(hatalar, []);
+});
+
+test("iş modu: geçersiz sprint tarihleri yeni sprintle değişir, 'NaN gün' yazmaz", () => {
+  const { js, belge } = uygulamaYukle({ mod: "work" });
+  js(`db.users["test"].data = { mode: "work", name: "X", events: {}, sprint: { bas: "abc", bit: "xyz", ad: 5 } }; basla(); goView("sprint"); ciz();`);
+  assert.ok(js(`tarihGecerli(S.sprint.bas) && tarihGecerli(S.sprint.bit)`));
+  assert.equal(js(`typeof S.sprint.ad`), "string");
+  assert.doesNotMatch(belge.getElementById("v-sprint").textContent, /NaN/);
+  assert.doesNotMatch(belge.getElementById("v-home").textContent, /NaN/);
+});
+
+test("not hesaplayıcı: vize ağırlığı %100 iken final boşsa not vizeden gelir", () => {
+  const { js } = uygulamaYukle();
+  assert.equal(js(`S.vizeOrani = 100; JSON.stringify([nhDersNotu({ vize: "80", final: "" }), nhDersNotu({ vize: 80, final: 0 }), nhDersNotu({ vize: "", final: "" })])`), "[80,80,null]");
+  assert.equal(js(`S.vizeOrani = 0; nhDersNotu({ vize: 30, final: 70 })`), 70, "Vize %0 iken sadece final");
+});
+
+test("görev: bozuk tamamlanma zamanı 'Invalid Date' göstermez, seriyi bozmaz", () => {
+  const { js, belge } = uygulamaYukle();
+  js(`db.users["test"].data = { mode: "student", name: "X", events: {}, tasks: [{ id: "t1", t: "a", son: "2026-11-20", zaman: "garbage", bitis: {}, done: true }] }; basla(); goView("tasks"); ciz();`);
+  assert.doesNotMatch(belge.body.textContent, /Invalid Date/);
+  assert.equal(js(`JSON.stringify([...aktifGunler()])`), "[]");
+  assert.equal(js(`seriHesapla().enUzun`), 0);
+});
+
+test("tarih kontrolü: takvimde olmayan günler kabul edilmez", () => {
+  const { js } = uygulamaYukle();
+  assert.equal(js(`JSON.stringify(["2026-02-29", "2028-02-29", "2026-13-45", "2026-04-31", "2026-11-25", "abc"].map(tarihGecerli))`),
+    "[false,true,false,false,true,false]");
+  const v = js(`JSON.stringify(veriOnar({ mode: "student", name: "X", events: { "2026-13-45": [{ id: "e1", t: "x" }], "2026-11-25": [{ id: "e2", t: "y" }] },
+    sinavlar: [{ id: "s1", ad: "A", tarih: "2026-02-30" }, { id: "s2", ad: "B", tarih: "2026-03-01" }] }, "student", "X"))`);
+  const o = JSON.parse(v);
+  assert.deepEqual(Object.keys(o.events), ["2026-11-25"]);
+  assert.deepEqual(o.sinavlar.map(s => s.id), ["s2"]);
+});
+
+test("veri onarma: Pomodoro ayarları ve istatistikleri, hedef haftası", () => {
+  const { js } = uygulamaYukle();
+  const o = JSON.parse(js(`JSON.stringify(veriOnar({ mode: "student", name: "X", events: {},
+    pomo: { focus: "abc", short: -5, long: 500, cycle: 3, sound: "<x>", auto: "on", stats: { "2026-11-24": { sayi: "x", dk: 50 }, "bozuk": { sayi: 1 }, "2026-11-23": null } },
+    hedefler: [{ id: "h1", baslik: "a", hedef: 3, mevcut: 2, hafta: "garbage" }] }, "student", "X"))`));
+  assert.deepEqual([o.pomo.focus, o.pomo.short, o.pomo.long, o.pomo.cycle, o.pomo.sound, o.pomo.auto], [25, 1, 120, 3, "on", "on"]);
+  assert.deepEqual(o.pomo.stats, { "2026-11-24": { sayi: 0, dk: 50 } });
+  assert.equal(o.hedefler[0].hafta, "");
+  // Çizimde bu haftaya atanır, ilerleme korunur
+  js(`S = veriOnar(${JSON.stringify({ mode: "student", name: "X", events: {}, hedefler: [{ id: "h1", baslik: "a", hedef: 3, mevcut: 2, hafta: "garbage" }] })}, "student", "X"); hedeflerCiz();`);
+  assert.equal(js(`S.hedefler[0].mevcut`), 2);
+  assert.equal(js(`S.hedefler[0].hafta === haftaBasiKey()`), true);
+});

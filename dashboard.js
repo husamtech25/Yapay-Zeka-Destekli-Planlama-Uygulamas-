@@ -20,7 +20,14 @@ const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const uid = () => Math.random().toString(36).slice(2, 9);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 // "YYYY-MM-DD" biçiminde mi? (Tarihler HTML'e kaçışsız yazılıyor; başka bir şey asla geçmemeli.)
-const tarihGecerli = k => typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k);
+// Takvimde gerçekten var olan bir gün olmalı: "2026-02-29" ya da "2026-13-45" kabul edilmez
+// (eskiden sadece biçime bakılıyordu; 29 Şubat sessizce 1 Mart'a kayıyordu).
+const tarihGecerli = k => {
+  if (typeof k !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(k)) return false;
+  const [y, m, d] = k.split("-").map(Number);
+  const t = new Date(y, m - 1, d);
+  return t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d;
+};
 // Geçersiz tarih için boş metin döner: paylaşılan projede başkasının yazdığı bir "tarih"
 // eskiden sayfaya HTML olarak ekleniyordu.
 const gunEtiket = k => { if (!tarihGecerli(k)) return ""; const [y, m, d] = k.split("-"); return `${+d} ${aylar[+m - 1] || ""} ${y}`; };
@@ -132,7 +139,7 @@ function veriOnar(v, tur, ad) {
   ["tasks", "sprintIsleri", "toplantilar"].forEach(k => v[k].forEach(x => { if (x.proje && !guvenliId(x.proje)) x.proje = ""; }));
   v.tasks.forEach(t => { if (t.sonraki != null && !guvenliId(t.sonraki)) delete t.sonraki; });
   if (v.pomo && v.pomo.bind && !guvenliId(v.pomo.bind.id)) v.pomo.bind = null;
-  const tarihMi = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const tarihMi = tarihGecerli;
   const saatMi = s => typeof s === "string" && /^\d{1,2}:\d{2}$/.test(s);
   const metin = (x, alan) => { if (typeof x[alan] !== "string") x[alan] = x[alan] == null ? "" : String(x[alan]); };
   ["sinavlar", "odevler", "yksDenemeleri", "toplantilar"].forEach(k => { v[k] = v[k].filter(x => tarihMi(x.tarih)); });
@@ -199,7 +206,37 @@ function veriOnar(v, tur, ad) {
     }
     if (t.odakDk != null && !(+t.odakDk >= 0)) delete t.odakDk;
   });
-  if (!v.sprint || typeof v.sprint !== "object" || !v.sprint.bas || !v.sprint.bit) v.sprint = yeniSprint(1);
+  // Zaman damgaları: bozuksa ekranda "Invalid Date", seri hesabında "NaN-NaN-NaN" diye bir gün oluşuyordu
+  const zamanMi = z => (typeof z === "string" || typeof z === "number") && !isNaN(new Date(z).getTime());
+  ["tasks", "sprintIsleri"].forEach(k => v[k].forEach(x => ["bitis", "zaman"].forEach(a => { if (x[a] != null && !zamanMi(x[a])) delete x[a]; })));
+  // Pomodoro ayarları ve günlük istatistikler: formdaki sınırlar içinde sayı
+  sayi(v.pomo, "focus", 1, 120, POMO_DEFAULTS.focus);
+  sayi(v.pomo, "short", 1, 60, POMO_DEFAULTS.short);
+  sayi(v.pomo, "long", 1, 120, POMO_DEFAULTS.long);
+  sayi(v.pomo, "cycle", 2, 10, POMO_DEFAULTS.cycle);
+  if (!["on", "off"].includes(v.pomo.sound)) v.pomo.sound = POMO_DEFAULTS.sound;
+  if (!["on", "off"].includes(v.pomo.auto)) v.pomo.auto = POMO_DEFAULTS.auto;
+  Object.keys(v.pomo.stats).forEach(gun => {
+    const g = v.pomo.stats[gun];
+    if (!tarihMi(gun) || !g || typeof g !== "object") { delete v.pomo.stats[gun]; return; }
+    sayi(g, "sayi", 0, 1e4, 0);
+    sayi(g, "dk", 0, 1e5, 0);
+  });
+  // Haftalık hedefin haftası bozuksa boş say: çizimde bu haftaya atanır ve ilerleme silinmez
+  v.hedefler.forEach(h => { if (h.hafta != null && !tarihMi(h.hafta)) h.hafta = ""; });
+  // Sprint: tarihler geçerli olmalı (yoksa "NaN gün kaldı"); geçmiş kayıtlarda ad ve puanlar
+  // (adı olmayan eski bir kayıt iş modunda uygulamanın hiç açılmamasına yol açıyordu)
+  if (!v.sprint || typeof v.sprint !== "object" || Array.isArray(v.sprint) || !tarihMi(v.sprint.bas) || !tarihMi(v.sprint.bit)) v.sprint = yeniSprint(1);
+  metin(v.sprint, "ad");
+  if (!v.sprint.ad) v.sprint.ad = `Sprint ${+v.sprint.no || 1}`;
+  metin(v.sprint, "hedef");
+  sayi(v.sprint, "kapasite", 1, 1000, 20);
+  v.sprintGecmis.forEach((s, i) => {
+    metin(s, "ad");
+    if (!s.ad) s.ad = `Sprint ${i + 1}`;
+    sayi(s, "biten", 0, 1e6, 0);
+    sayi(s, "toplam", 0, 1e6, 0);
+  });
   return v;
 }
 function dbOku() {
@@ -2965,6 +3002,8 @@ const HARF_TABLOSU = [[90, "AA", 4], [85, "BA", 3.5], [80, "BB", 3], [75, "CB", 
 function nhDersNotu(n) {
   const oran = (S.vizeOrani ?? 40) / 100;
   if (n.final === "" && n.vize === "") return null;
+  // Vize ağırlığı %100 ise final notu etkisiz: not vizeden belli olur (eskiden final boşken not çıkmıyordu)
+  if (oran >= 1) return n.vize === "" ? null : +n.vize;
   if (n.final === "") return null; // final yoksa ders notu henüz belli değil
   return (n.vize === "" ? 0 : +n.vize) * oran + (+n.final) * (1 - oran);
 }
@@ -4175,7 +4214,7 @@ function takvimDosyasi() {
   const damga = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
   const olaylar = [];
   const ekle = (id, baslik, k, saat, sureDk, aciklama, ek = []) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(k || "")) return;
+    if (!tarihGecerli(k)) return;
     const s = ["BEGIN:VEVENT", `UID:${id}@ayvex`, `DTSTAMP:${damga}`, `SUMMARY:${icsMetin(baslik)}`];
     if (saat) s.push(`DTSTART:${gunStr(k)}T${saatStr(saat)}`, `DTEND:${dkEkle(k, saat, sureDk || 60)}`);
     else s.push(`DTSTART;VALUE=DATE:${gunStr(k)}`, `DTEND;VALUE=DATE:${ertesi(k)}`);
@@ -4377,7 +4416,7 @@ document.addEventListener("submit", e => {
 
   switch (f.dataset.form) {
     case "ev": {
-      const k = /^\d{4}-\d{2}-\d{2}$/.test(v.gun || "") ? v.gun : (f.dataset.day === "today") ? todayKey : sel;
+      const k = tarihGecerli(v.gun) ? v.gun : (f.dataset.day === "today") ? todayKey : sel;
       (S.events[k] = S.events[k] || []).push({ id, t: v.t.trim(), time: v.time, type: v.type });
       break;
     }
