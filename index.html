@@ -42,7 +42,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"></noscript>
   <!-- SÜRÜM: CSS/JS dosyaları her değiştiğinde buradaki ve sayfa sonundaki ?v= değerini
        (tarih.sıra biçiminde) birlikte artır. Tarayıcılar yeni dosyaları önbelleğe takılmadan indirir. -->
-  <link rel="stylesheet" href="dashboard.css?v=20261125.3">
+  <link rel="stylesheet" href="dashboard.css?v=20261127.1">
 </head>
 <body>
   <!-- ============ SVG İKON SPRITE ============ -->
@@ -859,6 +859,9 @@
     <p class="lbl">Bildirimler</p>
     <button type="button" class="reset" id="sistemBildirimBtn">🔔 Cihaz bildirimlerini aç</button>
     <p class="ayar-not">Uygulama açıkken ya da arka planda çalışırken yaklaşan görev, sınav ve toplantıları bildirir.</p>
+    <label class="ayar-secim"><input type="checkbox" id="dersHatirlat" checked> Ders ve toplantılardan 10 dk önce hatırlat</label>
+    <p class="lbl">Klavye</p>
+    <button type="button" class="reset" id="kisayolBtn">⌨️ Klavye kısayolları</button>
     <p class="lbl">Takvim</p>
     <button type="button" class="reset" id="takvimAktar">📅 Google / Outlook takvimine aktar (.ics)</button>
     <p class="ayar-not">Sınav, ödev, toplantı, etkinlik ve son tarihli görevleri bir takvim dosyası olarak indirir. Dosyayı Google Takvim'de "İçe aktar" ile ya da Outlook'ta açarak ekleyebilirsin.</p>
@@ -1570,6 +1573,20 @@
   </dialog>
 
   <!-- Silme sonrası "Geri al" bildirimi -->
+  <!-- MODAL: Klavye kısayolları (? tuşu ya da Ayarlar > Klavye kısayolları) -->
+  <dialog id="dlgKisayol" class="kisayol-dlg" aria-labelledby="kisayolBaslik">
+    <div class="dlg-head"><h2 id="kisayolBaslik">Klavye kısayolları</h2><button type="button" class="icon-close" data-dialog-close aria-label="Kapat"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+    <ul class="kisayol-liste">
+      <li><kbd>N</kbd> Yeni görev</li>
+      <li><kbd>/</kbd> Ara</li>
+      <li><kbd>?</kbd> Bu liste</li>
+      <li><kbd>Esc</kbd> Pencereyi kapat</li>
+    </ul>
+    <p class="lbl">Sayfalar</p>
+    <ul class="kisayol-liste" id="kisayolSayfalar"></ul>
+    <p class="ayar-not">Görev adına "yarın", "cuma", "3 gün sonra", "haftaya pazartesi" ya da "5 Aralık" yazarsan son tarih olarak kullanılır.</p>
+  </dialog>
+
   <!-- MODAL: Onay (tarayıcının confirm() kutusu yerine; bazı ortamlarda o kutu engelleniyor) -->
   <dialog id="dlgOnay" class="onay-dlg" aria-labelledby="onayBaslik" aria-describedby="onayMesaj">
     <div class="onay-icerik">
@@ -1587,7 +1604,7 @@
     <button type="button" class="toast-btn" id="toastGeriAl">Geri al</button>
   </div>
 
-  <script src="dashboard.js?v=20261125.3" defer></script>
-  <script type="module" src="bulut.js?v=20261125.3"></script>
+  <script src="dashboard.js?v=20261127.1" defer></script>
+  <script type="module" src="bulut.js?v=20261127.1"></script>
 </body>
 </html>

@@ -59,7 +59,7 @@ npx serve .                 # ya da: python -m http.server 8000
 
 # Testler
 npm install
-npm test                    # 46 test, ~3 sn
+npm test                    # 69 test, ~4 sn
 
 # Firebase'e yayın (önce bir kez: npx firebase-tools login)
 npx firebase-tools deploy --only hosting --project ayvex-7697a
@@ -259,6 +259,9 @@ Dosya `// ===== BÖLÜM ADI =====` başlıklarıyla bölünmüştür. Editörde 
 | Tema | Ayarlar `[data-tema-sec]` | TEMA: `temaUygula`; ayrıca `<head>`'deki satır içi betik | `:root[data-tema="koyu"]` blokları |
 | Cihaz bildirimleri | Ayarlar `#sistemBildirimBtn` | SİSTEM BİLDİRİMLERİ: `sistemBildirimiGoster` | |
 | Yedekle / geri yükle | Ayarlar | YEDEKLE / GERİ YÜKLE | |
+| Ders/toplantı hatırlatıcı | Ayarlar `#dersHatirlat` | DERS / TOPLANTI HATIRLATICI: `yaklasanHatirlat` (dakikada bir; 10 dk kala), tercih `localStorage` `ayvex-ders-hatirlat` | |
+| Görev adından tarih | görev formları (`data-form="task"`, `"task-quick"`) | GÖREV ADINDAN TARİH: `dogalTarihAyikla` ("yarın", "cuma", "3 gün sonra", "haftaya pazartesi", "5 Aralık", "30.11"), yazarken ipucu `dogalTarihIpucu` | `.dogal-ipucu` |
+| Klavye kısayolları | `#dlgKisayol`, Ayarlar `#kisayolBtn` | KLAVYE KISAYOLLARI: N yeni görev, / ara, 1–9 menü sayfaları, ? liste (`kisayolAktifMi`: yazarken, pencere açıkken, Ctrl/Alt/Cmd ile çalışmaz) | `.kisayol-*`, `kbd` |
 | Giriş ekranı | `#auth` | E-POSTA İLE GİRİŞ, BULUT, Giriş / çıkış | `.onboard-*`, `#auth ...` |
 
 ---
@@ -279,7 +282,7 @@ Dosya `// ===== BÖLÜM ADI =====` başlıklarıyla bölünmüştür. Editörde 
 
 - **`sw.js`:** "Önce ağ, yoksa önbellek" stratejisi. Kendi dosyalarımız `cache: "no-cache"` ile sunucuya sorularak alınır (yeni sürüm hemen görünsün diye). Firebase ve font dosyaları normal önbellekten gelir. Firestore/Auth API çağrıları asla önbelleğe alınmaz. Önbellek adı `ayvex-v2`; yapıyı değiştirirseniz artırın, eski önbellek silinir.
 - **Kurulum:** `manifest.webmanifest` + `assets/icon-*`.
-- **Cihaz bildirimleri:** Yalnızca uygulama açıkken ya da arka planda çalışırken gelir (`setInterval` ile 30 dakikada bir kontrol). Uygulama kapalıyken bildirim için bir sunucu (ör. Firebase Cloud Functions + FCM) gerekir; bu yok.
+- **Cihaz bildirimleri:** Yalnızca uygulama açıkken ya da arka planda çalışırken gelir (`setInterval` ile 30 dakikada bir kontrol; ders/toplantı hatırlatıcısı dakikada bir). Uygulama kapalıyken bildirim için bir sunucu (ör. Firebase Cloud Functions + FCM) gerekir; bu yok.
 - **Bilinen:** Service worker `localhost`'ta bazı tarayıcı panellerinde kaydolmaz. Canlı sitede çalışır.
 
 ---

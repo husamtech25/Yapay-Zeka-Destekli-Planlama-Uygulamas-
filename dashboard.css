@@ -1930,3 +1930,16 @@ body.kanban-surukle *{cursor:grabbing !important}
   .hedef-btn{min-height:40px;min-width:44px;padding:8px 12px;font-size:.85rem}
   .hedef-btn.del{padding:8px 10px}
 }
+
+/* ================================================================
+   KOLAYLIKLAR: ders hatırlatıcı ayarı, klavye kısayolları, görev adındaki tarih ipucu
+   ================================================================ */
+.ayar-secim{display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--ink-2);margin:2px 0 var(--s2);cursor:pointer}
+.ayar-secim input{width:18px;height:18px;accent-color:var(--teal);flex:none}
+.kisayol-dlg{width:min(380px,92vw)}
+.kisayol-liste{list-style:none;display:grid;gap:8px;margin:0 0 var(--s3);padding:0}
+.kisayol-liste li{display:flex;align-items:center;gap:10px;font-size:.9rem;color:var(--ink-2)}
+kbd{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:26px;padding:0 7px;border-radius:6px;border:1px solid var(--border);border-bottom-width:2px;background:var(--surface-2);color:var(--ink);font:600 .78rem/1 inherit;font-family:inherit}
+.dogal-ipucu{font-size:.78rem;color:var(--teal-dark);margin:4px 2px 0}
+:root[data-tema="koyu"] .dogal-ipucu{color:var(--teal)}
+.dogal-ipucu[hidden]{display:none}

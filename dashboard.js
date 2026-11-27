@@ -3577,6 +3577,174 @@ function ciz() {
   kaydet();
 }
 
+// ================= DERS / TOPLANTI HATIRLATICI =================
+// Ders ya da toplantı başlamadan 10 dk önce uygulama içi bildirim (+ açıksa cihaz bildirimi).
+// Uygulama açıkken (ya da arka plan sekmesinde) dakikada bir bakılır. Ayarlardan kapatılabilir;
+// tercih cihaza özeldir (localStorage "ayvex-ders-hatirlat").
+const HATIRLAT_DK = 10;
+function dersHatirlatAcik() {
+  try { return localStorage.getItem("ayvex-ders-hatirlat") !== "kapali"; } catch (e) { return true; }
+}
+function yaklasanHatirlat(simdi = new Date()) {
+  if (!S || !dersHatirlatAcik()) return 0;
+  const gun = tarihKey(simdi);
+  const dk = simdi.getHours() * 60 + simdi.getMinutes();
+  const saatMi = s => typeof s === "string" && /^\d{1,2}:\d{2}$/.test(s);
+  let sayi = 0;
+  const hatirlat = (bas, baslik, mesaj, anahtar) => {
+    const kalan = saatDk(bas) - dk;
+    if (kalan <= 0 || kalan > HATIRLAT_DK) return;
+    bildirimEkle("info", `${kalan} dk sonra ${baslik}`, mesaj, `${anahtar}::${gun}`);
+    sayi++;
+  };
+  if (S.mode === "student") {
+    (S.dersler || []).filter(d => +d.gun === simdi.getDay() && saatMi(d.bas)).forEach(d =>
+      hatirlat(d.bas, `ders: ${d.ad}`, [`${d.bas}–${d.bit}`, d.sinif, d.hoca].filter(Boolean).join(" · "), `dh::${d.id}`));
+  }
+  (S.toplantilar || []).filter(t => t.tarih === gun && saatMi(t.saat)).forEach(t =>
+    hatirlat(t.saat, `toplantı: ${t.baslik}`, [t.saat, t.sure ? t.sure + " dk" : "", t.link ? "Çevrimiçi" : ""].filter(Boolean).join(" · "), `th::${t.id}`));
+  if (sayi && typeof bildirimRozetiGuncelle === "function") { bildirimRozetiGuncelle(); bildirimCiz(); }
+  return sayi;
+}
+setInterval(() => yaklasanHatirlat(), 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) yaklasanHatirlat(); });
+document.addEventListener("change", e => {
+  if (!e.target || e.target.id !== "dersHatirlat") return;
+  try { localStorage.setItem("ayvex-ders-hatirlat", e.target.checked ? "acik" : "kapali"); } catch (_) {}
+  bilgiGoster(e.target.checked ? "Ders ve toplantılardan 10 dk önce hatırlatılacak." : "Ders ve toplantı hatırlatmaları kapatıldı.");
+});
+function dersHatirlatAyarCiz() { const c = $("dersHatirlat"); if (c) c.checked = dersHatirlatAcik(); }
+
+// ================= GÖREV ADINDAN TARİH ("yarın", "cuma", "3 gün sonra") =================
+// Görev adının başında ya da sonunda yazılan tarih ifadesini bulur: { metin, son } döner, yoksa null.
+// Örn: "Rapor yaz yarın" → { metin: "Rapor yaz", son: <yarın> }. Ad sadece tarihten oluşuyorsa
+// (ör. "Cuma") tarih sayılmaz, ad olarak kalır.
+const TR_GUNLER = ["pazar", "pazartesi", "salı", "çarşamba", "perşembe", "cuma", "cumartesi"];
+const TR_AYLAR = ["ocak", "şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül", "ekim", "kasım", "aralık"];
+function dogalTarihAyikla(metin, bugun = new Date()) {
+  if (typeof metin !== "string") return null;
+  const asil = metin.trim();
+  const kucuk = asil.toLocaleLowerCase("tr");
+  if (kucuk.length !== asil.length) return null; // büyük/küçük harf dönüşümü uzunluğu değiştirdiyse güvenle kesemeyiz
+  const gunSonra = n => { const d = new Date(bugun.getFullYear(), bugun.getMonth(), bugun.getDate() + n); return tarihKey(d); };
+  const ek = "(?:'?(?:ya|ye|a|e|na|ne))?"; // "yarına", "cumaya", "pazartesiye"
+  const gunAdi = "(cumartesi|pazartesi|pazar|salı|sali|çarşamba|carsamba|perşembe|persembe|cuma)";
+  const gunNo = ad => TR_GUNLER.indexOf(ad.replace("sali", "salı").replace("carsamba", "çarşamba").replace("persembe", "perşembe"));
+  // Bu hafta içindeki (bugün dahil) ya da sonraki ilk o gün
+  const sonrakiGun = (no, haftaya) => {
+    let fark = (no - bugun.getDay() + 7) % 7;
+    if (haftaya) {
+      // "haftaya cuma": gelecek haftanın (Pazartesi başlangıçlı) o günü
+      const buPzt = (bugun.getDay() + 6) % 7;
+      fark = 7 - buPzt + ((no + 6) % 7);
+    }
+    return gunSonra(fark);
+  };
+  const yilDuzelt = (g, a) => {
+    for (const y of [bugun.getFullYear(), bugun.getFullYear() + 1]) {
+      const k = `${y}-${pad(a)}-${pad(g)}`;
+      if (tarihGecerli(k) && k >= tarihKey(bugun)) return k;
+    }
+    return null;
+  };
+  const kaliplar = [
+    [`(?:bugün|bugun)${ek}`, () => gunSonra(0)],
+    [`(?:yarın|yarin)${ek}`, () => gunSonra(1)],
+    [`(?:öbür gün|öbürgün|ertesi gün)${ek}`, () => gunSonra(2)],
+    [`(\\d{1,2}) gün (?:sonra|içinde)`, m => +m[1] > 0 && +m[1] <= 365 ? gunSonra(+m[1]) : null],
+    [`(\\d{1,2}) hafta (?:sonra|içinde)`, m => +m[1] > 0 && +m[1] <= 52 ? gunSonra(+m[1] * 7) : null],
+    [`(?:haftaya|gelecek hafta|önümüzdeki hafta) ${gunAdi}${ek}(?: günü)?`, m => sonrakiGun(gunNo(m[1]), true)],
+    [`(?:haftaya|gelecek hafta|önümüzdeki hafta)`, () => gunSonra(7)],
+    [`${gunAdi}${ek}(?: günü)?`, m => sonrakiGun(gunNo(m[1]), false)],
+    [`(\\d{1,2})[./](\\d{1,2})`, m => yilDuzelt(+m[1], +m[2])],
+    [`(\\d{1,2}) (${TR_AYLAR.join("|")})${ek}`, m => yilDuzelt(+m[1], TR_AYLAR.indexOf(m[2]) + 1)],
+  ];
+  for (const [kalip, hesapla] of kaliplar) {
+    for (const re of [new RegExp(`(?:^|\\s)${kalip}$`), new RegExp(`^${kalip}(?=\\s|$)`)]) {
+      const m = kucuk.match(re);
+      if (!m) continue;
+      const son = hesapla(m);
+      if (!son) continue;
+      const kalan = (asil.slice(0, m.index) + asil.slice(m.index + m[0].length)).replace(/\s+/g, " ").replace(/^[\s,;:–-]+|[\s,;:–-]+$/g, "").trim();
+      if (!kalan) return null;
+      return { metin: kalan, son };
+    }
+  }
+  return null;
+}
+// Görev kutusuna yazarken altta "📅 Yarın, 28 Kasım olarak eklenecek" ipucu
+function dogalTarihIpucu(input) {
+  const f = input.form;
+  if (!f) return;
+  let ip = f.querySelector(".dogal-ipucu") || (f.nextElementSibling && f.nextElementSibling.classList.contains("dogal-ipucu") ? f.nextElementSibling : null);
+  const sonAlan = f.querySelector("[name=son]");
+  const sonuc = (!sonAlan || !sonAlan.value) ? dogalTarihAyikla(input.value) : null;
+  if (!sonuc) { if (ip) ip.hidden = true; return; }
+  if (!ip) {
+    ip = document.createElement("p");
+    ip.className = "dogal-ipucu";
+    ip.setAttribute("aria-live", "polite");
+    // Dialog formunda alanın altına, satır içi formlarda formun hemen altına
+    if (f.classList.contains("dialog-form")) input.closest(".fld").after(ip); else f.after(ip);
+  }
+  const fark = gunFarki(sonuc.son);
+  const gunMetni = fark === 0 ? "Bugün" : fark === 1 ? "Yarın" : GUNLER[tarihOku(sonuc.son).getDay()];
+  ip.textContent = `📅 "${sonuc.metin}" · son tarih ${gunMetni}, ${gunEtiket(sonuc.son)}`;
+  ip.hidden = false;
+}
+document.addEventListener("input", e => {
+  const i = e.target;
+  if (i && i.name === "t" && i.form && /^task/.test(i.form.dataset.form || "")) dogalTarihIpucu(i);
+});
+document.addEventListener("submit", () => document.querySelectorAll(".dogal-ipucu").forEach(p => { p.hidden = true; }), true);
+
+// ================= KLAVYE KISAYOLLARI =================
+// N: yeni görev · /: ara · 1–7: menüdeki sayfalar · ?: kısayol listesi. Yazı yazılırken,
+// bir pencere açıkken ya da Ctrl/Cmd/Alt basılıyken çalışmaz.
+function kisayolAktifMi(e) {
+  if (!S || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return false;
+  if (document.body.dataset.paylasim === "true" || !document.body.hasAttribute("data-logged-in")) return false;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return false;
+  if (document.querySelector("dialog[open]")) return false;
+  return true;
+}
+function menuSayfalari() {
+  return [...document.querySelectorAll(".side-nav [data-view]")].filter(a => a.offsetParent !== null || getComputedStyle(a).display !== "none")
+    .map(a => a.dataset.view).filter((v, i, d) => d.indexOf(v) === i);
+}
+document.addEventListener("keydown", e => {
+  if (!kisayolAktifMi(e)) return;
+  const k = e.key;
+  if (k === "n" || k === "N") {
+    const b = document.querySelector('[data-open="dlgGorev"]');
+    if (b) { e.preventDefault(); b.click(); }
+  } else if (k === "/") {
+    const q = $("q");
+    if (!q) return;
+    e.preventDefault();
+    if (getComputedStyle(q).display === "none" || !q.offsetParent) mobilAramaAc(true);
+    q.focus();
+  } else if (/^[1-9]$/.test(k)) {
+    const v = menuSayfalari()[+k - 1];
+    if (v) { e.preventDefault(); goView(v); }
+  } else if (k === "?") {
+    e.preventDefault();
+    kisayolPenceresi();
+  }
+});
+function kisayolPenceresi() {
+  const d = $("dlgKisayol");
+  if (!d) return;
+  const liste = $("kisayolSayfalar");
+  if (liste) {
+    const adlar = Object.fromEntries([...document.querySelectorAll(".side-nav [data-view]")].map(a => [a.dataset.view, a.textContent.trim()]));
+    liste.innerHTML = menuSayfalari().slice(0, 9).map((v, i) => `<li><kbd>${i + 1}</kbd> ${esc(adlar[v] || v)}</li>`).join("");
+  }
+  guvenliAc(d);
+}
+document.addEventListener("click", e => { if (e.target.closest("#kisayolBtn")) { e.preventDefault(); kisayolPenceresi(); } });
+
 // ================= Tıklama olayları =================
 document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
@@ -4073,6 +4241,7 @@ document.addEventListener("click", e => {
     if (dlgBtn.dataset.dlg === "settingsDlg" && S) {
       $("setName").value = S.name;
       sistemBildirimDugmesi();
+      dersHatirlatAyarCiz();
       const h = db.users[db.aktif];
       const modAdi = S.mode === "work" ? "Çalışan" : "Öğrenci";
       const epostaHesabi = bulutHesabiMi(db.aktif) && h.saglayici === "password";
@@ -4425,9 +4594,12 @@ document.addEventListener("submit", e => {
     case "job": S.jobs.push({ id, n: v.n.trim(), st: "" }); break;
     case "skill": S.skills.push({ id, n: v.n.trim(), p: 50 }); break;
     case "task":
-    case "task-quick":
-      S.tasks.push({ id, t: v.t.trim(), done: false, doing: false, p: v.p || "mid", proje: v.proje || "", son: v.son || "", tekrar: TEKRAR[v.tekrar] ? v.tekrar : "", zaman: new Date().toISOString() });
+    case "task-quick": {
+      // Son tarih seçilmediyse görev adındaki "yarın", "cuma", "3 gün sonra" gibi ifade tarih olur
+      const dogal = !v.son ? dogalTarihAyikla(v.t) : null;
+      S.tasks.push({ id, t: dogal ? dogal.metin : v.t.trim(), done: false, doing: false, p: v.p || "mid", proje: v.proje || "", son: dogal ? dogal.son : (v.son || ""), tekrar: TEKRAR[v.tekrar] ? v.tekrar : "", zaman: new Date().toISOString() });
       break;
+    }
     case "note": S.notes.push({ id, title: v.title.trim(), text: v.text.trim(), color: v.color || "yellow" }); break;
     case "link": S.links.push({ id, n: v.n.trim(), u: /^https?:\/\//.test(v.u) ? v.u.trim() : "https://" + v.u.trim() }); break;
     case "ders": {
@@ -4538,7 +4710,12 @@ document.addEventListener("submit", e => {
     }
     default: return;
   }
-  if (f.dataset.form === "task" || f.dataset.form === "task-quick") bilgiGoster(`Görev eklendi: ${v.t.trim().slice(0, 40)}`);
+  if (f.dataset.form === "task" || f.dataset.form === "task-quick") {
+    // Adından tarih alındıysa kısaltılmış adı ve tarihi göster
+    const yeni = S.tasks[S.tasks.length - 1];
+    const dogalMi = yeni && yeni.id === id && yeni.son && yeni.t !== v.t.trim();
+    bilgiGoster(`Görev eklendi: ${(yeni && yeni.id === id ? yeni.t : v.t.trim()).slice(0, 40)}${dogalMi ? ` · ${gunEtiket(yeni.son)}` : ""}`);
+  }
   f.reset();
   const parentDlg = f.closest("dialog");
   if (parentDlg && AUTOCLOSE.includes(parentDlg.id)) parentDlg.close();
